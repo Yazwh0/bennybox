@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Iptv.App.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,25 +47,41 @@ public class ChannelLogoImage : Image
     private void OnLogoUrlChanged(string? url)
     {
         var version = ++_requestVersion;
-        Source = null;
 
         if (string.IsNullOrEmpty(url))
         {
+            Source = null;
             return;
         }
 
         var cache = _cache ??= App.Services?.GetService<IChannelLogoCache>();
         if (cache is null)
         {
+            Source = null;
             return;
         }
 
-        _ = LoadAsync(cache, url, version);
+        // A list refresh (see LiveTvViewModel.ApplyFilter et al) rebuilds every row - even ones whose
+        // data hasn't changed - which recreates this control and re-triggers this whole lookup for a
+        // logo that's almost always already sitting in the cache's in-memory dictionary. Blanking
+        // Source and deferring the reload via Dispatcher.Post (even for an already-completed task)
+        // meant every refresh flickered every visible logo to blank for a frame. Setting it inline
+        // for an already-resolved task avoids that entirely; only a genuine cache miss (a real fetch
+        // in flight) still needs the null-while-loading + deferred-set path below.
+        var pending = cache.GetLogoAsync(url);
+        if (pending.IsCompletedSuccessfully)
+        {
+            Source = pending.Result;
+            return;
+        }
+
+        Source = null;
+        _ = LoadAsync(pending, version);
     }
 
-    private async Task LoadAsync(IChannelLogoCache cache, string url, int version)
+    private async Task LoadAsync(Task<Bitmap?> pending, int version)
     {
-        var bitmap = await cache.GetLogoAsync(url);
+        var bitmap = await pending;
 
         if (version != _requestVersion)
         {
