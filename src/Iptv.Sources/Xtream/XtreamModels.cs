@@ -49,6 +49,12 @@ internal sealed class XtreamLiveStream
     public string? CategoryId { get; set; }
     [JsonConverter(typeof(FlexibleStringConverter))]
     public string Num { get; set; } = "0";
+    // 1 if the panel keeps a rolling catch-up buffer for this channel, 0/absent otherwise.
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int TvArchive { get; set; }
+    // How many days of catch-up the panel retains for this channel.
+    [JsonConverter(typeof(FlexibleIntConverter))]
+    public int TvArchiveDuration { get; set; }
 }
 
 internal sealed class XtreamSeries

@@ -64,6 +64,14 @@ public class M3uChannelSource : IChannelSource
 
             var tvgId = entry.Attributes.GetValueOrDefault("tvg-id");
 
+            // "catchup" names the scheme (default/shift/append/flussonic/...); its mere presence, or
+            // catchup-days on its own, is what most players treat as "this channel has catch-up" -
+            // days defaults to a week when the attribute is present but doesn't say otherwise.
+            var catchupAttr = entry.Attributes.GetValueOrDefault("catchup");
+            var catchupDaysAttr = entry.Attributes.GetValueOrDefault("catchup-days");
+            var hasCatchup = !string.IsNullOrWhiteSpace(catchupAttr) || !string.IsNullOrWhiteSpace(catchupDaysAttr);
+            var catchupDays = int.TryParse(catchupDaysAttr, out var days) ? days : (hasCatchup ? 7 : 0);
+
             channels.Add(new Channel
             {
                 ProfileId = profile.Id,
@@ -73,10 +81,30 @@ public class M3uChannelSource : IChannelSource
                 LogoUrl = entry.Attributes.GetValueOrDefault("tvg-logo"),
                 StreamUrl = entry.Url,
                 TvgId = tvgId,
-                Number = number++
+                Number = number++,
+                HasCatchup = hasCatchup,
+                CatchupDays = catchupDays
             });
         }
 
         return new ChannelImportResult(categories.Values.ToList(), channels, false, etag, lastModified);
+    }
+
+    // Best-effort only: unlike Xtream's single well-documented endpoint, M3U catch-up schemes vary a
+    // lot by provider (default/shift/append/flussonic each build the URL differently, sometimes via a
+    // separate catchup-source template attribute). This implements the "default"/"shift" convention -
+    // appending ?utc={start}&lutc={now} unix timestamps to the normal stream URL - which is the most
+    // common one, but hasn't been verified against a real catch-up-enabled M3U provider.
+    public string? BuildTimeshiftUrl(ProfileSource profile, Channel channel, DateTime startUtc, TimeSpan duration)
+    {
+        if (!channel.HasCatchup)
+        {
+            return null;
+        }
+
+        var startUnix = new DateTimeOffset(DateTime.SpecifyKind(startUtc, DateTimeKind.Utc)).ToUnixTimeSeconds();
+        var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var separator = channel.StreamUrl.Contains('?') ? '&' : '?';
+        return $"{channel.StreamUrl}{separator}utc={startUnix}&lutc={nowUnix}";
     }
 }

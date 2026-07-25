@@ -44,6 +44,8 @@ public class PlaylistImportServiceTests
 
         public Task<ChannelImportResult> ImportAsync(ProfileSource profile, CancellationToken cancellationToken = default)
             => Task.FromResult(result);
+
+        public string? BuildTimeshiftUrl(ProfileSource profile, Channel channel, DateTime startUtc, TimeSpan duration) => null;
     }
 
     private sealed class FakeChannelRepository : IChannelRepository

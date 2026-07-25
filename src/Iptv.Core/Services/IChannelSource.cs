@@ -18,4 +18,8 @@ public interface IChannelSource
     ProfileSourceType SourceType { get; }
 
     Task<ChannelImportResult> ImportAsync(ProfileSource profile, CancellationToken cancellationToken = default);
+
+    // Pure string-building (credentials are already known, no network round trip) - null if this
+    // source type doesn't support catch-up, or the channel itself doesn't (see Channel.HasCatchup).
+    string? BuildTimeshiftUrl(ProfileSource profile, Channel channel, DateTime startUtc, TimeSpan duration);
 }

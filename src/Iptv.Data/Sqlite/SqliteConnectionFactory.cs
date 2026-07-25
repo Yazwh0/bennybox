@@ -65,6 +65,8 @@ public class SqliteConnectionFactory
             TryAddColumn(connection, "Profiles", "XtreamStatus", "TEXT");
             TryAddColumn(connection, "Profiles", "XtreamExpiryUtc", "TEXT");
             TryAddColumn(connection, "Profiles", "XtreamMaxConnections", "INTEGER");
+            TryAddColumn(connection, "Channels", "HasCatchup", "INTEGER NOT NULL DEFAULT 0");
+            TryAddColumn(connection, "Channels", "CatchupDays", "INTEGER NOT NULL DEFAULT 0");
 
             _migrationsApplied = true;
         }

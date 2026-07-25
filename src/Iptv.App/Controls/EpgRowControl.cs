@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Iptv.App.ViewModels;
+using Iptv.Core.Models;
 
 namespace Iptv.App.Controls;
 
@@ -27,6 +28,7 @@ public class EpgRowControl : Control
     private static readonly IBrush ProgrammeFill = new SolidColorBrush(Color.FromRgb(45, 47, 56));
     private static readonly IBrush ProgrammeFillAlt = new SolidColorBrush(Color.FromRgb(55, 57, 68));
     private static readonly IBrush LiveProgrammeFill = new SolidColorBrush(Color.FromRgb(58, 47, 92));
+    private static readonly IBrush CatchupProgrammeFill = new SolidColorBrush(Color.FromRgb(35, 66, 56));
     private static readonly IPen BlockBorderPen = new Pen(new SolidColorBrush(Color.FromRgb(25, 26, 31)), 1);
     private static readonly IBrush TextBrush = Brushes.White;
     private static readonly IPen NowLinePen = new Pen(Brushes.OrangeRed, 2);
@@ -73,7 +75,11 @@ public class EpgRowControl : Control
 
             var isLive = programme.StartUtc <= row.NowUtc && row.NowUtc < programme.EndUtc;
             var rect = new Rect(startX, 2, endX - startX, height - 4);
-            context.FillRectangle(isLive ? LiveProgrammeFill : index % 2 == 0 ? ProgrammeFill : ProgrammeFillAlt, rect);
+            var fill = isLive
+                ? LiveProgrammeFill
+                : IsCatchupAvailable(row, programme) ? CatchupProgrammeFill
+                : index % 2 == 0 ? ProgrammeFill : ProgrammeFillAlt;
+            context.FillRectangle(fill, rect);
             context.DrawRectangle(BlockBorderPen, rect);
 
             if (rect.Width > 20)
@@ -117,11 +123,27 @@ public class EpgRowControl : Control
         var clickedTime = row.WindowStart.AddMinutes(x / row.PixelsPerMinute);
         var programme = row.Programmes.FirstOrDefault(p => p.StartUtc <= clickedTime && clickedTime < p.EndUtc);
 
-        if (programme is not null && programme.StartUtc <= row.NowUtc && row.NowUtc < programme.EndUtc)
+        if (programme is null)
+        {
+            return;
+        }
+
+        if (programme.StartUtc <= row.NowUtc && row.NowUtc < programme.EndUtc)
         {
             row.TuneRequested?.Invoke(row.Channel);
         }
+        else if (IsCatchupAvailable(row, programme))
+        {
+            row.CatchupRequested?.Invoke(row.Channel, programme);
+        }
     }
+
+    // A programme is catch-up-playable if it's already finished (not live, not upcoming), the channel
+    // actually supports catch-up, and it's still within the provider's retention window.
+    private static bool IsCatchupAvailable(GuideRowViewModel row, EpgProgramme programme) =>
+        programme.EndUtc <= row.NowUtc &&
+        row.Channel.HasCatchup &&
+        row.NowUtc - programme.StartUtc <= TimeSpan.FromDays(Math.Max(row.Channel.CatchupDays, 1));
 
     private static double MinutesToX(GuideRowViewModel row, DateTime timeUtc) =>
         (timeUtc - row.WindowStart).TotalMinutes * row.PixelsPerMinute;

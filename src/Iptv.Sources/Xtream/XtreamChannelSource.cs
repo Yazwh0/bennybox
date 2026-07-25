@@ -55,10 +55,29 @@ public class XtreamChannelSource : IChannelSource
                 LogoUrl = string.IsNullOrWhiteSpace(s.StreamIcon) ? null : s.StreamIcon,
                 StreamUrl = XtreamClient.BuildStreamUrl(serverUrl, username, password, s.StreamId),
                 TvgId = string.IsNullOrWhiteSpace(s.EpgChannelId) ? null : s.EpgChannelId,
-                Number = int.TryParse(s.Num, out var number) ? number : 0
+                Number = int.TryParse(s.Num, out var number) ? number : 0,
+                HasCatchup = s.TvArchive == 1,
+                CatchupDays = s.TvArchiveDuration
             })
             .ToList();
 
         return new ChannelImportResult(categories, channels);
+    }
+
+    public string? BuildTimeshiftUrl(ProfileSource profile, Channel channel, DateTime startUtc, TimeSpan duration)
+    {
+        if (!channel.HasCatchup ||
+            string.IsNullOrWhiteSpace(profile.XtreamServerUrl) || string.IsNullOrWhiteSpace(profile.XtreamUsername))
+        {
+            return null;
+        }
+
+        var password = CredentialProtector.Unprotect(profile.XtreamPasswordEncrypted);
+        if (password is null)
+        {
+            return null;
+        }
+
+        return XtreamClient.BuildTimeshiftUrl(profile.XtreamServerUrl.TrimEnd('/'), profile.XtreamUsername, password, channel.SourceChannelId, startUtc, duration);
     }
 }

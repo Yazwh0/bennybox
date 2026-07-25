@@ -115,6 +115,16 @@ public class XtreamClient
     public static string BuildVodStreamUrl(string serverUrl, string username, string password, string streamId, string extension) =>
         $"{serverUrl.TrimEnd('/')}/movie/{Uri.EscapeDataString(username)}/{Uri.EscapeDataString(password)}/{streamId}.{extension}";
 
+    // Verified against a real panel: {server}/timeshift/{user}/{pass}/{duration-minutes}/{start:yyyy-MM-dd:HH-mm}/{id}.{ext}
+    // 302s to a tokenized CDN URL serving the requested slice starting at startUtc. Xtream's APIs are
+    // UTC throughout (EPG times included), so startUtc is used as-is with no local conversion.
+    public static string BuildTimeshiftUrl(string serverUrl, string username, string password, string streamId, DateTime startUtc, TimeSpan duration, string extension = "ts")
+    {
+        var durationMinutes = Math.Max(1, (int)Math.Ceiling(duration.TotalMinutes));
+        var start = startUtc.ToString("yyyy-MM-dd:HH-mm");
+        return $"{serverUrl.TrimEnd('/')}/timeshift/{Uri.EscapeDataString(username)}/{Uri.EscapeDataString(password)}/{durationMinutes}/{start}/{streamId}.{extension}";
+    }
+
     private static string BuildApiUrl(string serverUrl, string username, string password, string? action)
     {
         var baseUrl = $"{serverUrl.TrimEnd('/')}/player_api.php?username={Uri.EscapeDataString(username)}&password={Uri.EscapeDataString(password)}";

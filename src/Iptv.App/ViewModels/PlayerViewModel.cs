@@ -27,6 +27,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public const double MaxSidebarWidth = 560;
 
     private static readonly TimeSpan SkipInterval = TimeSpan.FromSeconds(30);
+
     private static readonly TimeSpan ProgressSaveInterval = TimeSpan.FromSeconds(15);
 
     // A title is treated as "finished" (and its bookmark removed rather than saved) once playback
@@ -187,6 +188,15 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         FinalizeCurrentProgress();
         NowPlayingChannelName = channel.Name;
         PlayUrl(channel.StreamUrl);
+    }
+
+    // Catch-up playback of a past programme - not resumable/tracked like movies/episodes (see
+    // WatchProgress), it's still conceptually "live" viewing of a channel, just shifted in time.
+    public void PlayTimeshift(Channel channel, string timeshiftUrl, string programmeTitle)
+    {
+        FinalizeCurrentProgress();
+        NowPlayingChannelName = $"{channel.Name} - {programmeTitle} (Catch-up)";
+        PlayUrl(timeshiftUrl);
     }
 
     public void PlayEpisode(Episode episode, Series series) =>

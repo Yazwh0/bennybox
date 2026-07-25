@@ -12,6 +12,7 @@ public partial class GuideRowViewModel : ObservableObject
     public DateTime NowUtc { get; }
     public double PixelsPerMinute { get; }
     public Action<Channel>? TuneRequested { get; set; }
+    public Action<Channel, EpgProgramme>? CatchupRequested { get; set; }
 
     public string ChannelName => Channel.Name;
     public bool HasProgrammes => Programmes.Count > 0;

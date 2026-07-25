@@ -20,6 +20,7 @@ public partial class GuideViewModel : ViewModelBase
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly TimeshiftUrlService _timeshiftUrlService;
     private readonly ILogger<GuideViewModel> _logger;
 
     // The full (category-filtered, sorted) row set for the current window - Rows is re-derived from
@@ -74,6 +75,7 @@ public partial class GuideViewModel : ViewModelBase
         IChannelRepository channelRepository,
         IEpgRepository epgRepository,
         IFavoriteRepository favoriteRepository,
+        TimeshiftUrlService timeshiftUrlService,
         PlayerViewModel player,
         ILogger<GuideViewModel> logger)
     {
@@ -81,6 +83,7 @@ public partial class GuideViewModel : ViewModelBase
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
         _favoriteRepository = favoriteRepository;
+        _timeshiftUrlService = timeshiftUrlService;
         Player = player;
         _logger = logger;
 
@@ -228,6 +231,25 @@ public partial class GuideViewModel : ViewModelBase
 
     private void TuneChannel(Channel channel) => Player.PlayChannel(channel);
 
+    private void RequestCatchup(Channel channel, EpgProgramme programme) => _ = RequestCatchupAsync(channel, programme);
+
+    private async Task RequestCatchupAsync(Channel channel, EpgProgramme programme)
+    {
+        try
+        {
+            var duration = programme.EndUtc - programme.StartUtc;
+            var url = await _timeshiftUrlService.BuildTimeshiftUrlAsync(channel, programme.StartUtc, duration);
+            if (url is not null)
+            {
+                Player.PlayTimeshift(channel, url, programme.Title);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to build catch-up URL for {ChannelName} / {ProgrammeTitle}", channel.Name, programme.Title);
+        }
+    }
+
     private async Task LoadAsync()
     {
         IsLoading = true;
@@ -292,7 +314,8 @@ public partial class GuideViewModel : ViewModelBase
 
                         builtRows.Add(new GuideRowViewModel(channel, channelProgrammes, windowStart, windowEnd, nowUtc, PixelsPerMinute, favoriteIds.Contains(channel.Id))
                         {
-                            TuneRequested = TuneChannel
+                            TuneRequested = TuneChannel,
+                            CatchupRequested = RequestCatchup
                         });
                     }
                 }

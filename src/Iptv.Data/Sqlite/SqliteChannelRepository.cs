@@ -39,8 +39,8 @@ public class SqliteChannelRepository : IChannelRepository
             {
                 connection.Execute(
                     """
-                    INSERT INTO Channels (Id, ProfileId, SourceChannelId, CategoryId, Name, LogoUrl, StreamUrl, TvgId, Number)
-                    VALUES (@Id, @ProfileId, @SourceChannelId, @CategoryId, @Name, @LogoUrl, @StreamUrl, @TvgId, @Number)
+                    INSERT INTO Channels (Id, ProfileId, SourceChannelId, CategoryId, Name, LogoUrl, StreamUrl, TvgId, Number, HasCatchup, CatchupDays)
+                    VALUES (@Id, @ProfileId, @SourceChannelId, @CategoryId, @Name, @LogoUrl, @StreamUrl, @TvgId, @Number, @HasCatchup, @CatchupDays)
                     """,
                     channels, transaction);
             }
