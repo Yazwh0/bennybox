@@ -177,12 +177,12 @@ public partial class SeriesViewModel : ViewModelBase
     [RelayCommand]
     private void PlayEpisode(EpisodeListItemViewModel? episode)
     {
-        if (episode is null)
+        if (episode is null || SelectedSeries is null)
         {
             return;
         }
 
-        Player.PlayEpisode(episode.Episode);
+        Player.PlayEpisode(episode.Episode, SelectedSeries.Series);
     }
 
     partial void OnSearchTextChanged(string value) => DebounceApplyFilter();

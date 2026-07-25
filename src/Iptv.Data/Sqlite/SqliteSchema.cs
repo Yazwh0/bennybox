@@ -118,5 +118,20 @@ internal static class SqliteSchema
             Key TEXT PRIMARY KEY,
             Value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS WatchProgress (
+            ProfileId TEXT NOT NULL,
+            ContentType INTEGER NOT NULL,
+            ContentKey TEXT NOT NULL,
+            Title TEXT NOT NULL,
+            CoverUrl TEXT,
+            StreamUrl TEXT NOT NULL,
+            PositionSeconds REAL NOT NULL,
+            DurationSeconds REAL NOT NULL,
+            UpdatedUtc TEXT NOT NULL,
+            PRIMARY KEY (ProfileId, ContentType, ContentKey)
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_WatchProgress_UpdatedUtc ON WatchProgress(UpdatedUtc);
         """;
 }

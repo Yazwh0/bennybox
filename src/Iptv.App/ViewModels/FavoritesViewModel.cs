@@ -17,6 +17,7 @@ public partial class FavoritesViewModel : ViewModelBase
     private readonly ISeriesRepository _seriesRepository;
     private readonly IMovieRepository _movieRepository;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly IWatchProgressRepository _watchProgressRepository;
     private readonly ILogger<FavoritesViewModel> _logger;
 
     public string Title => "Favorites";
@@ -46,6 +47,7 @@ public partial class FavoritesViewModel : ViewModelBase
         ISeriesRepository seriesRepository,
         IMovieRepository movieRepository,
         IFavoriteRepository favoriteRepository,
+        IWatchProgressRepository watchProgressRepository,
         ILogger<FavoritesViewModel> logger)
     {
         Player = player;
@@ -55,6 +57,7 @@ public partial class FavoritesViewModel : ViewModelBase
         _seriesRepository = seriesRepository;
         _movieRepository = movieRepository;
         _favoriteRepository = favoriteRepository;
+        _watchProgressRepository = watchProgressRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = LoadAsync());
@@ -128,6 +131,27 @@ public partial class FavoritesViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
+    [RelayCommand]
+    private void PlayWatchProgress(WatchProgressItemViewModel? item)
+    {
+        if (item is not null)
+        {
+            Player.ResumeFromProgress(item.Progress);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveWatchProgressAsync(WatchProgressItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        await _watchProgressRepository.RemoveAsync(item.Progress.ProfileId, item.Progress.ContentType, item.Progress.ContentKey);
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+    }
+
     private async Task LoadAsync()
     {
         IsLoading = true;
@@ -137,6 +161,7 @@ public partial class FavoritesViewModel : ViewModelBase
             var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
             var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
             var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+            var recentProgress = await _watchProgressRepository.GetRecentAsync();
             var profiles = await _profileRepository.GetAllAsync();
 
             var channelItems = new List<ChannelListItemViewModel>();
@@ -171,6 +196,14 @@ public partial class FavoritesViewModel : ViewModelBase
             }
 
             Rows.Clear();
+            if (recentProgress.Count > 0)
+            {
+                Rows.Add(new CategoryHeaderRow("Continue Watching"));
+                foreach (var progress in recentProgress)
+                {
+                    Rows.Add(new WatchProgressItemViewModel(progress));
+                }
+            }
             if (channelItems.Count > 0)
             {
                 Rows.Add(new CategoryHeaderRow("Channels"));
@@ -196,7 +229,7 @@ public partial class FavoritesViewModel : ViewModelBase
                 }
             }
 
-            HasNoFavorites = channelItems.Count == 0 && seriesItems.Count == 0 && movieItems.Count == 0;
+            HasNoFavorites = channelItems.Count == 0 && seriesItems.Count == 0 && movieItems.Count == 0 && recentProgress.Count == 0;
         }
         catch (Exception ex)
         {
