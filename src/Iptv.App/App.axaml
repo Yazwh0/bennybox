@@ -16,6 +16,8 @@
         <converters:ContentAreaMaxWidthConverter x:Key="ContentAreaMaxWidthConverter" />
         <converters:VideoColumnWidthConverter x:Key="VideoColumnWidthConverter" />
         <converters:FullscreenToMarginConverter x:Key="FullscreenToMarginConverter" />
+        <converters:ActiveTagToBackgroundConverter x:Key="ActiveTagToBackgroundConverter" />
+        <converters:ActiveTagToFontWeightConverter x:Key="ActiveTagToFontWeightConverter" />
     </Application.Resources>
 
     <Application.Styles>

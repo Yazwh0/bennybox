@@ -12,9 +12,12 @@ namespace Iptv.App.ViewModels;
 
 public partial class SeriesViewModel : ViewModelBase
 {
+    private const string AllCategoriesLabel = "All Categories";
+
     private readonly IProfileRepository _profileRepository;
     private readonly ISeriesRepository _seriesRepository;
     private readonly SeriesImportService _seriesImportService;
+    private readonly IFavoriteRepository _favoriteRepository;
     private readonly ILogger<SeriesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
@@ -35,6 +38,8 @@ public partial class SeriesViewModel : ViewModelBase
     // series is opened.
     public ObservableCollection<object> Episodes { get; } = [];
 
+    public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
+
     [ObservableProperty]
     private SeriesListItemViewModel? _selectedSeries;
 
@@ -51,28 +56,74 @@ public partial class SeriesViewModel : ViewModelBase
     private bool _hasNoSeries;
 
     [ObservableProperty]
+    private bool _hasNoMatches;
+
+    [ObservableProperty]
     private string _searchText = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedCategory = AllCategoriesLabel;
 
     public SeriesViewModel(
         PlayerViewModel player,
         IProfileRepository profileRepository,
         ISeriesRepository seriesRepository,
         SeriesImportService seriesImportService,
+        IFavoriteRepository favoriteRepository,
         ILogger<SeriesViewModel> logger)
     {
         Player = player;
         _profileRepository = profileRepository;
         _seriesRepository = seriesRepository;
         _seriesImportService = seriesImportService;
+        _favoriteRepository = favoriteRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadSeriesAsync());
+        WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
         _ = LoadSeriesAsync();
     }
 
     [RelayCommand]
     private async Task RefreshAsync() => await LoadSeriesAsync();
+
+    [RelayCommand]
+    private async Task ToggleFavoriteAsync(SeriesListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        if (item.IsFavorite)
+        {
+            await _favoriteRepository.RemoveSeriesAsync(item.Series.Id);
+            item.IsFavorite = false;
+        }
+        else
+        {
+            await _favoriteRepository.AddSeriesAsync(item.Series.ProfileId, item.Series.Id);
+            item.IsFavorite = true;
+        }
+
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+    }
+
+    // A favorite can be toggled from this page, Favorites, or nowhere else (Guide/Live TV don't show
+    // series) - but Favorites removing one should still update this page's stars without a full
+    // reload (which would re-fetch every series from the database just to flip some booleans).
+    private async Task RefreshFavoriteFlagsAsync()
+    {
+        var favoriteIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
+        foreach (var group in _allGroups)
+        {
+            foreach (var series in group.Series)
+            {
+                series.IsFavorite = favoriteIds.Contains(series.Series.Id);
+            }
+        }
+    }
 
     [RelayCommand]
     private async Task SelectSeriesAsync(SeriesListItemViewModel? series)
@@ -129,24 +180,30 @@ public partial class SeriesViewModel : ViewModelBase
         Player.PlayEpisode(episode.Episode);
     }
 
-    partial void OnSearchTextChanged(string value)
+    partial void OnSearchTextChanged(string value) => DebounceApplyFilter();
+
+    partial void OnSelectedCategoryChanged(string value) => DebounceApplyFilter();
+
+    private void DebounceApplyFilter()
     {
         _searchCts?.Cancel();
         var cts = new CancellationTokenSource();
         _searchCts = cts;
-        _ = ApplyFilterDebouncedAsync(value, cts.Token);
+        _ = ApplyFilterDebouncedAsync(cts.Token);
     }
 
     // Same rationale as LiveTvViewModel: debounce so we only filter once the user pauses typing, and
     // do the scan on a background thread so a large series library never blocks the UI.
-    private async Task ApplyFilterDebouncedAsync(string query, CancellationToken cancellationToken)
+    private async Task ApplyFilterDebouncedAsync(CancellationToken cancellationToken)
     {
         try
         {
             await Task.Delay(SearchDebounceDelay, cancellationToken);
 
             var snapshot = _allGroups;
-            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query.Trim())), cancellationToken);
+            var query = SearchText.Trim();
+            var category = SelectedCategory;
+            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query, category)), cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -162,30 +219,36 @@ public partial class SeriesViewModel : ViewModelBase
                 {
                     Rows.Add(row);
                 }
-                HasNoSeries = Rows.Count == 0;
+                HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
             });
         }
         catch (OperationCanceledException)
         {
-            // Superseded by a newer keystroke - just drop this pass.
+            // Superseded by a newer keystroke/category change - just drop this pass.
         }
     }
 
     private void ApplyFilter()
     {
         Rows.Clear();
-        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim())))
+        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim(), SelectedCategory)))
         {
             Rows.Add(row);
         }
-        HasNoSeries = Rows.Count == 0;
+        HasNoSeries = _allGroups.Count == 0;
+        HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
     }
 
-    private static List<SeriesCategoryGroupViewModel> Filter(List<SeriesCategoryGroupViewModel> groups, string query)
+    private static List<SeriesCategoryGroupViewModel> Filter(List<SeriesCategoryGroupViewModel> groups, string query, string category)
     {
         var result = new List<SeriesCategoryGroupViewModel>();
         foreach (var group in groups)
         {
+            if (category != AllCategoriesLabel && group.Name != category)
+            {
+                continue;
+            }
+
             var matching = string.IsNullOrEmpty(query)
                 ? group.Series
                 : group.Series.Where(s => s.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -219,6 +282,7 @@ public partial class SeriesViewModel : ViewModelBase
         LoadError = null;
         try
         {
+            var favoriteIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
             var profiles = await _profileRepository.GetAllAsync();
 
             // Series is Xtream-specific (no equivalent structured API for M3U) - only the first
@@ -249,7 +313,7 @@ public partial class SeriesViewModel : ViewModelBase
                     foreach (var category in categories)
                     {
                         var categorySeries = seriesByCategory[category.Id]
-                            .Select(s => new SeriesListItemViewModel(s))
+                            .Select(s => new SeriesListItemViewModel(s, favoriteIds.Contains(s.Id)))
                             .ToList();
                         if (categorySeries.Count == 0)
                         {
@@ -262,6 +326,20 @@ public partial class SeriesViewModel : ViewModelBase
 
                 return groups.OrderBy(g => g.Name).ToList();
             });
+
+            var selectedCategory = SelectedCategory;
+            Categories.Clear();
+            Categories.Add(AllCategoriesLabel);
+            foreach (var group in _allGroups)
+            {
+                Categories.Add(group.Name);
+            }
+
+            if (!Categories.Contains(selectedCategory))
+            {
+                selectedCategory = AllCategoriesLabel;
+            }
+            SelectedCategory = selectedCategory;
 
             ApplyFilter();
         }

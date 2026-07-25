@@ -14,6 +14,7 @@ public partial class FavoritesViewModel : ViewModelBase
     private readonly IProfileRepository _profileRepository;
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
+    private readonly ISeriesRepository _seriesRepository;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly ILogger<FavoritesViewModel> _logger;
 
@@ -21,7 +22,11 @@ public partial class FavoritesViewModel : ViewModelBase
 
     public PlayerViewModel Player { get; }
 
-    public ObservableCollection<ChannelListItemViewModel> Channels { get; } = [];
+    // Flattened "Channels" header + favorited channels, then "Series" header + favorited series -
+    // either section is omitted entirely if empty. Same flattened-list rationale as LiveTv/Guide/
+    // Series (see CategoryHeaderRow), even though favorites are usually few enough not to strictly
+    // need virtualization - it keeps this page's structure consistent with the rest of the app.
+    public ObservableCollection<object> Rows { get; } = [];
 
     [ObservableProperty]
     private bool _isLoading;
@@ -37,6 +42,7 @@ public partial class FavoritesViewModel : ViewModelBase
         IProfileRepository profileRepository,
         IChannelRepository channelRepository,
         IEpgRepository epgRepository,
+        ISeriesRepository seriesRepository,
         IFavoriteRepository favoriteRepository,
         ILogger<FavoritesViewModel> logger)
     {
@@ -44,6 +50,7 @@ public partial class FavoritesViewModel : ViewModelBase
         _profileRepository = profileRepository;
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
+        _seriesRepository = seriesRepository;
         _favoriteRepository = favoriteRepository;
         _logger = logger;
 
@@ -74,41 +81,83 @@ public partial class FavoritesViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
+    // Opening a favorited series switches to the Series page rather than showing episodes here -
+    // Favorites doesn't duplicate the season/episode browsing UI, it just gets you to it quickly.
+    [RelayCommand]
+    private void SelectSeries(SeriesListItemViewModel? item)
+    {
+        if (item is not null)
+        {
+            WeakReferenceMessenger.Default.Send(new OpenSeriesMessage(item.Series));
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveSeriesFavoriteAsync(SeriesListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        await _favoriteRepository.RemoveSeriesAsync(item.Series.Id);
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+    }
+
     private async Task LoadAsync()
     {
         IsLoading = true;
         LoadError = null;
         try
         {
-            var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
+            var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
+            var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
             var profiles = await _profileRepository.GetAllAsync();
-            var items = new List<ChannelListItemViewModel>();
+
+            var channelItems = new List<ChannelListItemViewModel>();
+            var seriesItems = new List<SeriesListItemViewModel>();
 
             foreach (var profile in profiles)
             {
                 var channels = await _channelRepository.GetChannelsAsync(profile.Id);
-                var favoriteChannels = channels.Where(c => favoriteIds.Contains(c.Id)).ToList();
-                if (favoriteChannels.Count == 0)
+                var favoriteChannels = channels.Where(c => favoriteChannelIds.Contains(c.Id)).ToList();
+                if (favoriteChannels.Count > 0)
                 {
-                    continue;
+                    var nowNext = await _epgRepository.GetNowNextAsync(profile.Id, DateTime.UtcNow);
+                    foreach (var channel in favoriteChannels)
+                    {
+                        var nowTitle = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry)
+                            ? entry.Now?.Title
+                            : null;
+                        channelItems.Add(new ChannelListItemViewModel(channel, nowTitle, isFavorite: true));
+                    }
                 }
 
-                var nowNext = await _epgRepository.GetNowNextAsync(profile.Id, DateTime.UtcNow);
-                foreach (var channel in favoriteChannels)
-                {
-                    var nowTitle = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry)
-                        ? entry.Now?.Title
-                        : null;
-                    items.Add(new ChannelListItemViewModel(channel, nowTitle, isFavorite: true));
-                }
+                var series = await _seriesRepository.GetSeriesAsync(profile.Id);
+                seriesItems.AddRange(series
+                    .Where(s => favoriteSeriesIds.Contains(s.Id))
+                    .Select(s => new SeriesListItemViewModel(s, isFavorite: true)));
             }
 
-            Channels.Clear();
-            foreach (var item in items.OrderBy(i => i.Name))
+            Rows.Clear();
+            if (channelItems.Count > 0)
             {
-                Channels.Add(item);
+                Rows.Add(new CategoryHeaderRow("Channels"));
+                foreach (var item in channelItems.OrderBy(i => i.Name))
+                {
+                    Rows.Add(item);
+                }
             }
-            HasNoFavorites = Channels.Count == 0;
+            if (seriesItems.Count > 0)
+            {
+                Rows.Add(new CategoryHeaderRow("Series"));
+                foreach (var item in seriesItems.OrderBy(i => i.Name))
+                {
+                    Rows.Add(item);
+                }
+            }
+
+            HasNoFavorites = channelItems.Count == 0 && seriesItems.Count == 0;
         }
         catch (Exception ex)
         {

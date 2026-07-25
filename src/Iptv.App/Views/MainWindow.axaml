@@ -1,6 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:vm="using:Iptv.App.ViewModels"
         xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:conv="using:Avalonia.Data.Converters"
@@ -8,118 +7,104 @@
         x:DataType="vm:MainWindowViewModel"
         Title="Benny Box"
         Width="1280" Height="800">
-    <Grid x:Name="RootGrid">
+    <!-- The video area lives here once, permanently, rather than once per page (as it used to).
+         LibVLC's video surface is a native child window - swapping pages used to destroy and
+         recreate it each time, and the replacement didn't reliably reclaim rendering, so video
+         went black on navigation while audio (not tied to the surface) kept playing. Each page
+         now only supplies its own list/detail content via CurrentPage, shown below the nav
+         buttons in the same sidebar column; Settings is the one page with no video, handled by
+         collapsing the video column to 0 and giving the sidebar column the full width instead
+         (see the ContentArea*/VideoColumnWidth converters). -->
+    <Grid x:Name="RootGrid"
+          Margin="{Binding Player.IsFullscreen, Converter={StaticResource FullscreenToMarginConverter}}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280" MinWidth="200" MaxWidth="480" />
+            <ColumnDefinition MaxWidth="{Binding IsSettingsActive, Converter={StaticResource ContentAreaMaxWidthConverter}}">
+                <ColumnDefinition.Width>
+                    <MultiBinding Converter="{StaticResource ContentAreaWidthConverter}">
+                        <Binding Path="IsSettingsActive" />
+                        <Binding Path="Player.IsFullscreen" />
+                        <Binding Path="Player.SidebarWidth" />
+                    </MultiBinding>
+                </ColumnDefinition.Width>
+                <ColumnDefinition.MinWidth>
+                    <MultiBinding Converter="{StaticResource ContentAreaMinWidthConverter}">
+                        <Binding Path="IsSettingsActive" />
+                        <Binding Path="Player.IsFullscreen" />
+                    </MultiBinding>
+                </ColumnDefinition.MinWidth>
+            </ColumnDefinition>
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{Binding IsSettingsActive, Converter={StaticResource VideoColumnWidthConverter}}" />
         </Grid.ColumnDefinitions>
 
-        <!-- FANavigationView's pane renders through its own compositing layer that a resize handle
-             can't be overlaid on top of (see GridLengthToDoubleConverter) - so it's given its own
-             Grid column here and used pane-only; CurrentPage is hosted outside it, in NavColumn's
-             sibling column, where a plain GridSplitter can resize the boundary normally. -->
-        <ui:FANavigationView Grid.Column="0"
-                              x:Name="NavView"
-                              PaneDisplayMode="Left"
-                              IsBackButtonVisible="False"
-                              IsSettingsVisible="False"
-                              IsPaneToggleButtonVisible="False"
-                              OpenPaneLength="280"
-                              ItemInvoked="OnItemInvoked">
-            <ui:FANavigationView.MenuItems>
-                <ui:FANavigationViewItem Content="Live TV" Tag="LiveTv">
-                    <ui:FANavigationViewItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Video" />
-                    </ui:FANavigationViewItem.IconSource>
-                </ui:FANavigationViewItem>
-                <ui:FANavigationViewItem Content="Guide" Tag="Guide">
-                    <ui:FANavigationViewItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Calendar" />
-                    </ui:FANavigationViewItem.IconSource>
-                </ui:FANavigationViewItem>
-                <ui:FANavigationViewItem Content="Series" Tag="Series">
-                    <ui:FANavigationViewItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Library" />
-                    </ui:FANavigationViewItem.IconSource>
-                </ui:FANavigationViewItem>
-                <ui:FANavigationViewItem Content="Favorites" Tag="Favorites">
-                    <ui:FANavigationViewItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Star" />
-                    </ui:FANavigationViewItem.IconSource>
-                </ui:FANavigationViewItem>
-            </ui:FANavigationView.MenuItems>
-            <ui:FANavigationView.FooterMenuItems>
-                <ui:FANavigationViewItem Content="Settings" Tag="Settings">
-                    <ui:FANavigationViewItem.IconSource>
-                        <ui:FASymbolIconSource Symbol="Settings" />
-                    </ui:FANavigationViewItem.IconSource>
-                </ui:FANavigationViewItem>
-            </ui:FANavigationView.FooterMenuItems>
-        </ui:FANavigationView>
+        <Grid Grid.Column="0" RowDefinitions="Auto,*" IsVisible="{Binding !Player.IsFullscreen}">
+            <!-- Nav "pane" is just a row of buttons above the page content now, instead of its own
+                 separate column - a WrapPanel lets it degrade gracefully (wrapping to a second row)
+                 across the sidebar's resizable width range rather than clipping or squeezing. -->
+            <WrapPanel Grid.Row="0" Margin="8,8,8,4">
+                <Button Content="Live TV" Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="0,0,4,4"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=LiveTv}"
+                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=LiveTv}" />
+                <Button Content="Guide" Command="{Binding NavigateCommand}" CommandParameter="Guide" Margin="0,0,4,4"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Guide}"
+                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Guide}" />
+                <Button Content="Series" Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="0,0,4,4"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Series}"
+                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Series}" />
+                <Button Content="Favorites" Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="0,0,4,4"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Favorites}"
+                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Favorites}" />
+                <Button Content="Settings" Command="{Binding NavigateCommand}" CommandParameter="Settings" Margin="0,0,4,4"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Settings}"
+                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Settings}" />
+            </WrapPanel>
+
+            <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" />
+        </Grid>
 
         <GridSplitter Grid.Column="1" Width="6" Background="Transparent"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                      IsVisible="{Binding !Player.IsFullscreen}"
-                      DragCompleted="OnPaneResizeDragCompleted" />
+                      DragCompleted="OnContentSidebarSplitterDragCompleted">
+            <GridSplitter.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!Player.IsFullscreen" />
+                    <Binding Path="!IsSettingsActive" />
+                </MultiBinding>
+            </GridSplitter.IsVisible>
+        </GridSplitter>
 
-        <!-- The video area lives here once, permanently, rather than once per page (as it used to).
-             LibVLC's video surface is a native child window - swapping pages used to destroy and
-             recreate it each time, and the replacement didn't reliably reclaim rendering, so video
-             went black on navigation while audio (not tied to the surface) kept playing. Each page
-             now only supplies its own sidebar content via CurrentPage; Settings is the one page with
-             no video, handled by collapsing the video column to 0 and giving the sidebar column the
-             full width instead (see the ContentArea*/VideoColumnWidth converters). -->
-        <Grid Grid.Column="2"
-              x:Name="ContentGrid"
-              Margin="{Binding Player.IsFullscreen, Converter={StaticResource FullscreenToMarginConverter}}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition MaxWidth="{Binding IsSettingsActive, Converter={StaticResource ContentAreaMaxWidthConverter}}">
-                    <ColumnDefinition.Width>
-                        <MultiBinding Converter="{StaticResource ContentAreaWidthConverter}">
-                            <Binding Path="IsSettingsActive" />
-                            <Binding Path="Player.IsFullscreen" />
-                            <Binding Path="Player.SidebarWidth" />
-                        </MultiBinding>
-                    </ColumnDefinition.Width>
-                    <ColumnDefinition.MinWidth>
-                        <MultiBinding Converter="{StaticResource ContentAreaMinWidthConverter}">
-                            <Binding Path="IsSettingsActive" />
-                            <Binding Path="Player.IsFullscreen" />
-                        </MultiBinding>
-                    </ColumnDefinition.MinWidth>
-                </ColumnDefinition>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="{Binding IsSettingsActive, Converter={StaticResource VideoColumnWidthConverter}}" />
-            </Grid.ColumnDefinitions>
-
-            <ContentControl Grid.Column="0"
-                            Content="{Binding CurrentPage}"
-                            IsVisible="{Binding !Player.IsFullscreen}" />
-
-            <GridSplitter Grid.Column="1" Width="6" Background="Transparent"
-                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                          DragCompleted="OnContentSidebarSplitterDragCompleted">
-                <GridSplitter.IsVisible>
-                    <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
-                        <Binding Path="!Player.IsFullscreen" />
-                        <Binding Path="!IsSettingsActive" />
-                    </MultiBinding>
-                </GridSplitter.IsVisible>
-            </GridSplitter>
-
-            <Grid Grid.Column="2" RowDefinitions="*,Auto">
-                <!-- No Grid.RowSpan: LibVLC's video surface always paints above Avalonia content
-                     regardless of z-order, so it must not share a row with the transport bar below. -->
-                <vlc:VideoView Grid.Row="0" x:Name="MainVideoView" MediaPlayer="{Binding Player.MediaPlayer}" />
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="12" HorizontalAlignment="Center"
-                            IsVisible="{Binding !Player.IsFullscreen}">
+        <Grid Grid.Column="2" RowDefinitions="*,Auto">
+            <!-- No Grid.RowSpan: LibVLC's video surface always paints above Avalonia content
+                 regardless of z-order, so it must not share a row with the transport bar below. -->
+            <vlc:VideoView Grid.Row="0" x:Name="MainVideoView" MediaPlayer="{Binding Player.MediaPlayer}" />
+            <StackPanel Grid.Row="1" Spacing="6" Margin="12"
+                        IsVisible="{Binding !Player.IsFullscreen}">
+                <!-- Live channels usually aren't seekable, VOD episodes always are - this row
+                     only shows up when the current stream's own capabilities (not what kind of
+                     thing it is) say so, so it just naturally appears/disappears as appropriate. -->
+                <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding Player.IsSeekable}">
+                    <TextBlock Grid.Column="0" Text="{Binding Player.PositionLabel}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Opacity="0.8" />
+                    <!-- Pointer press/release handlers are wired in code-behind via AddHandler on
+                         the tunnel phase, not here - Slider's internal Thumb marks those events
+                         handled during the bubble phase for its own drag logic, so a plain
+                         PointerPressed="..." attribute here would never fire while dragging the dot. -->
+                    <Slider Grid.Column="1" x:Name="SeekSlider"
+                            Minimum="0" Maximum="{Binding Player.DurationSeconds}"
+                            Value="{Binding Player.SeekSliderValue}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Player.DurationLabel}"
+                               VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11" Opacity="0.8" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
                     <Button Content="Stop" Command="{Binding Player.StopCommand}" />
+                    <Button Content="⏪ 30s" Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
+                    <Button Content="{Binding Player.PlayPauseButtonText}" Command="{Binding Player.TogglePauseCommand}" IsVisible="{Binding Player.CanPause}" />
+                    <Button Content="30s ⏩" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
                     <Button Content="{Binding Player.FullscreenButtonText}" Command="{Binding Player.ToggleFullscreenCommand}" />
                     <TextBlock Text="{Binding Player.NowPlayingChannelName}" VerticalAlignment="Center" FontWeight="Bold" />
                     <TextBlock Text="{Binding Player.StatusText}" VerticalAlignment="Center" />
                 </StackPanel>
-            </Grid>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

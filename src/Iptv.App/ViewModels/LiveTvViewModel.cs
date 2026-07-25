@@ -58,8 +58,23 @@ public partial class LiveTvViewModel : ViewModelBase
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadChannelsAsync());
+        WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
         _ = LoadChannelsAsync();
+    }
+
+    // A favorite toggled from Guide or Favorites should show up here too without a full reload
+    // (which would re-fetch every channel and now/next EPG entry just to flip some booleans).
+    private async Task RefreshFavoriteFlagsAsync()
+    {
+        var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
+        foreach (var group in _allGroups)
+        {
+            foreach (var channel in group.Channels)
+            {
+                channel.IsFavorite = favoriteIds.Contains(channel.Channel.Id);
+            }
+        }
     }
 
     [RelayCommand]

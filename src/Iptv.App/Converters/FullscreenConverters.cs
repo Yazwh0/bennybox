@@ -4,8 +4,31 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
+using Avalonia.Media;
 
 namespace Iptv.App.Converters;
+
+// Highlights whichever nav button matches MainWindowViewModel.CurrentPageTag - value is the current
+// tag, parameter is the specific button's own tag (set per-button in XAML via ConverterParameter).
+public class ActiveTagToBackgroundConverter : IValueConverter
+{
+    private static readonly IBrush ActiveBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is string tag && parameter is string target && tag == target ? ActiveBrush : Brushes.Transparent;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class ActiveTagToFontWeightConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is string tag && parameter is string target && tag == target ? FontWeight.Bold : FontWeight.Normal;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 // MainWindow hosts a single, permanent video area (see MainWindow.axaml) shared by every page -
 // LibVLC's video surface is a native child window, and giving each page its own VideoView meant

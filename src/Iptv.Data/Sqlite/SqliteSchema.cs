@@ -81,6 +81,12 @@ internal static class SqliteSchema
             AddedUtc TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS SeriesFavorites (
+            SeriesId TEXT PRIMARY KEY,
+            ProfileId TEXT NOT NULL,
+            AddedUtc TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS Settings (
             Key TEXT PRIMARY KEY,
             Value TEXT NOT NULL

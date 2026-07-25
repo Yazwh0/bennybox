@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -13,11 +14,19 @@ public partial class GuideViewModel : ViewModelBase
 {
     private const double PixelsPerMinuteValue = 4;
     private const string AllCategoriesLabel = "All Categories";
+    private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
     private readonly IProfileRepository _profileRepository;
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
+    private readonly IFavoriteRepository _favoriteRepository;
     private readonly ILogger<GuideViewModel> _logger;
+
+    // The full (category-filtered, sorted) row set for the current window - Rows is re-derived from
+    // this on every HideEmptyChannels/SearchText change so that doesn't require a reload from the
+    // database.
+    private List<GuideRowViewModel> _allRows = [];
+    private CancellationTokenSource? _filterCts;
 
     public string Title => "Guide";
 
@@ -30,6 +39,12 @@ public partial class GuideViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _selectedCategory = AllCategoriesLabel;
+
+    [ObservableProperty]
+    private bool _hideEmptyChannels = true;
+
+    [ObservableProperty]
+    private string _searchText = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentDayLabel))]
@@ -58,18 +73,54 @@ public partial class GuideViewModel : ViewModelBase
         IProfileRepository profileRepository,
         IChannelRepository channelRepository,
         IEpgRepository epgRepository,
+        IFavoriteRepository favoriteRepository,
         PlayerViewModel player,
         ILogger<GuideViewModel> logger)
     {
         _profileRepository = profileRepository;
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
+        _favoriteRepository = favoriteRepository;
         Player = player;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadAsync());
+        WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
         _ = LoadAsync();
+    }
+
+    [RelayCommand]
+    private async Task ToggleFavoriteAsync(GuideRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (row.IsFavorite)
+        {
+            await _favoriteRepository.RemoveAsync(row.Channel.Id);
+            row.IsFavorite = false;
+        }
+        else
+        {
+            await _favoriteRepository.AddAsync(row.Channel.ProfileId, row.Channel.Id);
+            row.IsFavorite = true;
+        }
+
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+    }
+
+    // Same rationale as SeriesViewModel: a favorite toggled on Live TV or Favorites should be
+    // reflected here too, without re-running the whole (EPG-fetching) LoadAsync just to flip stars.
+    private async Task RefreshFavoriteFlagsAsync()
+    {
+        var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
+        foreach (var row in _allRows)
+        {
+            row.IsFavorite = favoriteIds.Contains(row.Channel.Id);
+        }
     }
 
     [RelayCommand]
@@ -101,6 +152,80 @@ public partial class GuideViewModel : ViewModelBase
 
     partial void OnSelectedCategoryChanged(string value) => _ = LoadAsync();
 
+    partial void OnHideEmptyChannelsChanged(bool value) => DebounceApplyRowFilter();
+
+    partial void OnSearchTextChanged(string value) => DebounceApplyRowFilter();
+
+    private void DebounceApplyRowFilter()
+    {
+        _filterCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _filterCts = cts;
+        _ = ApplyRowFilterDebouncedAsync(cts.Token);
+    }
+
+    // Same reasoning as LiveTvViewModel's search: scanning every row (and every row's programmes) on
+    // each keystroke would make typing feel laggy, so debounce and do the scan off the UI thread.
+    private async Task ApplyRowFilterDebouncedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(SearchDebounceDelay, cancellationToken);
+
+            var snapshot = _allRows;
+            var query = SearchText.Trim();
+            var hideEmpty = HideEmptyChannels;
+            var filtered = await Task.Run(() => FilterRows(snapshot, query, hideEmpty), cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                Rows.Clear();
+                foreach (var row in filtered)
+                {
+                    Rows.Add(row);
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer keystroke/toggle - just drop this pass.
+        }
+    }
+
+    private void ApplyRowFilter()
+    {
+        Rows.Clear();
+        foreach (var row in FilterRows(_allRows, SearchText.Trim(), HideEmptyChannels))
+        {
+            Rows.Add(row);
+        }
+    }
+
+    private static List<GuideRowViewModel> FilterRows(List<GuideRowViewModel> rows, string query, bool hideEmpty)
+    {
+        IEnumerable<GuideRowViewModel> result = rows;
+        if (hideEmpty)
+        {
+            result = result.Where(r => r.HasProgrammes);
+        }
+
+        if (!string.IsNullOrEmpty(query))
+        {
+            result = result.Where(r =>
+                r.ChannelName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                r.Programmes.Any(p => p.Title.Contains(query, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return result.ToList();
+    }
+
     private void TuneChannel(Channel channel) => Player.PlayChannel(channel);
 
     private async Task LoadAsync()
@@ -116,6 +241,7 @@ public partial class GuideViewModel : ViewModelBase
             WindowStartUtc = windowStart;
             WindowEndUtc = windowEnd;
 
+            var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
             var profiles = await _profileRepository.GetAllAsync();
 
             var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Channel> Channels, IReadOnlyList<EpgProgramme> Programmes)>();
@@ -164,7 +290,7 @@ public partial class GuideViewModel : ViewModelBase
                             ? found
                             : [];
 
-                        builtRows.Add(new GuideRowViewModel(channel, channelProgrammes, windowStart, windowEnd, nowUtc, PixelsPerMinute)
+                        builtRows.Add(new GuideRowViewModel(channel, channelProgrammes, windowStart, windowEnd, nowUtc, PixelsPerMinute, favoriteIds.Contains(channel.Id))
                         {
                             TuneRequested = TuneChannel
                         });
@@ -188,11 +314,8 @@ public partial class GuideViewModel : ViewModelBase
             }
             SelectedCategory = selectedCategory;
 
-            Rows.Clear();
-            foreach (var row in rows.OrderBy(r => r.ChannelName))
-            {
-                Rows.Add(row);
-            }
+            _allRows = rows.OrderBy(r => r.ChannelName).ToList();
+            ApplyRowFilter();
         }
         catch (Exception ex)
         {

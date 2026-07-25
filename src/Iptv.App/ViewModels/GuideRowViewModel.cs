@@ -1,8 +1,9 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Iptv.Core.Models;
 
 namespace Iptv.App.ViewModels;
 
-public class GuideRowViewModel
+public partial class GuideRowViewModel : ObservableObject
 {
     public Channel Channel { get; }
     public IReadOnlyList<EpgProgramme> Programmes { get; }
@@ -13,6 +14,13 @@ public class GuideRowViewModel
     public Action<Channel>? TuneRequested { get; set; }
 
     public string ChannelName => Channel.Name;
+    public bool HasProgrammes => Programmes.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FavoriteIcon))]
+    private bool _isFavorite;
+
+    public string FavoriteIcon => IsFavorite ? "★" : "☆";
 
     public GuideRowViewModel(
         Channel channel,
@@ -20,7 +28,8 @@ public class GuideRowViewModel
         DateTime windowStart,
         DateTime windowEnd,
         DateTime nowUtc,
-        double pixelsPerMinute)
+        double pixelsPerMinute,
+        bool isFavorite = false)
     {
         Channel = channel;
         Programmes = programmes;
@@ -28,5 +37,6 @@ public class GuideRowViewModel
         WindowEnd = windowEnd;
         NowUtc = nowUtc;
         PixelsPerMinute = pixelsPerMinute;
+        _isFavorite = isFavorite;
     }
 }

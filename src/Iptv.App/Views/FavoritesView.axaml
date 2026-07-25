@@ -2,6 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Iptv.App.ViewModels"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:controls="using:Iptv.App.Controls"
+             xmlns:conv="using:Avalonia.Data.Converters"
              x:Class="Iptv.App.Views.FavoritesView"
              x:DataType="vm:FavoritesViewModel"
              x:Name="RootControl">
@@ -12,38 +14,75 @@
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
             <TextBlock Text="Loading favorites..." Opacity="0.7" />
         </StackPanel>
+        <TextBlock Grid.Row="1" Text="No favorites yet - star a channel or series to add it here."
+                   Margin="16" TextWrapping="Wrap" Opacity="0.7">
+            <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="HasNoFavorites" />
+                </MultiBinding>
+            </TextBlock.IsVisible>
+        </TextBlock>
         <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
-            <StackPanel>
-                <TextBlock Text="No favorites yet - star a channel in Live TV to add it here."
-                            Margin="16" TextWrapping="Wrap" Opacity="0.7"
-                            IsVisible="{Binding HasNoFavorites}" />
-                <ItemsControl ItemsSource="{Binding Channels}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ChannelListItemViewModel">
-                            <Grid ColumnDefinitions="Auto,*" Margin="8,1">
-                                <Button Grid.Column="0"
-                                        Content="★"
-                                        Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}"
-                                        CommandParameter="{Binding}"
-                                        VerticalAlignment="Stretch"
-                                        Padding="6,0" Margin="0,0,4,0" />
-                                <Button Grid.Column="1"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
-                                        CommandParameter="{Binding Channel}">
-                                    <StackPanel>
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <DataTemplate DataType="vm:CategoryHeaderRow">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ChannelListItemViewModel">
+                        <Grid ColumnDefinitions="Auto,*" Margin="8,1">
+                            <Button Grid.Column="0"
+                                    Content="★"
+                                    Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}"
+                                    CommandParameter="{Binding}"
+                                    VerticalAlignment="Stretch"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
+                                    CommandParameter="{Binding Channel}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
+                                                                Width="44" Height="44" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" />
                                         <TextBlock Text="{Binding NowTitle}"
                                                     FontSize="11" Opacity="0.7"
                                                     IsVisible="{Binding HasNowTitle}" />
                                     </StackPanel>
-                                </Button>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:SeriesListItemViewModel">
+                        <Grid ColumnDefinitions="Auto,*" Margin="8,1">
+                            <Button Grid.Column="0"
+                                    Content="★"
+                                    Command="{Binding #RootControl.DataContext.RemoveSeriesFavoriteCommand}"
+                                    CommandParameter="{Binding}"
+                                    VerticalAlignment="Stretch"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding #RootControl.DataContext.SelectSeriesCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
+                                                                Width="44" Height="44" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
         </ScrollViewer>
     </Grid>
 </UserControl>

@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using FluentAvalonia.UI.Controls;
+using Avalonia.Interactivity;
 using Iptv.App.ViewModels;
 using Iptv.Core.Services;
 
@@ -12,58 +12,45 @@ namespace Iptv.App.Views;
 
 public partial class MainWindow : Window
 {
-    private const double MinPaneWidth = 200;
-    private const double MaxPaneWidth = 480;
-
     private readonly ISettingsStore _settingsStore;
     private readonly PlayerViewModel _player;
-    private readonly ColumnDefinition _navColumn;
     private WindowState _windowStateBeforeFullscreen = WindowState.Normal;
-    private double _navPaneWidthBeforeFullscreen = 280;
 
     public MainWindow(ISettingsStore settingsStore, PlayerViewModel player)
     {
         _settingsStore = settingsStore;
         _player = player;
         InitializeComponent();
-        _navColumn = RootGrid.ColumnDefinitions[0];
-        // ColumnDefinition doesn't support x:Name for code-behind field generation, and GridSplitter
-        // changes its Width directly (not through a binding) - so OpenPaneLength is kept in sync by
-        // observing the column's Width property instead of trying to bind to it from XAML.
-        _navColumn.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == ColumnDefinition.WidthProperty)
-            {
-                NavView.OpenPaneLength = _navColumn.Width.Value;
-            }
-        };
         Opened += OnOpened;
         Closing += OnClosing;
         KeyDown += OnKeyDown;
         _player.PropertyChanged += OnPlayerPropertyChanged;
+
+        // Slider's internal Thumb captures pointer input for its own drag logic and marks
+        // PointerPressed/PointerReleased as handled before they'd otherwise bubble up to a plain
+        // XAML PointerPressed="..." handler on the Slider - so grabbing the actual dot never fired
+        // BeginUserSeek, and the periodic position updates kept overwriting the drag mid-gesture
+        // (looked like the thumb "snapping back"). Subscribing on the tunnel phase runs before the
+        // Thumb gets a chance to mark it handled; handledEventsToo is a belt-and-braces fallback.
+        SeekSlider.AddHandler(PointerPressedEvent, OnSeekSliderPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        SeekSlider.AddHandler(PointerReleasedEvent, OnSeekSliderPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
     }
 
-    private void OnPaneResizeDragCompleted(object? sender, VectorEventArgs e)
-    {
-        _ = _settingsStore.SetAsync("NavPaneWidth", _navColumn.Width.Value.ToString(CultureInfo.InvariantCulture));
-    }
-
-    // GridSplitter resizes ContentGrid's column directly via SetCurrentValue, which cooperates with
-    // (rather than breaks) the existing MultiBinding - so it doesn't fight it, but also doesn't flow
-    // back to the view model on its own. Push the resolved width back only once the drag ends (see
-    // PlayerViewModel.SidebarWidth).
+    // GridSplitter resizes RootGrid's sidebar column directly via SetCurrentValue, which cooperates
+    // with (rather than breaks) the existing MultiBinding - so it doesn't fight it, but also doesn't
+    // flow back to the view model on its own. Push the resolved width back only once the drag ends
+    // (see PlayerViewModel.SidebarWidth).
     private void OnContentSidebarSplitterDragCompleted(object? sender, VectorEventArgs e)
     {
-        _player.SidebarWidth = ContentGrid.ColumnDefinitions[0].ActualWidth;
+        _player.SidebarWidth = RootGrid.ColumnDefinitions[0].ActualWidth;
     }
 
-    private void OnItemInvoked(object? sender, FANavigationViewItemInvokedEventArgs e)
-    {
-        if (e.InvokedItemContainer is FANavigationViewItem { Tag: string tag } && DataContext is MainWindowViewModel vm)
-        {
-            vm.Navigate(tag);
-        }
-    }
+    // While the user is actively dragging (or clicking to jump), TimeChanged events from the player
+    // must not overwrite the slider's value out from under their cursor - only the actual seek on
+    // release should touch playback position (see PlayerViewModel.BeginUserSeek/EndUserSeek).
+    private void OnSeekSliderPointerPressed(object? sender, RoutedEventArgs e) => _player.BeginUserSeek();
+
+    private void OnSeekSliderPointerReleased(object? sender, RoutedEventArgs e) => _player.EndUserSeek();
 
     private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -78,18 +65,10 @@ public partial class MainWindow : Window
                 ? WindowState.Normal
                 : WindowState;
             WindowState = WindowState.FullScreen;
-
-            // MinWidth would otherwise stop the column ever reaching 0 - drop it too, same issue as
-            // the per-page video sidebar hit.
-            _navPaneWidthBeforeFullscreen = _navColumn.Width.Value;
-            _navColumn.MinWidth = 0;
-            _navColumn.Width = new GridLength(0);
         }
         else
         {
             WindowState = _windowStateBeforeFullscreen;
-            _navColumn.MinWidth = MinPaneWidth;
-            _navColumn.Width = new GridLength(_navPaneWidthBeforeFullscreen);
         }
     }
 
@@ -99,6 +78,30 @@ public partial class MainWindow : Window
         {
             _player.ExitFullscreen();
             e.Handled = true;
+            return;
+        }
+
+        // Space/Left/Right double as search-box typing (space, cursor movement) - only treat them as
+        // playback shortcuts when focus isn't in a text input.
+        if (e.Source is TextBox)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Space when _player.CanPause:
+                _player.TogglePauseCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Right when _player.IsSeekable:
+                _player.SkipForwardCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Left when _player.IsSeekable:
+                _player.SkipBackwardCommand.Execute(null);
+                e.Handled = true;
+                break;
         }
     }
 
@@ -114,13 +117,6 @@ public partial class MainWindow : Window
         // video silently renders nowhere - or libVLC falls back to popping its own native window.
         MainVideoView.MediaPlayer = null;
         MainVideoView.MediaPlayer = _player.MediaPlayer;
-
-        var savedPaneWidth = await _settingsStore.GetAsync("NavPaneWidth");
-        if (savedPaneWidth is not null &&
-            double.TryParse(savedPaneWidth, NumberStyles.Float, CultureInfo.InvariantCulture, out var paneWidth))
-        {
-            _navColumn.Width = new GridLength(Math.Clamp(paneWidth, MinPaneWidth, MaxPaneWidth));
-        }
 
         var saved = await _settingsStore.GetAsync("WindowState");
         if (saved is null)

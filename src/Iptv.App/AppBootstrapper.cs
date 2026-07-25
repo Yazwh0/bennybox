@@ -1,3 +1,4 @@
+using Iptv.App.Services;
 using Iptv.App.ViewModels;
 using Iptv.App.Views;
 using Iptv.Core.Models;
@@ -92,6 +93,9 @@ internal static class AppBootstrapper
             client.Timeout = epgTimeout;
         });
         services.AddSingleton<IEpgSource>(sp => sp.GetRequiredService<XtreamEpgSource>());
+
+        services.AddHttpClient<ChannelLogoCache>(client => client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+        services.AddSingleton<IChannelLogoCache>(sp => sp.GetRequiredService<ChannelLogoCache>());
     }
 
 #if DEBUG
