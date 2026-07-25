@@ -34,7 +34,14 @@ public partial class GuideViewModel : ViewModelBase
 
     public PlayerViewModel Player { get; }
 
-    public ObservableCollection<GuideRowViewModel> Rows { get; } = [];
+    // Replaced wholesale (not mutated via Clear()+Add() per row) on every filter/reload - with
+    // thousands of rows, Clear() alone is a Reset that tears down every realized row container, and
+    // each subsequent Add() is its own change notification on top of that. Swapping the ItemsSource
+    // reference in one go instead gives Avalonia a single, one-shot refresh rather than a storm of
+    // incremental ones - this is what was making the Guide stutter while scrolling/filtering.
+    [ObservableProperty]
+    private ObservableCollection<GuideRowViewModel> _rows = [];
+
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
     public double PixelsPerMinute => PixelsPerMinuteValue;
@@ -192,11 +199,7 @@ public partial class GuideViewModel : ViewModelBase
                     return;
                 }
 
-                Rows.Clear();
-                foreach (var row in filtered)
-                {
-                    Rows.Add(row);
-                }
+                Rows = new ObservableCollection<GuideRowViewModel>(filtered);
             });
         }
         catch (OperationCanceledException)
@@ -207,11 +210,7 @@ public partial class GuideViewModel : ViewModelBase
 
     private void ApplyRowFilter()
     {
-        Rows.Clear();
-        foreach (var row in FilterRows(_allRows, SearchText.Trim(), HideEmptyChannels))
-        {
-            Rows.Add(row);
-        }
+        Rows = new ObservableCollection<GuideRowViewModel>(FilterRows(_allRows, SearchText.Trim(), HideEmptyChannels));
     }
 
     private static List<GuideRowViewModel> FilterRows(List<GuideRowViewModel> rows, string query, bool hideEmpty)
