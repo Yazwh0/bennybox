@@ -1,5 +1,7 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -9,6 +11,11 @@ using LibVLCSharp.Shared;
 using Microsoft.Extensions.Logging;
 
 namespace Iptv.App.ViewModels;
+
+// Id/Name pair for one audio or subtitle track, as reported by libVLC's TrackDescription - Id is
+// what MediaPlayer.SetAudioTrack/SetSpu expect back, Name is whatever the stream/container labels it
+// (language name, "Disable", etc).
+public sealed record TrackOption(int Id, string Name);
 
 public partial class PlayerViewModel : ViewModelBase, IDisposable
 {
@@ -27,8 +34,24 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private string? _currentUrl;
     private bool _isApplyingSavedSidebarWidth;
     private bool _isUserSeeking;
+    private bool _isSyncingTrackSelection;
 
     public MediaPlayer MediaPlayer { get; }
+
+    // Populated from libVLC's ESAdded/ESDeleted events as the demuxer discovers tracks in the
+    // current stream - empty until then, so the UI only shows a selector once there's something to
+    // choose between.
+    public ObservableCollection<TrackOption> AudioTracks { get; } = [];
+    public ObservableCollection<TrackOption> SubtitleTracks { get; } = [];
+
+    public bool HasMultipleAudioTracks => AudioTracks.Count > 1;
+    public bool HasSubtitleTracks => SubtitleTracks.Count > 0;
+
+    [ObservableProperty]
+    private TrackOption? _selectedAudioTrack;
+
+    [ObservableProperty]
+    private TrackOption? _selectedSubtitleTrack;
 
     [ObservableProperty]
     private string _statusText = "Idle";
@@ -91,6 +114,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         MediaPlayer.Stopped += OnStopped;
         MediaPlayer.TimeChanged += OnTimeChanged;
         MediaPlayer.LengthChanged += OnLengthChanged;
+        MediaPlayer.ESAdded += OnEsAdded;
+        MediaPlayer.ESDeleted += OnEsDeleted;
 
         _ = LoadSidebarWidthAsync();
     }
@@ -116,6 +141,26 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         }
 
         _ = _settingsStore.SetAsync("SidebarWidth", value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    partial void OnSelectedAudioTrackChanged(TrackOption? value)
+    {
+        if (_isSyncingTrackSelection || value is null)
+        {
+            return;
+        }
+
+        MediaPlayer.SetAudioTrack(value.Id);
+    }
+
+    partial void OnSelectedSubtitleTrackChanged(TrackOption? value)
+    {
+        if (_isSyncingTrackSelection || value is null)
+        {
+            return;
+        }
+
+        MediaPlayer.SetSpu(value.Id);
     }
 
     public void PlayChannel(Channel channel)
@@ -216,6 +261,15 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         DurationSeconds = 0;
         CanPause = false;
         IsSeekable = false;
+
+        _isSyncingTrackSelection = true;
+        AudioTracks.Clear();
+        SubtitleTracks.Clear();
+        SelectedAudioTrack = null;
+        SelectedSubtitleTrack = null;
+        _isSyncingTrackSelection = false;
+        OnPropertyChanged(nameof(HasMultipleAudioTracks));
+        OnPropertyChanged(nameof(HasSubtitleTracks));
     }
 
     private void CancelLoadTimeout()
@@ -291,6 +345,53 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private void OnLengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e) =>
         Dispatcher.UIThread.Post(() => DurationSeconds = e.Length > 0 ? e.Length / 1000.0 : 0);
 
+    private void OnEsAdded(object? sender, MediaPlayerESAddedEventArgs e)
+    {
+        if (e.Type is TrackType.Audio or TrackType.Text)
+        {
+            Dispatcher.UIThread.Post(RefreshTrackLists);
+        }
+    }
+
+    private void OnEsDeleted(object? sender, MediaPlayerESDeletedEventArgs e)
+    {
+        if (e.Type is TrackType.Audio or TrackType.Text)
+        {
+            Dispatcher.UIThread.Post(RefreshTrackLists);
+        }
+    }
+
+    // Rereads the full track lists from libVLC rather than incrementally applying the add/delete
+    // event that triggered this - the description arrays are already the source of truth and cheap
+    // to reread, so there's no separate "list" state to keep in sync by hand.
+    private void RefreshTrackLists()
+    {
+        _isSyncingTrackSelection = true;
+        try
+        {
+            AudioTracks.Clear();
+            foreach (var track in MediaPlayer.AudioTrackDescription ?? [])
+            {
+                AudioTracks.Add(new TrackOption(track.Id, track.Name));
+            }
+            SelectedAudioTrack = AudioTracks.FirstOrDefault(t => t.Id == MediaPlayer.AudioTrack) ?? AudioTracks.FirstOrDefault();
+
+            SubtitleTracks.Clear();
+            foreach (var track in MediaPlayer.SpuDescription ?? [])
+            {
+                SubtitleTracks.Add(new TrackOption(track.Id, track.Name));
+            }
+            SelectedSubtitleTrack = SubtitleTracks.FirstOrDefault(t => t.Id == MediaPlayer.Spu) ?? SubtitleTracks.FirstOrDefault();
+        }
+        finally
+        {
+            _isSyncingTrackSelection = false;
+        }
+
+        OnPropertyChanged(nameof(HasMultipleAudioTracks));
+        OnPropertyChanged(nameof(HasSubtitleTracks));
+    }
+
     public void Dispose()
     {
         CancelLoadTimeout();
@@ -302,6 +403,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         MediaPlayer.Stopped -= OnStopped;
         MediaPlayer.TimeChanged -= OnTimeChanged;
         MediaPlayer.LengthChanged -= OnLengthChanged;
+        MediaPlayer.ESAdded -= OnEsAdded;
+        MediaPlayer.ESDeleted -= OnEsDeleted;
         _currentMedia?.Dispose();
         MediaPlayer.Dispose();
     }

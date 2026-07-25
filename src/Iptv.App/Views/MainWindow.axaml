@@ -104,6 +104,26 @@
                     <Button Content="{Binding Player.PlayPauseButtonText}" Command="{Binding Player.TogglePauseCommand}" IsVisible="{Binding Player.CanPause}" />
                     <Button Content="30s ⏩" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
                     <Button Content="{Binding Player.FullscreenButtonText}" Command="{Binding Player.ToggleFullscreenCommand}" />
+                    <ComboBox ItemsSource="{Binding Player.AudioTracks}"
+                              SelectedItem="{Binding Player.SelectedAudioTrack}"
+                              IsVisible="{Binding Player.HasMultipleAudioTracks}"
+                              Width="140" VerticalAlignment="Center">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate DataType="vm:TrackOption">
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <ComboBox ItemsSource="{Binding Player.SubtitleTracks}"
+                              SelectedItem="{Binding Player.SelectedSubtitleTrack}"
+                              IsVisible="{Binding Player.HasSubtitleTracks}"
+                              Width="140" VerticalAlignment="Center">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate DataType="vm:TrackOption">
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <TextBlock Text="{Binding Player.NowPlayingChannelName}" VerticalAlignment="Center" FontWeight="Bold" />
                     <TextBlock Text="{Binding Player.StatusText}" VerticalAlignment="Center" />
                 </StackPanel>
