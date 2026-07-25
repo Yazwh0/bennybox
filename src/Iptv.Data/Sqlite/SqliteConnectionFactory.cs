@@ -6,6 +6,8 @@ namespace Iptv.Data.Sqlite;
 public class SqliteConnectionFactory
 {
     private readonly string _connectionString;
+    private static bool _schemaCreated;
+    private static readonly object SchemaLock = new();
     private static bool _migrationsApplied;
     private static readonly object MigrationLock = new();
 
@@ -30,15 +32,40 @@ public class SqliteConnectionFactory
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
 
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = SqliteSchema.CreateTablesSql;
-            command.ExecuteNonQuery();
-        }
-
+        EnsureSchemaCreated(connection);
         EnsureMigrations(connection);
 
         return connection;
+    }
+
+    // Every repository call opens its own connection (see the "no real async I/O" comment on each
+    // repository's Task.Run usage) - with several pages reloading concurrently on a single
+    // ChannelsUpdatedMessage, that used to mean this ~15-table CREATE TABLE IF NOT EXISTS script ran
+    // again on every single one of those connections. Harmless individually, but real, avoidable
+    // SQLite overhead multiplied by however many concurrent DB calls are in flight - once per process
+    // is enough, same rationale as EnsureMigrations below.
+    private static void EnsureSchemaCreated(SqliteConnection connection)
+    {
+        if (_schemaCreated)
+        {
+            return;
+        }
+
+        lock (SchemaLock)
+        {
+            if (_schemaCreated)
+            {
+                return;
+            }
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = SqliteSchema.CreateTablesSql;
+                command.ExecuteNonQuery();
+            }
+
+            _schemaCreated = true;
+        }
     }
 
     // Columns added after the initial schema go here as best-effort ALTER TABLEs, applied once per
