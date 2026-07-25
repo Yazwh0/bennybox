@@ -7,7 +7,7 @@
 #define MyAppName "Benny Box"
 #define MyAppPublisher "BitMagic"
 #define MyAppURL "https://github.com/Yazwh0/bennybox"
-#define MyAppExeName "Iptv.App.exe"
+#define MyAppExeName "BitMagic.BennyBox.exe"
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"

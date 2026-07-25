@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:models="using:BitMagic.BennyBox.Core.Models"
+             xmlns:converters="using:Avalonia.Data.Converters"
+             x:Class="BitMagic.BennyBox.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel"
+             x:Name="RootControl">
+    <StackPanel Margin="16" Spacing="12">
+        <TextBlock Text="Settings" FontSize="24" />
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Theme" VerticalAlignment="Center" Width="80" />
+            <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" Width="160" />
+        </StackPanel>
+
+        <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" />
+        <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" />
+        <ItemsControl ItemsSource="{Binding Profiles}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:ProfileSource">
+                    <Border BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="0,8">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding SourceType}" Opacity="0.7" FontSize="12" />
+                                <TextBlock Opacity="0.7" FontSize="12"
+                                           IsVisible="{Binding XtreamStatus, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} · expires {1:yyyy-MM-dd} · {2} connections">
+                                            <Binding Path="XtreamStatus" />
+                                            <Binding Path="XtreamExpiryUtc" />
+                                            <Binding Path="XtreamMaxConnections" />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Edit" Margin="4,0"
+                                    Click="OnEditProfileClick"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                            <Button Grid.Column="2" Content="Refresh" Margin="4,0"
+                                    Command="{Binding #RootControl.DataContext.RefreshProfileCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                            <Button Grid.Column="3" Content="Delete"
+                                    Command="{Binding #RootControl.DataContext.DeleteProfileCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

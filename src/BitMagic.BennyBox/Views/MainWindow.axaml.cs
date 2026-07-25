@@ -1,0 +1,148 @@
+using System;
+using System.ComponentModel;
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using BitMagic.BennyBox.ViewModels;
+using BitMagic.BennyBox.Core.Services;
+
+namespace BitMagic.BennyBox.Views;
+
+public partial class MainWindow : Window
+{
+    private readonly ISettingsStore _settingsStore;
+    private readonly PlayerViewModel _player;
+    private WindowState _windowStateBeforeFullscreen = WindowState.Normal;
+
+    public MainWindow(ISettingsStore settingsStore, PlayerViewModel player)
+    {
+        _settingsStore = settingsStore;
+        _player = player;
+        InitializeComponent();
+        Opened += OnOpened;
+        Closing += OnClosing;
+        KeyDown += OnKeyDown;
+        _player.PropertyChanged += OnPlayerPropertyChanged;
+
+        // Slider's internal Thumb captures pointer input for its own drag logic and marks
+        // PointerPressed/PointerReleased as handled before they'd otherwise bubble up to a plain
+        // XAML PointerPressed="..." handler on the Slider - so grabbing the actual dot never fired
+        // BeginUserSeek, and the periodic position updates kept overwriting the drag mid-gesture
+        // (looked like the thumb "snapping back"). Subscribing on the tunnel phase runs before the
+        // Thumb gets a chance to mark it handled; handledEventsToo is a belt-and-braces fallback.
+        SeekSlider.AddHandler(PointerPressedEvent, OnSeekSliderPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        SeekSlider.AddHandler(PointerReleasedEvent, OnSeekSliderPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    // GridSplitter resizes RootGrid's sidebar column directly via SetCurrentValue, which cooperates
+    // with (rather than breaks) the existing MultiBinding - so it doesn't fight it, but also doesn't
+    // flow back to the view model on its own. Push the resolved width back only once the drag ends
+    // (see PlayerViewModel.SidebarWidth).
+    private void OnContentSidebarSplitterDragCompleted(object? sender, VectorEventArgs e)
+    {
+        _player.SidebarWidth = RootGrid.ColumnDefinitions[0].ActualWidth;
+    }
+
+    // While the user is actively dragging (or clicking to jump), TimeChanged events from the player
+    // must not overwrite the slider's value out from under their cursor - only the actual seek on
+    // release should touch playback position (see PlayerViewModel.BeginUserSeek/EndUserSeek).
+    private void OnSeekSliderPointerPressed(object? sender, RoutedEventArgs e) => _player.BeginUserSeek();
+
+    private void OnSeekSliderPointerReleased(object? sender, RoutedEventArgs e) => _player.EndUserSeek();
+
+    private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(PlayerViewModel.IsFullscreen))
+        {
+            return;
+        }
+
+        if (_player.IsFullscreen)
+        {
+            _windowStateBeforeFullscreen = WindowState is WindowState.FullScreen or WindowState.Minimized
+                ? WindowState.Normal
+                : WindowState;
+            WindowState = WindowState.FullScreen;
+        }
+        else
+        {
+            WindowState = _windowStateBeforeFullscreen;
+        }
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && _player.IsFullscreen)
+        {
+            _player.ExitFullscreen();
+            e.Handled = true;
+            return;
+        }
+
+        // Space/Left/Right double as search-box typing (space, cursor movement) - only treat them as
+        // playback shortcuts when focus isn't in a text input.
+        if (e.Source is TextBox)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Space when _player.CanPause:
+                _player.TogglePauseCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Right when _player.IsSeekable:
+                _player.SkipForwardCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Left when _player.IsSeekable:
+                _player.SkipBackwardCommand.Execute(null);
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private async void OnOpened(object? sender, EventArgs e)
+    {
+        // LibVLCSharp.Avalonia's VideoView only ever attaches MediaPlayer.Hwnd to the native
+        // rendering surface it creates when its MediaPlayer property changes or when it first
+        // initializes - neither of which is guaranteed to happen after that native surface actually
+        // exists (VideoView.Attach() silently no-ops if the surface isn't ready yet, and it's never
+        // retried once MediaPlayer stops changing). By the time the window has Opened, every native
+        // child control is guaranteed to be realized, so forcing a fresh assignment here (bypassing
+        // the no-op-on-same-reference guard by nulling first) reliably attaches it. Without this,
+        // video silently renders nowhere - or libVLC falls back to popping its own native window.
+        MainVideoView.MediaPlayer = null;
+        MainVideoView.MediaPlayer = _player.MediaPlayer;
+
+        var saved = await _settingsStore.GetAsync("WindowState");
+        if (saved is null)
+        {
+            return;
+        }
+
+        var parts = saved.Split('|');
+        if (parts.Length == 3 &&
+            double.TryParse(parts[0], out var width) && width > 0 &&
+            double.TryParse(parts[1], out var height) && height > 0 &&
+            Enum.TryParse<WindowState>(parts[2], out var state))
+        {
+            Width = width;
+            Height = height;
+            WindowState = state == WindowState.Minimized ? WindowState.Normal : state;
+        }
+    }
+
+    private void OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        // Never persist FullScreen itself - if the user closes while fullscreen, remember what was active before it.
+        var effectiveState = _player.IsFullscreen ? _windowStateBeforeFullscreen : WindowState;
+        var state = effectiveState == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
+        var width = state == WindowState.Maximized ? Width : Bounds.Width;
+        var height = state == WindowState.Maximized ? Height : Bounds.Height;
+        _ = _settingsStore.SetAsync("WindowState", $"{width}|{height}|{state}");
+    }
+}

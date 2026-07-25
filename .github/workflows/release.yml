@@ -50,7 +50,7 @@ jobs:
 
       - name: Publish self-contained win-x64
         run: >
-          dotnet publish src/Iptv.App/Iptv.App.csproj
+          dotnet publish src/BitMagic.BennyBox/BitMagic.BennyBox.csproj
           --configuration Release
           --runtime win-x64
           --self-contained true

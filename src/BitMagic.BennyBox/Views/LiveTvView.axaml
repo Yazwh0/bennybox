@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:controls="using:BitMagic.BennyBox.Controls"
+             x:Class="BitMagic.BennyBox.Views.LiveTvView"
+             x:DataType="vm:LiveTvViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels..." />
+                <Button Grid.Column="1" Content="&#8635;" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh" Margin="6,0,0,0" />
+            </Grid>
+            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    IsVisible="{Binding IsLoading}">
+            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+            <TextBlock Text="Loading channels..." Opacity="0.7" />
+        </StackPanel>
+        <!--
+            Rows is a flattened list of category headers + channels (see CategoryHeaderRow) shown
+            in a single virtualized list, rather than one ItemsControl per category nested inside
+            an outer ItemsControl. With 15k+ channels the nested/non-virtualized version realized
+            every row's controls up front, which is what made loading the list freeze the UI.
+        -->
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <DataTemplate DataType="vm:CategoryHeaderRow">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ChannelListItemViewModel">
+                        <Grid ColumnDefinitions="Auto,*" Margin="8,1">
+                            <Button Grid.Column="0"
+                                    Content="{Binding FavoriteIcon}"
+                                    Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
+                                    CommandParameter="{Binding}"
+                                    VerticalAlignment="Stretch"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
+                                    CommandParameter="{Binding Channel}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
+                                                                Width="44" Height="44" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text="{Binding NowTitle}"
+                                                    FontSize="11" Opacity="0.7"
+                                                    IsVisible="{Binding HasNowTitle}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

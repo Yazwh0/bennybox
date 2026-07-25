@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             x:Class="BitMagic.BennyBox.Views.AddProfileView"
+             x:DataType="vm:AddProfileViewModel">
+    <StackPanel Spacing="12" Width="400">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Name" />
+            <TextBox Text="{Binding Name}" PlaceholderText="My IPTV Playlist" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="16">
+            <RadioButton Content="M3U Playlist" GroupName="SourceType" IsChecked="{Binding IsM3uSelected}" />
+            <RadioButton Content="Xtream Codes" GroupName="SourceType" IsChecked="{Binding IsXtreamSelected}" />
+        </StackPanel>
+
+        <StackPanel Spacing="12" IsVisible="{Binding IsM3uSelected}">
+            <StackPanel Spacing="4">
+                <TextBlock Text="M3U Playlist URL" />
+                <TextBox Text="{Binding M3uUrl}" PlaceholderText="https://example.com/playlist.m3u8" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="EPG (XMLTV) URL - optional" />
+                <TextBox Text="{Binding EpgUrl}" PlaceholderText="https://example.com/epg.xml" />
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="12" IsVisible="{Binding IsXtreamSelected}">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Server URL" />
+                <TextBox Text="{Binding XtreamServerUrl}" PlaceholderText="https://example.com:8080" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Username" />
+                <TextBox Text="{Binding XtreamUsername}" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Password" />
+                <TextBox Text="{Binding XtreamPassword}" PasswordChar="●" />
+            </StackPanel>
+            <Button Content="Test Connection" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding !IsTestingConnection}" />
+            <TextBlock Text="{Binding TestResultMessage}"
+                        TextWrapping="Wrap"
+                        IsVisible="{Binding HasTestResult}" />
+        </StackPanel>
+
+        <TextBlock Text="{Binding ErrorMessage}"
+                    Foreground="Red"
+                    TextWrapping="Wrap"
+                    IsVisible="{Binding HasError}" />
+    </StackPanel>
+</UserControl>

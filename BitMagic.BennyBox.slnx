@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BitMagic.BennyBox/BitMagic.BennyBox.csproj" />
+    <Project Path="src/BitMagic.BennyBox.Core/BitMagic.BennyBox.Core.csproj" />
+    <Project Path="src/BitMagic.BennyBox.Data/BitMagic.BennyBox.Data.csproj" />
+    <Project Path="src/BitMagic.BennyBox.Sources/BitMagic.BennyBox.Sources.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BitMagic.BennyBox.Core.Tests/BitMagic.BennyBox.Core.Tests.csproj" />
+    <Project Path="tests/BitMagic.BennyBox.Sources.Tests/BitMagic.BennyBox.Sources.Tests.csproj" />
+  </Folder>
+</Solution>
