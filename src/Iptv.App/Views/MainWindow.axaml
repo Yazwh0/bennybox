@@ -3,6 +3,7 @@
         xmlns:vm="using:Iptv.App.ViewModels"
         xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:conv="using:Avalonia.Data.Converters"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
         x:Class="Iptv.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Benny Box"
@@ -95,7 +96,20 @@
         <Grid Grid.Column="2" RowDefinitions="*,Auto">
             <!-- No Grid.RowSpan: LibVLC's video surface always paints above Avalonia content
                  regardless of z-order, so it must not share a row with the transport bar below. -->
-            <vlc:VideoView Grid.Row="0" x:Name="MainVideoView" MediaPlayer="{Binding Player.MediaPlayer}" />
+            <vlc:VideoView Grid.Row="0" x:Name="MainVideoView" MediaPlayer="{Binding Player.MediaPlayer}"
+                           IsVisible="{Binding !Player.ShowLoadingOverlay}" />
+            <!-- Shown instead of (not over) the video while still connecting or after a hard error -
+                 libVLC's native surface always paints over ordinary Avalonia content, so hiding the
+                 surface above is the only way this becomes visible at all. See ShowLoadingOverlay. -->
+            <Grid Grid.Row="0" Background="Black" IsVisible="{Binding Player.ShowLoadingOverlay}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <ui:FAProgressRing IsActive="{Binding Player.IsBuffering}"
+                                       IsVisible="{Binding Player.IsBuffering}"
+                                       Width="48" Height="48" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="16"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="400" />
+                </StackPanel>
+            </Grid>
             <StackPanel Grid.Row="1" Spacing="6" Margin="12"
                         IsVisible="{Binding !Player.IsFullscreen}">
                 <!-- Live channels usually aren't seekable, VOD episodes always are - this row
@@ -146,6 +160,9 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <TextBlock Text="{Binding Player.NowPlayingChannelName}" VerticalAlignment="Center" FontWeight="Bold" />
+                    <ui:FAProgressRing IsActive="{Binding Player.ShowBufferingBadge}"
+                                       IsVisible="{Binding Player.ShowBufferingBadge}"
+                                       Width="16" Height="16" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding Player.StatusText}" VerticalAlignment="Center" />
                 </StackPanel>
             </StackPanel>

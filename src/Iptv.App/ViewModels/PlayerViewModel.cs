@@ -48,6 +48,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private bool _isUserSeeking;
     private bool _isSyncingTrackSelection;
 
+    // True once the current PlayUrl call has actually shown a frame (OnPlaying fired) - distinguishes
+    // "still connecting, nothing to look at yet" from "playing fine but hit a brief re-buffer", since
+    // libVLC's Buffering event fires for both and doesn't reset IsPlaying for the latter.
+    private bool _hasShownFrame;
+
     // Set only while playing a movie/episode - live channels are never tracked. See PlayWithResumeAsync.
     private WatchProgressContentType? _currentContentType;
     private Guid? _currentProfileId;
@@ -75,6 +80,27 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _statusText = "Idle";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLoadingOverlay))]
+    [NotifyPropertyChangedFor(nameof(ShowBufferingBadge))]
+    private bool _isBuffering;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLoadingOverlay))]
+    [NotifyPropertyChangedFor(nameof(ShowBufferingBadge))]
+    private bool _hasPlaybackError;
+
+    // Full video-area takeover: no usable frame yet (still connecting) or playback failed outright.
+    // The video surface's IsVisible is bound to !ShowLoadingOverlay (see MainWindow.axaml) so this
+    // panel can actually be seen - libVLC's native surface always paints over ordinary Avalonia
+    // content regardless of z-order, so there's no way to draw this "on top of" a visible video.
+    public bool ShowLoadingOverlay => (IsBuffering && !_hasShownFrame) || HasPlaybackError;
+
+    // Small, unobtrusive indicator for a brief re-buffer once a frame is already showing - the video
+    // itself keeps showing its last frame underneath rather than being hidden, since a full takeover
+    // for every transient stall would flicker far more than it helps.
+    public bool ShowBufferingBadge => IsBuffering && _hasShownFrame && !HasPlaybackError;
 
     [ObservableProperty]
     private bool _isPlaying;
@@ -301,6 +327,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         StatusText = "Idle";
         IsPlaying = false;
         IsPaused = false;
+        IsBuffering = false;
+        HasPlaybackError = false;
         NowPlayingChannelName = null;
         ResetSeekState();
     }
@@ -349,6 +377,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
         StatusText = "Loading...";
         IsPaused = false;
+        HasPlaybackError = false;
+        _hasShownFrame = false;
+        IsBuffering = true;
         ResetSeekState();
         MediaPlayer.Play(_currentMedia);
 
@@ -360,6 +391,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             if (!IsPlaying)
             {
                 StatusText = "Channel unavailable (timed out)";
+                IsBuffering = false;
+                HasPlaybackError = true;
                 _logger.LogWarning("Stream load timed out: {Url}", url);
                 MediaPlayer.Stop();
             }
@@ -500,6 +533,12 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             IsPaused = false;
             StatusText = "Playing";
 
+            _hasShownFrame = true;
+            IsBuffering = false;
+            HasPlaybackError = false;
+            OnPropertyChanged(nameof(ShowLoadingOverlay));
+            OnPropertyChanged(nameof(ShowBufferingBadge));
+
             if (_pendingResumeMs is { } resumeMs)
             {
                 MediaPlayer.Time = resumeMs;
@@ -516,7 +555,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         });
 
     private void OnBuffering(object? sender, MediaPlayerBufferingEventArgs e) =>
-        Dispatcher.UIThread.Post(() => StatusText = $"Buffering ({e.Cache:0}%)");
+        Dispatcher.UIThread.Post(() =>
+        {
+            StatusText = $"Buffering ({e.Cache:0}%)";
+            IsBuffering = e.Cache < 100;
+        });
 
     private void OnEncounteredError(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() =>
@@ -525,6 +568,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             CancelLoadTimeout();
             IsPlaying = false;
             IsPaused = false;
+            IsBuffering = false;
+            HasPlaybackError = true;
             StatusText = "Error playing channel";
             _logger.LogError("MediaPlayer encountered an error playing {Url}", _currentUrl);
         });
@@ -535,6 +580,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             MarkCurrentContentFinished();
             IsPlaying = false;
             IsPaused = false;
+            IsBuffering = false;
             StatusText = "Ended";
         });
 
