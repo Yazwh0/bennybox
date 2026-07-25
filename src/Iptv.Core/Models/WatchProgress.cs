@@ -3,7 +3,12 @@ namespace Iptv.Core.Models;
 public enum WatchProgressContentType
 {
     Movie,
-    Episode
+    Episode,
+
+    // Only ever used by WatchedItem, never WatchProgress (a series itself isn't "played" - there's
+    // nothing to resume) - marks a whole series as fully watched once every one of its episodes is.
+    // See SeriesViewModel for where that gets computed and kept up to date.
+    Series
 }
 
 // A "continue watching" bookmark. Keyed by (ProfileId, ContentType, ContentKey) rather than a

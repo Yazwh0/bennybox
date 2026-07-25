@@ -38,6 +38,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private readonly LibVLC _libVlc;
     private readonly ISettingsStore _settingsStore;
     private readonly IWatchProgressRepository _watchProgressRepository;
+    private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly ILogger<PlayerViewModel> _logger;
     private Media? _currentMedia;
     private DispatcherTimer? _loadTimeoutTimer;
@@ -154,11 +155,12 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public string PositionLabel => FormatTime(SeekSliderValue);
     public string DurationLabel => FormatTime(DurationSeconds);
 
-    public PlayerViewModel(LibVLC libVlc, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, ILogger<PlayerViewModel> logger)
+    public PlayerViewModel(LibVLC libVlc, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, ILogger<PlayerViewModel> logger)
     {
         _libVlc = libVlc;
         _settingsStore = settingsStore;
         _watchProgressRepository = watchProgressRepository;
+        _watchedItemRepository = watchedItemRepository;
         _logger = logger;
         MediaPlayer = new MediaPlayer(_libVlc);
 
@@ -270,7 +272,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _ = PlayWithResumeAsync(
             WatchProgressContentType.Episode,
             series.ProfileId,
-            BuildEpisodeContentKey(series.SourceSeriesId, episode.SourceEpisodeId),
+            ContentKeys.ForEpisode(series.SourceSeriesId, episode.SourceEpisodeId),
             $"{series.Name} - S{episode.Season:00}E{episode.EpisodeNumber:00} - {episode.Title}",
             series.CoverUrl,
             episode.StreamUrl);
@@ -282,8 +284,6 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     // WatchProgress row - no need to look the original Movie/Episode/Series back up first.
     public void ResumeFromProgress(WatchProgress progress) =>
         BeginTrackedPlayback(progress.ContentType, progress.ProfileId, progress.ContentKey, progress.Title, progress.CoverUrl, progress.StreamUrl, progress.PositionSeconds);
-
-    private static string BuildEpisodeContentKey(string sourceSeriesId, string sourceEpisodeId) => $"{sourceSeriesId}:{sourceEpisodeId}";
 
     private async Task PlayWithResumeAsync(WatchProgressContentType contentType, Guid profileId, string contentKey, string title, string? coverUrl, string streamUrl)
     {
@@ -463,9 +463,20 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         if (_currentContentType is { } contentType && _currentProfileId is { } profileId && _currentContentKey is not null)
         {
             _ = _watchProgressRepository.RemoveAsync(profileId, contentType, _currentContentKey);
+            _ = MarkWatchedAndNotifyAsync(profileId, contentType, _currentContentKey);
         }
 
         ClearTrackedContent();
+    }
+
+    // Whatever page is currently showing this movie/episode (if any) only found out its content was
+    // watched via a bound VM instance that the toggle command mutated directly - this auto-mark path
+    // has no such reference, only a content key, so it has to tell the rest of the app to go re-check
+    // for itself instead.
+    private async Task MarkWatchedAndNotifyAsync(Guid profileId, WatchProgressContentType contentType, string contentKey)
+    {
+        await _watchedItemRepository.MarkWatchedAsync(profileId, contentType, contentKey);
+        WeakReferenceMessenger.Default.Send(new WatchedStatusUpdatedMessage());
     }
 
     private void ClearTrackedContent()
@@ -496,6 +507,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             if (positionSeconds < 5 || isFinished)
             {
                 await _watchProgressRepository.RemoveAsync(profileId, contentType, contentKey);
+                if (isFinished)
+                {
+                    await _watchedItemRepository.MarkWatchedAsync(profileId, contentType, contentKey);
+                    WeakReferenceMessenger.Default.Send(new WatchedStatusUpdatedMessage());
+                }
                 return;
             }
 

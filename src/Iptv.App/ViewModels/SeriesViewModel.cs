@@ -18,6 +18,7 @@ public partial class SeriesViewModel : ViewModelBase
     private readonly ISeriesRepository _seriesRepository;
     private readonly SeriesImportService _seriesImportService;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly ILogger<SeriesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
@@ -75,6 +76,7 @@ public partial class SeriesViewModel : ViewModelBase
         ISeriesRepository seriesRepository,
         SeriesImportService seriesImportService,
         IFavoriteRepository favoriteRepository,
+        IWatchedItemRepository watchedItemRepository,
         ILogger<SeriesViewModel> logger)
     {
         Player = player;
@@ -82,10 +84,12 @@ public partial class SeriesViewModel : ViewModelBase
         _seriesRepository = seriesRepository;
         _seriesImportService = seriesImportService;
         _favoriteRepository = favoriteRepository;
+        _watchedItemRepository = watchedItemRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadSeriesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
 
         _ = LoadSeriesAsync();
     }
@@ -130,6 +134,46 @@ public partial class SeriesViewModel : ViewModelBase
         }
     }
 
+    // PlayerViewModel's auto-mark-on-completion only has a content key to persist against - it can't
+    // reach into whichever EpisodeListItemViewModel is currently on screen the way the manual toggle
+    // command does, so it broadcasts WatchedStatusUpdatedMessage instead and this re-derives both the
+    // open episode list's ticks and the whole browse list's series-level dimming from the database.
+    private async Task RefreshWatchedFlagsAsync()
+    {
+        var watchedItems = await _watchedItemRepository.GetAllAsync();
+
+        var watchedSeriesKeys = watchedItems
+            .Where(w => w.ContentType == WatchProgressContentType.Series)
+            .Select(w => (w.ProfileId, w.ContentKey))
+            .ToHashSet();
+
+        foreach (var group in _allGroups)
+        {
+            foreach (var series in group.Series)
+            {
+                series.IsWatched = watchedSeriesKeys.Contains((series.Series.ProfileId, series.Series.SourceSeriesId));
+            }
+        }
+
+        if (SelectedSeries is not null)
+        {
+            var episodeWatchedKeys = watchedItems
+                .Where(w => w.ContentType == WatchProgressContentType.Episode && w.ProfileId == SelectedSeries.Series.ProfileId)
+                .Select(w => w.ContentKey)
+                .ToHashSet();
+
+            foreach (var episode in Episodes.OfType<EpisodeListItemViewModel>())
+            {
+                episode.IsWatched = episodeWatchedKeys.Contains(ContentKeys.ForEpisode(SelectedSeries.Series.SourceSeriesId, episode.Episode.SourceEpisodeId));
+            }
+
+            // Recomputed last so it's authoritative for the currently-open series specifically - it
+            // may persist a change (e.g. the episode that just finished was the last unwatched one)
+            // that the bulk refresh above, using an older snapshot, wouldn't yet reflect.
+            await RecomputeSeriesWatchedStatusAsync(SelectedSeries);
+        }
+    }
+
     [RelayCommand]
     private async Task SelectSeriesAsync(SeriesListItemViewModel? series)
     {
@@ -144,18 +188,25 @@ public partial class SeriesViewModel : ViewModelBase
         try
         {
             var episodes = await _seriesImportService.GetEpisodesAsync(profile, series.Series);
+            var watchedKeys = (await _watchedItemRepository.GetAllAsync())
+                .Where(w => w.ContentType == WatchProgressContentType.Episode && w.ProfileId == profile.Id)
+                .Select(w => w.ContentKey)
+                .ToHashSet();
 
             var rows = new List<object>();
             foreach (var seasonGroup in episodes.GroupBy(e => e.Season).OrderBy(g => g.Key))
             {
                 rows.Add(new CategoryHeaderRow($"Season {seasonGroup.Key}"));
-                rows.AddRange(seasonGroup.Select(e => new EpisodeListItemViewModel(e)));
+                rows.AddRange(seasonGroup.Select(e => new EpisodeListItemViewModel(
+                    e, watchedKeys.Contains(ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId)))));
             }
 
             foreach (var row in rows)
             {
                 Episodes.Add(row);
             }
+
+            await RecomputeSeriesWatchedStatusAsync(series);
         }
         catch (Exception ex)
         {
@@ -183,6 +234,61 @@ public partial class SeriesViewModel : ViewModelBase
         }
 
         Player.PlayEpisode(episode.Episode, SelectedSeries.Series);
+    }
+
+    [RelayCommand]
+    private async Task ToggleEpisodeWatchedAsync(EpisodeListItemViewModel? episode)
+    {
+        if (episode is null || SelectedSeries is null)
+        {
+            return;
+        }
+
+        var profileId = SelectedSeries.Series.ProfileId;
+        var contentKey = ContentKeys.ForEpisode(SelectedSeries.Series.SourceSeriesId, episode.Episode.SourceEpisodeId);
+
+        if (episode.IsWatched)
+        {
+            await _watchedItemRepository.MarkUnwatchedAsync(profileId, WatchProgressContentType.Episode, contentKey);
+            episode.IsWatched = false;
+        }
+        else
+        {
+            await _watchedItemRepository.MarkWatchedAsync(profileId, WatchProgressContentType.Episode, contentKey);
+            episode.IsWatched = true;
+        }
+
+        await RecomputeSeriesWatchedStatusAsync(SelectedSeries);
+    }
+
+    // A series counts as watched once every one of its episodes does - only knowable once the full
+    // episode list has actually been fetched (see SelectSeriesAsync), so this recomputes and persists
+    // the series-level flag from whatever's currently loaded in Episodes rather than trying to derive
+    // it for series the user hasn't opened yet.
+    private async Task RecomputeSeriesWatchedStatusAsync(SeriesListItemViewModel series)
+    {
+        var episodeVms = Episodes.OfType<EpisodeListItemViewModel>().ToList();
+        if (episodeVms.Count == 0)
+        {
+            return;
+        }
+
+        var allWatched = episodeVms.All(e => e.IsWatched);
+        if (allWatched == series.IsWatched)
+        {
+            return;
+        }
+
+        if (allWatched)
+        {
+            await _watchedItemRepository.MarkWatchedAsync(series.Series.ProfileId, WatchProgressContentType.Series, series.Series.SourceSeriesId);
+        }
+        else
+        {
+            await _watchedItemRepository.MarkUnwatchedAsync(series.Series.ProfileId, WatchProgressContentType.Series, series.Series.SourceSeriesId);
+        }
+
+        series.IsWatched = allWatched;
     }
 
     partial void OnSearchTextChanged(string value) => DebounceApplyFilter();
@@ -288,6 +394,10 @@ public partial class SeriesViewModel : ViewModelBase
         try
         {
             var favoriteIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
+            var watchedSeriesKeys = (await _watchedItemRepository.GetAllAsync())
+                .Where(w => w.ContentType == WatchProgressContentType.Series)
+                .Select(w => (w.ProfileId, w.ContentKey))
+                .ToHashSet();
             var profiles = await _profileRepository.GetAllAsync();
 
             // Series is Xtream-specific (no equivalent structured API for M3U) - every Xtream profile
@@ -320,7 +430,7 @@ public partial class SeriesViewModel : ViewModelBase
                     foreach (var category in categories)
                     {
                         var categorySeries = seriesByCategory[category.Id]
-                            .Select(s => new SeriesListItemViewModel(s, favoriteIds.Contains(s.Id)))
+                            .Select(s => new SeriesListItemViewModel(s, favoriteIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId))))
                             .ToList();
                         if (categorySeries.Count == 0)
                         {

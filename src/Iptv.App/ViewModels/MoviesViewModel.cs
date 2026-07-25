@@ -18,6 +18,7 @@ public partial class MoviesViewModel : ViewModelBase
     private readonly IMovieRepository _movieRepository;
     private readonly MovieImportService _movieImportService;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly ILogger<MoviesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
@@ -67,6 +68,7 @@ public partial class MoviesViewModel : ViewModelBase
         IMovieRepository movieRepository,
         MovieImportService movieImportService,
         IFavoriteRepository favoriteRepository,
+        IWatchedItemRepository watchedItemRepository,
         ILogger<MoviesViewModel> logger)
     {
         Player = player;
@@ -74,10 +76,12 @@ public partial class MoviesViewModel : ViewModelBase
         _movieRepository = movieRepository;
         _movieImportService = movieImportService;
         _favoriteRepository = favoriteRepository;
+        _watchedItemRepository = watchedItemRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadMoviesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
 
         _ = LoadMoviesAsync();
     }
@@ -107,6 +111,26 @@ public partial class MoviesViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
+    [RelayCommand]
+    private async Task ToggleWatchedAsync(MovieListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        if (item.IsWatched)
+        {
+            await _watchedItemRepository.MarkUnwatchedAsync(item.Movie.ProfileId, WatchProgressContentType.Movie, item.Movie.SourceMovieId);
+            item.IsWatched = false;
+        }
+        else
+        {
+            await _watchedItemRepository.MarkWatchedAsync(item.Movie.ProfileId, WatchProgressContentType.Movie, item.Movie.SourceMovieId);
+            item.IsWatched = true;
+        }
+    }
+
     // Same rationale as SeriesViewModel.RefreshFavoriteFlagsAsync - keep this page's stars in sync
     // without a full reload when a favorite is toggled elsewhere (e.g. Favorites' remove button).
     private async Task RefreshFavoriteFlagsAsync()
@@ -117,6 +141,25 @@ public partial class MoviesViewModel : ViewModelBase
             foreach (var movie in group.Movies)
             {
                 movie.IsFavorite = favoriteIds.Contains(movie.Movie.Id);
+            }
+        }
+    }
+
+    // PlayerViewModel's auto-mark-on-completion only has a content key to persist against, not a
+    // reference back to whichever MovieListItemViewModel is on screen for it - see
+    // SeriesViewModel.RefreshWatchedFlagsAsync for the equivalent on the episodes side.
+    private async Task RefreshWatchedFlagsAsync()
+    {
+        var watchedKeys = (await _watchedItemRepository.GetAllAsync())
+            .Where(w => w.ContentType == WatchProgressContentType.Movie)
+            .Select(w => (w.ProfileId, w.ContentKey))
+            .ToHashSet();
+
+        foreach (var group in _allGroups)
+        {
+            foreach (var movie in group.Movies)
+            {
+                movie.IsWatched = watchedKeys.Contains((movie.Movie.ProfileId, movie.Movie.SourceMovieId));
             }
         }
     }
@@ -272,6 +315,10 @@ public partial class MoviesViewModel : ViewModelBase
         try
         {
             var favoriteIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+            var watchedKeys = (await _watchedItemRepository.GetAllAsync())
+                .Where(w => w.ContentType == WatchProgressContentType.Movie)
+                .Select(w => (w.ProfileId, w.ContentKey))
+                .ToHashSet();
             var profiles = await _profileRepository.GetAllAsync();
 
             // Movies is Xtream-specific (no equivalent structured API for M3U) - every Xtream profile
@@ -304,7 +351,7 @@ public partial class MoviesViewModel : ViewModelBase
                     foreach (var category in categories)
                     {
                         var categoryMovies = moviesByCategory[category.Id]
-                            .Select(m => new MovieListItemViewModel(m, favoriteIds.Contains(m.Id)))
+                            .Select(m => new MovieListItemViewModel(m, favoriteIds.Contains(m.Id), watchedKeys.Contains((m.ProfileId, m.SourceMovieId))))
                             .ToList();
                         if (categoryMovies.Count == 0)
                         {

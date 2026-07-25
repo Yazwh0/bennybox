@@ -34,10 +34,21 @@ public partial class MovieListItemViewModel : ObservableObject
 
     public string FavoriteIcon => IsFavorite ? "★" : "☆";
 
-    public MovieListItemViewModel(Movie movie, bool isFavorite = false)
+    // Watched is shown as a fade rather than a second icon competing with the favorite star - only a
+    // checkmark appears once watched, nothing is drawn for the unwatched state.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WatchedIcon))]
+    [NotifyPropertyChangedFor(nameof(ContentOpacity))]
+    private bool _isWatched;
+
+    public string WatchedIcon => IsWatched ? "✓" : "";
+    public double ContentOpacity => IsWatched ? 0.5 : 1.0;
+
+    public MovieListItemViewModel(Movie movie, bool isFavorite = false, bool isWatched = false)
     {
         Movie = movie;
         _isFavorite = isFavorite;
+        _isWatched = isWatched;
         _metaLine = BuildMetaLine(genre: null, movie.ReleaseDate, movie.Rating);
     }
 

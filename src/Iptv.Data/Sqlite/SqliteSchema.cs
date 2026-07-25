@@ -145,5 +145,13 @@ internal static class SqliteSchema
         );
 
         CREATE INDEX IF NOT EXISTS IX_Reminders_StartUtc ON Reminders(StartUtc);
+
+        CREATE TABLE IF NOT EXISTS WatchedItems (
+            ProfileId TEXT NOT NULL,
+            ContentType INTEGER NOT NULL,
+            ContentKey TEXT NOT NULL,
+            WatchedUtc TEXT NOT NULL,
+            PRIMARY KEY (ProfileId, ContentType, ContentKey)
+        );
         """;
 }

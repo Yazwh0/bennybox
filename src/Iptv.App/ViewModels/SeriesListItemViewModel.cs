@@ -22,11 +22,22 @@ public partial class SeriesListItemViewModel : ObservableObject
 
     public string FavoriteIcon => IsFavorite ? "★" : "☆";
 
-    public SeriesListItemViewModel(Series series, bool isFavorite = false)
+    // True once every episode of the series has been marked watched - see
+    // SeriesViewModel.RecomputeSeriesWatchedStatus for where this gets computed/persisted, since
+    // knowing "every episode" requires the full episode list, which isn't fetched until the series
+    // is actually opened.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ContentOpacity))]
+    private bool _isWatched;
+
+    public double ContentOpacity => IsWatched ? 0.5 : 1.0;
+
+    public SeriesListItemViewModel(Series series, bool isFavorite = false, bool isWatched = false)
     {
         Series = series;
         MetaLine = BuildMetaLine(series);
         _isFavorite = isFavorite;
+        _isWatched = isWatched;
     }
 
     private static string? BuildMetaLine(Series series)
