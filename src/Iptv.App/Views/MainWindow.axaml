@@ -120,6 +120,11 @@
                     <Button Content="{Binding Player.PlayPauseButtonText}" Command="{Binding Player.TogglePauseCommand}" IsVisible="{Binding Player.CanPause}" />
                     <Button Content="30s ⏩" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
                     <Button Content="{Binding Player.FullscreenButtonText}" Command="{Binding Player.ToggleFullscreenCommand}" />
+                    <Button Content="{Binding Player.MuteButtonText}" Command="{Binding Player.ToggleMuteCommand}" />
+                    <Slider Width="100" Minimum="0" Maximum="100"
+                            Value="{Binding Player.Volume}"
+                            VerticalAlignment="Center"
+                            ToolTip.Tip="{Binding Player.Volume}" />
                     <ComboBox ItemsSource="{Binding Player.AudioTracks}"
                               SelectedItem="{Binding Player.SelectedAudioTrack}"
                               IsVisible="{Binding Player.HasMultipleAudioTracks}"

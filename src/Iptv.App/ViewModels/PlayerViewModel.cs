@@ -44,6 +44,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private DispatcherTimer? _progressSaveTimer;
     private string? _currentUrl;
     private bool _isApplyingSavedSidebarWidth;
+    private bool _isApplyingSavedVolume;
     private bool _isUserSeeking;
     private bool _isSyncingTrackSelection;
 
@@ -92,6 +93,15 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private double _sidebarWidth = 280;
 
+    [ObservableProperty]
+    private int _volume = 100;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MuteButtonText))]
+    private bool _isMuted;
+
+    public string MuteButtonText => IsMuted ? "🔇" : "🔊";
+
     // Live channels are usually not seekable/pausable, VOD episodes always are - rather than
     // hardcoding that assumption, these mirror libVLC's own per-stream capability flags (some IPTV
     // "live" streams do support timeshifting and report seekable too), so the seek bar and
@@ -138,6 +148,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         MediaPlayer.ESDeleted += OnEsDeleted;
 
         _ = LoadSidebarWidthAsync();
+        _ = LoadVolumeAsync();
     }
 
     private async Task LoadSidebarWidthAsync()
@@ -162,6 +173,36 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
         _ = _settingsStore.SetAsync("SidebarWidth", value.ToString(CultureInfo.InvariantCulture));
     }
+
+    private async Task LoadVolumeAsync()
+    {
+        var saved = await _settingsStore.GetAsync("Volume");
+        if (saved is null || !int.TryParse(saved, NumberStyles.Integer, CultureInfo.InvariantCulture, out var volume))
+        {
+            return;
+        }
+
+        _isApplyingSavedVolume = true;
+        Volume = Math.Clamp(volume, 0, 100);
+        _isApplyingSavedVolume = false;
+    }
+
+    partial void OnVolumeChanged(int value)
+    {
+        MediaPlayer.Volume = value;
+
+        if (_isApplyingSavedVolume)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("Volume", value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    partial void OnIsMutedChanged(bool value) => MediaPlayer.Mute = value;
+
+    [RelayCommand]
+    private void ToggleMute() => IsMuted = !IsMuted;
 
     partial void OnSelectedAudioTrackChanged(TrackOption? value)
     {
