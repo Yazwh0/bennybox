@@ -1,0 +1,24 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Iptv.App"
+             xmlns:converters="using:Iptv.App.Converters"
+             xmlns:styling="using:FluentAvalonia.Styling"
+             x:Class="Iptv.App.App"
+             RequestedThemeVariant="Default">
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <converters:ContentAreaWidthConverter x:Key="ContentAreaWidthConverter" />
+        <converters:ContentAreaMinWidthConverter x:Key="ContentAreaMinWidthConverter" />
+        <converters:ContentAreaMaxWidthConverter x:Key="ContentAreaMaxWidthConverter" />
+        <converters:VideoColumnWidthConverter x:Key="VideoColumnWidthConverter" />
+        <converters:FullscreenToMarginConverter x:Key="FullscreenToMarginConverter" />
+    </Application.Resources>
+
+    <Application.Styles>
+        <styling:FluentAvaloniaTheme />
+    </Application.Styles>
+</Application>

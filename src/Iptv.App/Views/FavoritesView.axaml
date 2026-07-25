@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Iptv.App.ViewModels"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Iptv.App.Views.FavoritesView"
+             x:DataType="vm:FavoritesViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,*">
+        <TextBlock Grid.Row="0" Text="Favorites" FontSize="20" Margin="8" />
+        <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    IsVisible="{Binding IsLoading}">
+            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+            <TextBlock Text="Loading favorites..." Opacity="0.7" />
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
+            <StackPanel>
+                <TextBlock Text="No favorites yet - star a channel in Live TV to add it here."
+                            Margin="16" TextWrapping="Wrap" Opacity="0.7"
+                            IsVisible="{Binding HasNoFavorites}" />
+                <ItemsControl ItemsSource="{Binding Channels}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChannelListItemViewModel">
+                            <Grid ColumnDefinitions="Auto,*" Margin="8,1">
+                                <Button Grid.Column="0"
+                                        Content="★"
+                                        Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}"
+                                        CommandParameter="{Binding}"
+                                        VerticalAlignment="Stretch"
+                                        Padding="6,0" Margin="0,0,4,0" />
+                                <Button Grid.Column="1"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
+                                        CommandParameter="{Binding Channel}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text="{Binding NowTitle}"
+                                                    FontSize="11" Opacity="0.7"
+                                                    IsVisible="{Binding HasNowTitle}" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Iptv.App.ViewModels"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             x:Class="Iptv.App.Views.SeriesView"
+             x:DataType="vm:SeriesViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <!-- Browsing mode: search + refresh + the flattened category/series list. -->
+        <TextBox Grid.Row="0" Text="{Binding SearchText}" PlaceholderText="Search series..." Margin="8,8,8,4"
+                 IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNull}}" />
+        <Button Grid.Row="1" Content="Refresh" Command="{Binding RefreshCommand}" Margin="8,0,8,8" HorizontalAlignment="Stretch"
+                IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNull}}" />
+        <StackPanel Grid.Row="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    IsVisible="{Binding IsLoading}">
+            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+            <TextBlock Text="Loading series..." Opacity="0.7" />
+        </StackPanel>
+        <TextBlock Grid.Row="2" Text="No series available yet - add an Xtream profile and refresh it in Settings."
+                   Margin="16" TextWrapping="Wrap" Opacity="0.7">
+            <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="HasNoSeries" />
+                </MultiBinding>
+            </TextBlock.IsVisible>
+        </TextBlock>
+        <ScrollViewer Grid.Row="2">
+            <ScrollViewer.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="SelectedSeries" Converter="{x:Static conv:ObjectConverters.IsNull}" />
+                </MultiBinding>
+            </ScrollViewer.IsVisible>
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <DataTemplate DataType="vm:CategoryHeaderRow">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:SeriesListItemViewModel">
+                        <Button Margin="8,1"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Command="{Binding #RootControl.DataContext.SelectSeriesCommand}"
+                                CommandParameter="{Binding}">
+                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Detail mode: a selected series' seasons/episodes, shown instead of the list above. -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" RowDefinitions="Auto,Auto,*"
+              IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+            <Button Grid.Row="0" Content="&#8592; Back to Series" Command="{Binding BackToListCommand}" Margin="8,8,8,4" HorizontalAlignment="Stretch" />
+            <TextBlock Grid.Row="1" Text="{Binding SelectedSeries.Name}" FontWeight="Bold" FontSize="16"
+                       Margin="8,4" TextWrapping="Wrap" />
+            <StackPanel Grid.Row="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        IsVisible="{Binding IsLoadingEpisodes}">
+                <ui:FAProgressRing IsActive="{Binding IsLoadingEpisodes}" Width="32" Height="32" />
+                <TextBlock Text="Loading episodes..." Opacity="0.7" />
+            </StackPanel>
+            <ScrollViewer Grid.Row="2" IsVisible="{Binding !IsLoadingEpisodes}">
+                <ItemsControl ItemsSource="{Binding Episodes}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.DataTemplates>
+                        <DataTemplate DataType="vm:CategoryHeaderRow">
+                            <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                        </DataTemplate>
+                        <DataTemplate DataType="vm:EpisodeListItemViewModel">
+                            <Button Margin="8,1"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding #RootControl.DataContext.PlayEpisodeCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="11" Opacity="0.7" />
+                                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.DataTemplates>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Iptv.App.ViewModels"
+             xmlns:controls="using:Iptv.App.Controls"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Iptv.App.Views.GuideView"
+             x:DataType="vm:GuideViewModel">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Today" Command="{Binding GoToTodayCommand}" />
+                <Button Content="◀" Command="{Binding GoToPreviousDayCommand}" />
+                <Button Content="▶" Command="{Binding GoToNextDayCommand}" />
+            </StackPanel>
+            <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" />
+            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+            <Button Content="Refresh" Command="{Binding RefreshCommand}" HorizontalAlignment="Stretch" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="110,*">
+            <Border Grid.Column="0" Background="#19191E" />
+            <ScrollViewer Grid.Column="1" Name="TimeHeaderScroll"
+                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+                <controls:TimeHeaderControl WindowStart="{Binding WindowStartUtc}"
+                                             WindowEnd="{Binding WindowEndUtc}"
+                                             PixelsPerMinute="{Binding PixelsPerMinute}" />
+            </ScrollViewer>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="110,*">
+            <ScrollViewer Grid.Column="0" Name="ChannelNamesScroll"
+                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:GuideRowViewModel">
+                            <Border Height="48" BorderBrush="#22262C" BorderThickness="0,0,0,1" Padding="6">
+                                <TextBlock Text="{Binding ChannelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="12" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <ScrollViewer Grid.Column="1" Name="BodyScroll">
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:GuideRowViewModel">
+                            <controls:EpgRowControl Row="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Grid.RowSpan="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    IsVisible="{Binding IsLoading}">
+            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+            <TextBlock Text="Loading guide..." Opacity="0.7" />
+        </StackPanel>
+    </Grid>
+</UserControl>
