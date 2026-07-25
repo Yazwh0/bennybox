@@ -1,0 +1,84 @@
+name: Release
+
+# Builds a self-contained win-x64 publish, packages it into a Windows installer with Inno Setup, and
+# (for an actual version tag push) attaches it to a GitHub Release. Manual runs via workflow_dispatch
+# just produce a downloadable build artifact, without publishing a public release - handy for testing
+# changes to this workflow or the installer script itself.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number to stamp into this build, e.g. 1.0.0 (manual runs only)'
+        required: true
+        default: '0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+          } else {
+            $version = "${{ github.ref_name }}" -replace '^v', ''
+          }
+          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Test
+        run: dotnet test --configuration Release
+
+      - name: Publish self-contained win-x64
+        run: >
+          dotnet publish src/Iptv.App/Iptv.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:Platform=x64
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:FileVersion=${{ steps.version.outputs.version }}
+          -p:InformationalVersion=${{ steps.version.outputs.version }}
+          --output publish/win-x64
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        run: >
+          iscc
+          /DMyAppVersion=${{ steps.version.outputs.version }}
+          /DSourceDir="${{ github.workspace }}\publish\win-x64"
+          installer\BennyBox.iss
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BennyBoxSetup-${{ steps.version.outputs.version }}
+          path: installer-output/*.exe
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer-output/*.exe
+          generate_release_notes: true
