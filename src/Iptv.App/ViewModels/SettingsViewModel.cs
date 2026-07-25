@@ -18,6 +18,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly EpgImportService _epgImportService;
     private readonly SeriesImportService _seriesImportService;
     private readonly MovieImportService _movieImportService;
+    private readonly AccountInfoService _accountInfoService;
     private readonly ISettingsStore _settingsStore;
     private readonly ILogger<SettingsViewModel> _logger;
 
@@ -47,6 +48,7 @@ public partial class SettingsViewModel : ViewModelBase
         EpgImportService epgImportService,
         SeriesImportService seriesImportService,
         MovieImportService movieImportService,
+        AccountInfoService accountInfoService,
         ISettingsStore settingsStore,
         ILogger<SettingsViewModel> logger)
     {
@@ -55,6 +57,7 @@ public partial class SettingsViewModel : ViewModelBase
         _epgImportService = epgImportService;
         _seriesImportService = seriesImportService;
         _movieImportService = movieImportService;
+        _accountInfoService = accountInfoService;
         _settingsStore = settingsStore;
         _logger = logger;
 
@@ -136,6 +139,7 @@ public partial class SettingsViewModel : ViewModelBase
                 StatusMessage += $" Imported {movieResult.Movies.Count} movies.";
             }
 
+            await RefreshAccountInfoAsync(profile);
             await LoadProfilesAsync();
             WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
         }
@@ -148,6 +152,53 @@ public partial class SettingsViewModel : ViewModelBase
         {
             IsBusy = false;
         }
+    }
+
+    // Edited connection details are saved unconditionally first so they're never lost even if the
+    // account-info ping below fails (e.g. the new server is briefly unreachable) - the user can
+    // still hit Refresh later once it's back.
+    public async Task EditProfileAsync(ProfileSource profile)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = $"Updating '{profile.Name}'...";
+        try
+        {
+            await _profileRepository.UpdateAsync(profile);
+            await RefreshAccountInfoAsync(profile);
+
+            StatusMessage = $"Updated '{profile.Name}'. Refresh to re-import with the new settings.";
+            await LoadProfilesAsync();
+            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Update failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to update profile {ProfileName}", profile.Name);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    // No-op for profile types with no account info to report (e.g. M3U) - see AccountInfoService.
+    private async Task RefreshAccountInfoAsync(ProfileSource profile)
+    {
+        var accountInfo = await _accountInfoService.GetAccountInfoAsync(profile);
+        if (accountInfo is null)
+        {
+            return;
+        }
+
+        profile.XtreamStatus = accountInfo.Status;
+        profile.XtreamExpiryUtc = accountInfo.ExpiryUtc;
+        profile.XtreamMaxConnections = accountInfo.MaxConnections;
+        await _profileRepository.UpdateAsync(profile);
     }
 
     [RelayCommand]
@@ -188,6 +239,7 @@ public partial class SettingsViewModel : ViewModelBase
                 StatusMessage += $" {movieResult.Movies.Count} movies refreshed.";
             }
 
+            await RefreshAccountInfoAsync(profile);
             WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
         }
         catch (Exception ex)

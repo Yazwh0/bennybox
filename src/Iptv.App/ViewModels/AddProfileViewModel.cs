@@ -17,6 +17,26 @@ public partial class AddProfileViewModel : ViewModelBase
         _xtreamClient = xtreamClient;
     }
 
+    // Set by LoadForEdit when this dialog is editing an existing profile rather than creating a new
+    // one - TryBuildProfile carries its Id/SortOrder over so the edited profile replaces it in place
+    // instead of appearing as a duplicate at the end of the list.
+    private ProfileSource? _editingProfile;
+
+    public bool IsEditMode => _editingProfile is not null;
+
+    public void LoadForEdit(ProfileSource profile)
+    {
+        _editingProfile = profile;
+
+        Name = profile.Name;
+        SelectedSourceType = profile.SourceType;
+        M3uUrl = profile.M3uUrl ?? string.Empty;
+        EpgUrl = profile.EpgSourceType == EpgSourceType.XmltvUrl ? profile.EpgUrl ?? string.Empty : string.Empty;
+        XtreamServerUrl = profile.XtreamServerUrl ?? string.Empty;
+        XtreamUsername = profile.XtreamUsername ?? string.Empty;
+        XtreamPassword = CredentialProtector.Unprotect(profile.XtreamPasswordEncrypted) ?? string.Empty;
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsM3uSelected))]
     [NotifyPropertyChangedFor(nameof(IsXtreamSelected))]
@@ -144,6 +164,7 @@ public partial class AddProfileViewModel : ViewModelBase
                 profile.EpgUrl = EpgUrl.Trim();
             }
 
+            ApplyEditingIdentity(profile);
             return true;
         }
 
@@ -163,6 +184,19 @@ public partial class AddProfileViewModel : ViewModelBase
             XtreamPasswordEncrypted = CredentialProtector.Protect(XtreamPassword),
             EpgSourceType = EpgSourceType.XtreamEmbedded
         };
+
+        ApplyEditingIdentity(profile);
         return true;
+    }
+
+    private void ApplyEditingIdentity(ProfileSource profile)
+    {
+        if (_editingProfile is null)
+        {
+            return;
+        }
+
+        profile.Id = _editingProfile.Id;
+        profile.SortOrder = _editingProfile.SortOrder;
     }
 }

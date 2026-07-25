@@ -36,8 +36,8 @@ public class SqliteProfileRepository : IProfileRepository
             using var connection = _connectionFactory.CreateConnection();
             connection.Execute(
                 """
-                INSERT INTO Profiles (Id, Name, SourceType, M3uUrl, XtreamServerUrl, XtreamUsername, XtreamPasswordEncrypted, EpgSourceType, EpgUrl, LastRefreshedUtc, SortOrder, PlaylistETag, PlaylistLastModified, EpgETag, EpgLastModified)
-                VALUES (@Id, @Name, @SourceType, @M3uUrl, @XtreamServerUrl, @XtreamUsername, @XtreamPasswordEncrypted, @EpgSourceType, @EpgUrl, @LastRefreshedUtc, @SortOrder, @PlaylistETag, @PlaylistLastModified, @EpgETag, @EpgLastModified)
+                INSERT INTO Profiles (Id, Name, SourceType, M3uUrl, XtreamServerUrl, XtreamUsername, XtreamPasswordEncrypted, EpgSourceType, EpgUrl, LastRefreshedUtc, SortOrder, PlaylistETag, PlaylistLastModified, EpgETag, EpgLastModified, XtreamStatus, XtreamExpiryUtc, XtreamMaxConnections)
+                VALUES (@Id, @Name, @SourceType, @M3uUrl, @XtreamServerUrl, @XtreamUsername, @XtreamPasswordEncrypted, @EpgSourceType, @EpgUrl, @LastRefreshedUtc, @SortOrder, @PlaylistETag, @PlaylistLastModified, @EpgETag, @EpgLastModified, @XtreamStatus, @XtreamExpiryUtc, @XtreamMaxConnections)
                 """, profile);
         }, cancellationToken);
 
@@ -51,7 +51,8 @@ public class SqliteProfileRepository : IProfileRepository
                     Name = @Name, SourceType = @SourceType, M3uUrl = @M3uUrl,
                     XtreamServerUrl = @XtreamServerUrl, XtreamUsername = @XtreamUsername, XtreamPasswordEncrypted = @XtreamPasswordEncrypted,
                     EpgSourceType = @EpgSourceType, EpgUrl = @EpgUrl, LastRefreshedUtc = @LastRefreshedUtc, SortOrder = @SortOrder,
-                    PlaylistETag = @PlaylistETag, PlaylistLastModified = @PlaylistLastModified, EpgETag = @EpgETag, EpgLastModified = @EpgLastModified
+                    PlaylistETag = @PlaylistETag, PlaylistLastModified = @PlaylistLastModified, EpgETag = @EpgETag, EpgLastModified = @EpgLastModified,
+                    XtreamStatus = @XtreamStatus, XtreamExpiryUtc = @XtreamExpiryUtc, XtreamMaxConnections = @XtreamMaxConnections
                 WHERE Id = @Id
                 """, profile);
         }, cancellationToken);

@@ -67,6 +67,7 @@ internal static class AppBootstrapper
         services.AddSingleton<EpgImportService>();
         services.AddSingleton<SeriesImportService>();
         services.AddSingleton<MovieImportService>();
+        services.AddSingleton<AccountInfoService>();
 
         // Some IPTV providers block requests with no User-Agent header (HttpClient sends none by default, unlike curl/browsers).
         const string userAgent = "BennyBox/1.0";
@@ -83,6 +84,8 @@ internal static class AppBootstrapper
         services.AddSingleton<ISeriesSource>(sp => sp.GetRequiredService<XtreamSeriesSource>());
         services.AddSingleton<XtreamMovieSource>();
         services.AddSingleton<IMovieSource>(sp => sp.GetRequiredService<XtreamMovieSource>());
+        services.AddSingleton<XtreamAccountInfoSource>();
+        services.AddSingleton<IAccountInfoSource>(sp => sp.GetRequiredService<XtreamAccountInfoSource>());
         services.AddTransient<AddProfileViewModel>();
 
         services.AddHttpClient<XmltvEpgSource>(client =>

@@ -34,4 +34,10 @@ public class ProfileSource
     public string? PlaylistLastModified { get; set; }
     public string? EpgETag { get; set; }
     public string? EpgLastModified { get; set; }
+
+    // Snapshot of the provider's account info as of the last successful authenticate call (Add or
+    // Refresh) - not re-fetched on every app launch, so this can lag reality between refreshes.
+    public string? XtreamStatus { get; set; }
+    public DateTime? XtreamExpiryUtc { get; set; }
+    public int? XtreamMaxConnections { get; set; }
 }

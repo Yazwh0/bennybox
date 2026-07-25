@@ -62,6 +62,9 @@ public class SqliteConnectionFactory
             TryAddColumn(connection, "Profiles", "PlaylistLastModified", "TEXT");
             TryAddColumn(connection, "Profiles", "EpgETag", "TEXT");
             TryAddColumn(connection, "Profiles", "EpgLastModified", "TEXT");
+            TryAddColumn(connection, "Profiles", "XtreamStatus", "TEXT");
+            TryAddColumn(connection, "Profiles", "XtreamExpiryUtc", "TEXT");
+            TryAddColumn(connection, "Profiles", "XtreamMaxConnections", "INTEGER");
 
             _migrationsApplied = true;
         }

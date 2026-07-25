@@ -20,16 +20,30 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="models:ProfileSource">
                     <Border BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="0,8">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="{Binding Name}" FontWeight="Bold" />
                                 <TextBlock Text="{Binding SourceType}" Opacity="0.7" FontSize="12" />
+                                <TextBlock Opacity="0.7" FontSize="12"
+                                           IsVisible="{Binding XtreamStatus, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} · expires {1:yyyy-MM-dd} · {2} connections">
+                                            <Binding Path="XtreamStatus" />
+                                            <Binding Path="XtreamExpiryUtc" />
+                                            <Binding Path="XtreamMaxConnections" />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
                             </StackPanel>
-                            <Button Grid.Column="1" Content="Refresh" Margin="4,0"
+                            <Button Grid.Column="1" Content="Edit" Margin="4,0"
+                                    Click="OnEditProfileClick"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                            <Button Grid.Column="2" Content="Refresh" Margin="4,0"
                                     Command="{Binding #RootControl.DataContext.RefreshProfileCommand}"
                                     CommandParameter="{Binding}"
                                     IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
-                            <Button Grid.Column="2" Content="Delete"
+                            <Button Grid.Column="3" Content="Delete"
                                     Command="{Binding #RootControl.DataContext.DeleteProfileCommand}"
                                     CommandParameter="{Binding}"
                                     IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
