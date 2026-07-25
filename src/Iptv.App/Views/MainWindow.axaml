@@ -37,11 +37,27 @@
             <ColumnDefinition Width="{Binding IsSettingsActive, Converter={StaticResource VideoColumnWidthConverter}}" />
         </Grid.ColumnDefinitions>
 
-        <Grid Grid.Column="0" RowDefinitions="Auto,*" IsVisible="{Binding !Player.IsFullscreen}">
+        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*" IsVisible="{Binding !Player.IsFullscreen}">
+            <!-- App-wide "X is starting now" banner for in-app EPG reminders (see GuideView's per-
+                 programme reminder toggle) - lives above the nav row so it's visible from any page,
+                 not just Guide. -->
+            <Border Grid.Row="0" Background="#2D5F3A" Padding="10,6" Margin="8,8,8,0" CornerRadius="4"
+                    IsVisible="{Binding HasDueReminder}">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap">
+                        <Run Text="{Binding DueReminder.ChannelName}" FontWeight="Bold" />
+                        <Run Text=" - " />
+                        <Run Text="{Binding DueReminder.ProgrammeTitle}" />
+                        <Run Text=" is starting now" />
+                    </TextBlock>
+                    <Button Grid.Column="1" Content="Watch" Command="{Binding WatchReminderCommand}" Margin="8,0,0,0" />
+                    <Button Grid.Column="2" Content="✕" Command="{Binding DismissReminderCommand}" Margin="4,0,0,0" />
+                </Grid>
+            </Border>
             <!-- Nav "pane" is just a row of buttons above the page content now, instead of its own
                  separate column - a WrapPanel lets it degrade gracefully (wrapping to a second row)
                  across the sidebar's resizable width range rather than clipping or squeezing. -->
-            <WrapPanel Grid.Row="0" Margin="8,8,8,4">
+            <WrapPanel Grid.Row="1" Margin="8,8,8,4">
                 <Button Content="Live TV" Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="0,0,4,4"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=LiveTv}"
                         FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=LiveTv}" />
@@ -62,7 +78,7 @@
                         FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Settings}" />
             </WrapPanel>
 
-            <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" />
+            <ContentControl Grid.Row="2" Content="{Binding CurrentPage}" />
         </Grid>
 
         <GridSplitter Grid.Column="1" Width="6" Background="Transparent"

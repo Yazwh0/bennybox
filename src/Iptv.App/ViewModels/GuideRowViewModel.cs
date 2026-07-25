@@ -6,13 +6,14 @@ namespace Iptv.App.ViewModels;
 public partial class GuideRowViewModel : ObservableObject
 {
     public Channel Channel { get; }
-    public IReadOnlyList<EpgProgramme> Programmes { get; }
+    public IReadOnlyList<ProgrammeViewModel> Programmes { get; }
     public DateTime WindowStart { get; }
     public DateTime WindowEnd { get; }
     public DateTime NowUtc { get; }
     public double PixelsPerMinute { get; }
     public Action<Channel>? TuneRequested { get; set; }
     public Action<Channel, EpgProgramme>? CatchupRequested { get; set; }
+    public Action<Channel, ProgrammeViewModel>? ReminderToggleRequested { get; set; }
 
     public string ChannelName => Channel.Name;
     public bool HasProgrammes => Programmes.Count > 0;
@@ -25,7 +26,7 @@ public partial class GuideRowViewModel : ObservableObject
 
     public GuideRowViewModel(
         Channel channel,
-        IReadOnlyList<EpgProgramme> programmes,
+        IReadOnlyList<ProgrammeViewModel> programmes,
         DateTime windowStart,
         DateTime windowEnd,
         DateTime nowUtc,

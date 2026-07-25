@@ -68,6 +68,7 @@ public class SqliteProfileRepository : IProfileRepository
             connection.Execute("DELETE FROM Movies WHERE ProfileId = @id", new { id });
             connection.Execute("DELETE FROM MovieCategories WHERE ProfileId = @id", new { id });
             connection.Execute("DELETE FROM WatchProgress WHERE ProfileId = @id", new { id });
+            connection.Execute("DELETE FROM Reminders WHERE ProfileId = @id", new { id });
             connection.Execute("DELETE FROM Profiles WHERE Id = @id", new { id });
         }, cancellationToken);
 }

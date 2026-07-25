@@ -133,5 +133,17 @@ internal static class SqliteSchema
         );
 
         CREATE INDEX IF NOT EXISTS IX_WatchProgress_UpdatedUtc ON WatchProgress(UpdatedUtc);
+
+        CREATE TABLE IF NOT EXISTS Reminders (
+            ProfileId TEXT NOT NULL,
+            ChannelTvgId TEXT NOT NULL,
+            StartUtc TEXT NOT NULL,
+            EndUtc TEXT NOT NULL,
+            ChannelName TEXT NOT NULL,
+            ProgrammeTitle TEXT NOT NULL,
+            PRIMARY KEY (ProfileId, ChannelTvgId, StartUtc)
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Reminders_StartUtc ON Reminders(StartUtc);
         """;
 }

@@ -1,16 +1,37 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Iptv.App.Messages;
+using Iptv.Core.Models;
+using Iptv.Core.Services;
 
 namespace Iptv.App.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private static readonly TimeSpan ReminderPollInterval = TimeSpan.FromSeconds(30);
+
+    // A reminder is only surfaced as a banner if it's this fresh - avoids a jarring "X is starting
+    // now" popping up for something that actually started hours/days ago (e.g. the app was closed
+    // when it fired). Stale reminders are still consumed/removed on the next poll, just silently.
+    private static readonly TimeSpan ReminderStalenessWindow = TimeSpan.FromHours(2);
+
+    private readonly IReminderRepository _reminderRepository;
+    private readonly IChannelRepository _channelRepository;
+    private readonly Queue<Reminder> _pendingReminders = new();
+    private readonly DispatcherTimer _reminderTimer;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
     [NotifyPropertyChangedFor(nameof(CurrentPageTag))]
     private ViewModelBase _currentPage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDueReminder))]
+    private Reminder? _dueReminder;
+
+    public bool HasDueReminder => DueReminder is not null;
 
     // Settings is the one page with no video area - MainWindow's single shared video/sidebar layout
     // (see MainWindow.axaml) uses this to give Settings the full window width instead of squeezing it
@@ -44,7 +65,9 @@ public partial class MainWindowViewModel : ViewModelBase
         MoviesViewModel movies,
         FavoritesViewModel favorites,
         SettingsViewModel settings,
-        PlayerViewModel player)
+        PlayerViewModel player,
+        IReminderRepository reminderRepository,
+        IChannelRepository channelRepository)
     {
         LiveTv = liveTv;
         Guide = guide;
@@ -53,6 +76,8 @@ public partial class MainWindowViewModel : ViewModelBase
         Favorites = favorites;
         Settings = settings;
         Player = player;
+        _reminderRepository = reminderRepository;
+        _channelRepository = channelRepository;
         _currentPage = liveTv;
 
         // A series/movie favorited elsewhere is opened by switching to its page and asking it to
@@ -68,6 +93,11 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentPage = Movies;
             Movies.SelectMovieCommand.Execute(new MovieListItemViewModel(message.Movie));
         });
+
+        _reminderTimer = new DispatcherTimer { Interval = ReminderPollInterval };
+        _reminderTimer.Tick += (_, _) => _ = CheckRemindersAsync();
+        _reminderTimer.Start();
+        _ = CheckRemindersAsync();
     }
 
     [RelayCommand]
@@ -83,5 +113,49 @@ public partial class MainWindowViewModel : ViewModelBase
             "Settings" => Settings,
             _ => CurrentPage
         };
+    }
+
+    private async Task CheckRemindersAsync()
+    {
+        var due = await _reminderRepository.GetDueAsync(DateTime.UtcNow);
+        foreach (var reminder in due)
+        {
+            if (DateTime.UtcNow - reminder.StartUtc <= ReminderStalenessWindow)
+            {
+                _pendingReminders.Enqueue(reminder);
+            }
+            await _reminderRepository.RemoveAsync(reminder.ProfileId, reminder.ChannelTvgId, reminder.StartUtc);
+        }
+
+        if (DueReminder is null && _pendingReminders.Count > 0)
+        {
+            DueReminder = _pendingReminders.Dequeue();
+        }
+    }
+
+    [RelayCommand]
+    private void DismissReminder()
+    {
+        DueReminder = _pendingReminders.Count > 0 ? _pendingReminders.Dequeue() : null;
+    }
+
+    [RelayCommand]
+    private async Task WatchReminderAsync()
+    {
+        if (DueReminder is { } reminder)
+        {
+            var channels = await _channelRepository.GetChannelsAsync(reminder.ProfileId);
+            var channel = channels.FirstOrDefault(c => c.TvgId == reminder.ChannelTvgId);
+            if (channel is not null)
+            {
+                if (IsSettingsActive)
+                {
+                    CurrentPage = LiveTv;
+                }
+                Player.PlayChannel(channel);
+            }
+        }
+
+        DismissReminder();
     }
 }

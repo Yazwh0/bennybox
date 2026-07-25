@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Iptv.App.ViewModels;
-using Iptv.Core.Models;
 
 namespace Iptv.App.Controls;
 
@@ -32,6 +31,7 @@ public class EpgRowControl : Control
     private static readonly IPen BlockBorderPen = new Pen(new SolidColorBrush(Color.FromRgb(25, 26, 31)), 1);
     private static readonly IBrush TextBrush = Brushes.White;
     private static readonly IPen NowLinePen = new Pen(Brushes.OrangeRed, 2);
+    private static readonly IBrush ReminderDotFill = Brushes.OrangeRed;
 
     static EpgRowControl()
     {
@@ -99,6 +99,11 @@ public class EpgRowControl : Control
                 context.DrawText(text, new Point(rect.X + 4, rect.Y + 4));
             }
 
+            if (programme.HasReminder)
+            {
+                context.DrawEllipse(ReminderDotFill, null, new Point(rect.Right - 8, rect.Y + 8), 4, 4);
+            }
+
             index++;
         }
 
@@ -134,13 +139,22 @@ public class EpgRowControl : Control
         }
         else if (IsCatchupAvailable(row, programme))
         {
-            row.CatchupRequested?.Invoke(row.Channel, programme);
+            row.CatchupRequested?.Invoke(row.Channel, programme.Programme);
+        }
+        else if (programme.StartUtc > row.NowUtc)
+        {
+            // Flip + redraw here, synchronously and optimistically - the control already holds the
+            // same ProgrammeViewModel the row was built from, so there's no need to wait on the
+            // ViewModel's async DB write just to reflect the toggle visually.
+            programme.HasReminder = !programme.HasReminder;
+            InvalidateVisual();
+            row.ReminderToggleRequested?.Invoke(row.Channel, programme);
         }
     }
 
     // A programme is catch-up-playable if it's already finished (not live, not upcoming), the channel
     // actually supports catch-up, and it's still within the provider's retention window.
-    private static bool IsCatchupAvailable(GuideRowViewModel row, EpgProgramme programme) =>
+    private static bool IsCatchupAvailable(GuideRowViewModel row, ProgrammeViewModel programme) =>
         programme.EndUtc <= row.NowUtc &&
         row.Channel.HasCatchup &&
         row.NowUtc - programme.StartUtc <= TimeSpan.FromDays(Math.Max(row.Channel.CatchupDays, 1));

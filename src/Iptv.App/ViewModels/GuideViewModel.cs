@@ -21,6 +21,7 @@ public partial class GuideViewModel : ViewModelBase
     private readonly IEpgRepository _epgRepository;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly TimeshiftUrlService _timeshiftUrlService;
+    private readonly IReminderRepository _reminderRepository;
     private readonly ILogger<GuideViewModel> _logger;
 
     // The full (category-filtered, sorted) row set for the current window - Rows is re-derived from
@@ -76,6 +77,7 @@ public partial class GuideViewModel : ViewModelBase
         IEpgRepository epgRepository,
         IFavoriteRepository favoriteRepository,
         TimeshiftUrlService timeshiftUrlService,
+        IReminderRepository reminderRepository,
         PlayerViewModel player,
         ILogger<GuideViewModel> logger)
     {
@@ -84,6 +86,7 @@ public partial class GuideViewModel : ViewModelBase
         _epgRepository = epgRepository;
         _favoriteRepository = favoriteRepository;
         _timeshiftUrlService = timeshiftUrlService;
+        _reminderRepository = reminderRepository;
         Player = player;
         _logger = logger;
 
@@ -233,6 +236,38 @@ public partial class GuideViewModel : ViewModelBase
 
     private void RequestCatchup(Channel channel, EpgProgramme programme) => _ = RequestCatchupAsync(channel, programme);
 
+    // The click that got us here already flipped programme.HasReminder and redrew the row (see
+    // EpgRowControl) - this just persists whatever state it's now in.
+    private void ToggleReminder(Channel channel, ProgrammeViewModel programme) => _ = ToggleReminderAsync(channel, programme);
+
+    private async Task ToggleReminderAsync(Channel channel, ProgrammeViewModel programme)
+    {
+        try
+        {
+            var tvgId = channel.TvgId ?? channel.SourceChannelId;
+            if (programme.HasReminder)
+            {
+                await _reminderRepository.AddAsync(new Reminder
+                {
+                    ProfileId = channel.ProfileId,
+                    ChannelTvgId = tvgId,
+                    StartUtc = programme.StartUtc,
+                    EndUtc = programme.EndUtc,
+                    ChannelName = channel.Name,
+                    ProgrammeTitle = programme.Title
+                });
+            }
+            else
+            {
+                await _reminderRepository.RemoveAsync(channel.ProfileId, tvgId, programme.StartUtc);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist reminder toggle for {Title}", programme.Title);
+        }
+    }
+
     private async Task RequestCatchupAsync(Channel channel, EpgProgramme programme)
     {
         try
@@ -264,6 +299,9 @@ public partial class GuideViewModel : ViewModelBase
             WindowEndUtc = windowEnd;
 
             var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
+            var reminderKeys = (await _reminderRepository.GetAllAsync())
+                .Select(r => (r.ProfileId, r.ChannelTvgId, r.StartUtc))
+                .ToHashSet();
             var profiles = await _profileRepository.GetAllAsync();
 
             var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Channel> Channels, IReadOnlyList<EpgProgramme> Programmes)>();
@@ -307,15 +345,20 @@ public partial class GuideViewModel : ViewModelBase
 
                     foreach (var channel in filteredChannels)
                     {
-                        var channelProgrammes = !string.IsNullOrEmpty(channel.TvgId) &&
-                                                 programmesByChannel.TryGetValue(channel.TvgId, out var found)
+                        var rawProgrammes = !string.IsNullOrEmpty(channel.TvgId) &&
+                                             programmesByChannel.TryGetValue(channel.TvgId, out var found)
                             ? found
                             : [];
+
+                        var channelProgrammes = rawProgrammes
+                            .Select(p => new ProgrammeViewModel(p, reminderKeys.Contains((channel.ProfileId, channel.TvgId!, p.StartUtc))))
+                            .ToList();
 
                         builtRows.Add(new GuideRowViewModel(channel, channelProgrammes, windowStart, windowEnd, nowUtc, PixelsPerMinute, favoriteIds.Contains(channel.Id))
                         {
                             TuneRequested = TuneChannel,
-                            CatchupRequested = RequestCatchup
+                            CatchupRequested = RequestCatchup,
+                            ReminderToggleRequested = ToggleReminder
                         });
                     }
                 }

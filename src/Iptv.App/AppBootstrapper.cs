@@ -64,6 +64,7 @@ internal static class AppBootstrapper
         services.AddSingleton<IFavoriteRepository, SqliteFavoriteRepository>();
         services.AddSingleton<IWatchProgressRepository, SqliteWatchProgressRepository>();
         services.AddSingleton<TimeshiftUrlService>();
+        services.AddSingleton<IReminderRepository, SqliteReminderRepository>();
         services.AddSingleton<ISettingsStore, SqliteSettingsStore>();
         services.AddSingleton<PlaylistImportService>();
         services.AddSingleton<EpgImportService>();
