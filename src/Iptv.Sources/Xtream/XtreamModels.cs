@@ -97,6 +97,40 @@ internal sealed class XtreamEpisodeInfo
     public string? Plot { get; set; }
 }
 
+// Unlike XtreamSeries, the bulk get_vod_streams listing does NOT include plot/genre/release date -
+// only get_vod_info (per-title) does. Rating is the one detail field genuinely available in bulk.
+internal sealed class XtreamVodStream
+{
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string StreamId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? StreamIcon { get; set; }
+    [JsonConverter(typeof(FlexibleStringConverter))]
+    public string? CategoryId { get; set; }
+    [JsonConverter(typeof(FlexibleDoubleConverter))]
+    public double? Rating { get; set; }
+    public string ContainerExtension { get; set; } = "mp4";
+}
+
+internal sealed class XtreamVodInfoResponse
+{
+    public XtreamVodInfoDetails? Info { get; set; }
+}
+
+internal sealed class XtreamVodInfoDetails
+{
+    public string? Plot { get; set; }
+    public string? Genre { get; set; }
+    // Unlike XtreamSeries.ReleaseDate, this field is genuinely all-lowercase with no separating
+    // underscore/camelCase - the default snake_case-lower policy would otherwise look for
+    // "release_date" and miss it entirely.
+    [JsonPropertyName("releasedate")]
+    public string? ReleaseDate { get; set; }
+    public string? Duration { get; set; }
+    [JsonConverter(typeof(FlexibleDoubleConverter))]
+    public double? Rating { get; set; }
+}
+
 // Xtream Codes panels are notoriously inconsistent about whether IDs are JSON strings or numbers.
 // This accepts either and normalizes to a string, since IDs are only ever used for lookup/matching, not arithmetic.
 internal sealed class FlexibleStringConverter : JsonConverter<string?>

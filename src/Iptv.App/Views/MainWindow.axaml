@@ -51,6 +51,9 @@
                 <Button Content="Series" Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="0,0,4,4"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Series}"
                         FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Series}" />
+                <Button Content="Movies" Command="{Binding NavigateCommand}" CommandParameter="Movies" Margin="0,0,4,4"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Movies}"
+                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Movies}" />
                 <Button Content="Favorites" Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="0,0,4,4"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Favorites}"
                         FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Favorites}" />

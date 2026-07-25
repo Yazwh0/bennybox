@@ -17,6 +17,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly PlaylistImportService _importService;
     private readonly EpgImportService _epgImportService;
     private readonly SeriesImportService _seriesImportService;
+    private readonly MovieImportService _movieImportService;
     private readonly ISettingsStore _settingsStore;
     private readonly ILogger<SettingsViewModel> _logger;
 
@@ -45,6 +46,7 @@ public partial class SettingsViewModel : ViewModelBase
         PlaylistImportService importService,
         EpgImportService epgImportService,
         SeriesImportService seriesImportService,
+        MovieImportService movieImportService,
         ISettingsStore settingsStore,
         ILogger<SettingsViewModel> logger)
     {
@@ -52,6 +54,7 @@ public partial class SettingsViewModel : ViewModelBase
         _importService = importService;
         _epgImportService = epgImportService;
         _seriesImportService = seriesImportService;
+        _movieImportService = movieImportService;
         _settingsStore = settingsStore;
         _logger = logger;
 
@@ -127,6 +130,12 @@ public partial class SettingsViewModel : ViewModelBase
                 StatusMessage += $" Imported {seriesResult.SeriesList.Count} series.";
             }
 
+            var movieResult = await _movieImportService.ImportAsync(profile);
+            if (movieResult is not null)
+            {
+                StatusMessage += $" Imported {movieResult.Movies.Count} movies.";
+            }
+
             await LoadProfilesAsync();
             WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
         }
@@ -171,6 +180,12 @@ public partial class SettingsViewModel : ViewModelBase
             if (seriesResult is not null && !result.NotModified)
             {
                 StatusMessage += $" {seriesResult.SeriesList.Count} series refreshed.";
+            }
+
+            var movieResult = await _movieImportService.ImportAsync(profile);
+            if (movieResult is not null && !result.NotModified)
+            {
+                StatusMessage += $" {movieResult.Movies.Count} movies refreshed.";
             }
 
             WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());

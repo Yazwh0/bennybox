@@ -87,6 +87,33 @@ internal static class SqliteSchema
             AddedUtc TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS MovieCategories (
+            Id TEXT NOT NULL,
+            ProfileId TEXT NOT NULL,
+            Name TEXT NOT NULL,
+            SortOrder INTEGER NOT NULL,
+            PRIMARY KEY (ProfileId, Id)
+        );
+
+        CREATE TABLE IF NOT EXISTS Movies (
+            Id TEXT PRIMARY KEY,
+            ProfileId TEXT NOT NULL,
+            SourceMovieId TEXT NOT NULL,
+            CategoryId TEXT,
+            Name TEXT NOT NULL,
+            CoverUrl TEXT,
+            StreamUrl TEXT NOT NULL,
+            Rating REAL
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Movies_ProfileId ON Movies(ProfileId);
+
+        CREATE TABLE IF NOT EXISTS MovieFavorites (
+            MovieId TEXT PRIMARY KEY,
+            ProfileId TEXT NOT NULL,
+            AddedUtc TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS Settings (
             Key TEXT PRIMARY KEY,
             Value TEXT NOT NULL

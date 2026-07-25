@@ -81,6 +81,27 @@
                             </Button>
                         </Grid>
                     </DataTemplate>
+                    <DataTemplate DataType="vm:MovieListItemViewModel">
+                        <Grid ColumnDefinitions="Auto,*" Margin="8,1">
+                            <Button Grid.Column="0"
+                                    Content="★"
+                                    Command="{Binding #RootControl.DataContext.RemoveMovieFavoriteCommand}"
+                                    CommandParameter="{Binding}"
+                                    VerticalAlignment="Stretch"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding #RootControl.DataContext.SelectMovieCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
+                                                                Width="44" Height="44" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>

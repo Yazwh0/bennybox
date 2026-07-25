@@ -85,11 +85,35 @@ public class XtreamClient
         return result ?? new XtreamSeriesInfoResponse();
     }
 
+    internal async Task<IReadOnlyList<XtreamCategory>> GetVodCategoriesAsync(string serverUrl, string username, string password, CancellationToken cancellationToken = default)
+    {
+        var url = BuildApiUrl(serverUrl, username, password, "get_vod_categories");
+        var result = await _httpClient.GetFromJsonAsync<List<XtreamCategory>>(url, JsonOptions, cancellationToken);
+        return result ?? [];
+    }
+
+    internal async Task<IReadOnlyList<XtreamVodStream>> GetVodStreamsAsync(string serverUrl, string username, string password, CancellationToken cancellationToken = default)
+    {
+        var url = BuildApiUrl(serverUrl, username, password, "get_vod_streams");
+        var result = await _httpClient.GetFromJsonAsync<List<XtreamVodStream>>(url, JsonOptions, cancellationToken);
+        return result ?? [];
+    }
+
+    internal async Task<XtreamVodInfoResponse> GetVodInfoAsync(string serverUrl, string username, string password, string vodId, CancellationToken cancellationToken = default)
+    {
+        var url = $"{BuildApiUrl(serverUrl, username, password, "get_vod_info")}&vod_id={Uri.EscapeDataString(vodId)}";
+        var result = await _httpClient.GetFromJsonAsync<XtreamVodInfoResponse>(url, JsonOptions, cancellationToken);
+        return result ?? new XtreamVodInfoResponse();
+    }
+
     public static string BuildStreamUrl(string serverUrl, string username, string password, string streamId, string extension = "m3u8") =>
         $"{serverUrl.TrimEnd('/')}/live/{Uri.EscapeDataString(username)}/{Uri.EscapeDataString(password)}/{streamId}.{extension}";
 
     public static string BuildSeriesEpisodeUrl(string serverUrl, string username, string password, string episodeId, string extension) =>
         $"{serverUrl.TrimEnd('/')}/series/{Uri.EscapeDataString(username)}/{Uri.EscapeDataString(password)}/{episodeId}.{extension}";
+
+    public static string BuildVodStreamUrl(string serverUrl, string username, string password, string streamId, string extension) =>
+        $"{serverUrl.TrimEnd('/')}/movie/{Uri.EscapeDataString(username)}/{Uri.EscapeDataString(password)}/{streamId}.{extension}";
 
     private static string BuildApiUrl(string serverUrl, string username, string password, string? action)
     {

@@ -130,6 +130,12 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         PlayUrl(episode.StreamUrl);
     }
 
+    public void PlayMovie(Movie movie)
+    {
+        NowPlayingChannelName = movie.Name;
+        PlayUrl(movie.StreamUrl);
+    }
+
     [RelayCommand]
     private void Stop()
     {

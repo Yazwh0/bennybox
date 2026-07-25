@@ -12,6 +12,8 @@ namespace Iptv.App.ViewModels;
 
 public partial class LiveTvViewModel : ViewModelBase
 {
+    private const string AllCategoriesLabel = "All Categories";
+
     private readonly IProfileRepository _profileRepository;
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
@@ -29,6 +31,7 @@ public partial class LiveTvViewModel : ViewModelBase
 
     // Flattened header+channel rows for a single virtualized list - see CategoryHeaderRow.
     public ObservableCollection<object> Rows { get; } = [];
+    public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
     [ObservableProperty]
     private Channel? _selectedChannel;
@@ -41,6 +44,9 @@ public partial class LiveTvViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _searchText = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedCategory = AllCategoriesLabel;
 
     public LiveTvViewModel(
         PlayerViewModel player,
@@ -114,25 +120,31 @@ public partial class LiveTvViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
-    partial void OnSearchTextChanged(string value)
+    partial void OnSearchTextChanged(string value) => DebounceApplyFilter();
+
+    partial void OnSelectedCategoryChanged(string value) => DebounceApplyFilter();
+
+    private void DebounceApplyFilter()
     {
         _searchCts?.Cancel();
         var cts = new CancellationTokenSource();
         _searchCts = cts;
-        _ = ApplyFilterDebouncedAsync(value, cts.Token);
+        _ = ApplyFilterDebouncedAsync(cts.Token);
     }
 
     // Every keystroke would otherwise re-scan 10k+ channels on the UI thread, which is what made
     // typing feel laggy. Debounce so we only filter once the user pauses, and do the scan itself on
     // a background thread so even a fast typist never blocks the UI.
-    private async Task ApplyFilterDebouncedAsync(string query, CancellationToken cancellationToken)
+    private async Task ApplyFilterDebouncedAsync(CancellationToken cancellationToken)
     {
         try
         {
             await Task.Delay(SearchDebounceDelay, cancellationToken);
 
             var snapshot = _allGroups;
-            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query.Trim())), cancellationToken);
+            var query = SearchText.Trim();
+            var category = SelectedCategory;
+            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query, category)), cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -152,24 +164,29 @@ public partial class LiveTvViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Superseded by a newer keystroke - just drop this pass.
+            // Superseded by a newer keystroke/category change - just drop this pass.
         }
     }
 
     private void ApplyFilter()
     {
         Rows.Clear();
-        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim())))
+        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim(), SelectedCategory)))
         {
             Rows.Add(row);
         }
     }
 
-    private static List<CategoryGroupViewModel> Filter(List<CategoryGroupViewModel> groups, string query)
+    private static List<CategoryGroupViewModel> Filter(List<CategoryGroupViewModel> groups, string query, string category)
     {
         var result = new List<CategoryGroupViewModel>();
         foreach (var group in groups)
         {
+            if (category != AllCategoriesLabel && group.Name != category)
+            {
+                continue;
+            }
+
             var matching = string.IsNullOrEmpty(query)
                 ? group.Channels
                 : group.Channels
@@ -243,6 +260,20 @@ public partial class LiveTvViewModel : ViewModelBase
 
                 return groups.OrderBy(g => g.Name).ToList();
             });
+
+            var selectedCategory = SelectedCategory;
+            Categories.Clear();
+            Categories.Add(AllCategoriesLabel);
+            foreach (var group in _allGroups)
+            {
+                Categories.Add(group.Name);
+            }
+
+            if (!Categories.Contains(selectedCategory))
+            {
+                selectedCategory = AllCategoriesLabel;
+            }
+            SelectedCategory = selectedCategory;
 
             ApplyFilter();
         }

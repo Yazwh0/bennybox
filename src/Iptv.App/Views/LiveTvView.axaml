@@ -7,10 +7,13 @@
              x:DataType="vm:LiveTvViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="8,8,8,4">
-            <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels..." />
-            <Button Grid.Column="1" Content="&#8635;" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh" Margin="6,0,0,0" />
-        </Grid>
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels..." />
+                <Button Grid.Column="1" Content="&#8635;" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh" Margin="6,0,0,0" />
+            </Grid>
+            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+        </StackPanel>
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
                     IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />

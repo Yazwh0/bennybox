@@ -23,6 +23,7 @@ public partial class MainWindowViewModel : ViewModelBase
         LiveTvViewModel => "LiveTv",
         GuideViewModel => "Guide",
         SeriesViewModel => "Series",
+        MoviesViewModel => "Movies",
         FavoritesViewModel => "Favorites",
         SettingsViewModel => "Settings",
         _ => ""
@@ -31,6 +32,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public LiveTvViewModel LiveTv { get; }
     public GuideViewModel Guide { get; }
     public SeriesViewModel Series { get; }
+    public MoviesViewModel Movies { get; }
     public FavoritesViewModel Favorites { get; }
     public SettingsViewModel Settings { get; }
     public PlayerViewModel Player { get; }
@@ -39,6 +41,7 @@ public partial class MainWindowViewModel : ViewModelBase
         LiveTvViewModel liveTv,
         GuideViewModel guide,
         SeriesViewModel series,
+        MoviesViewModel movies,
         FavoritesViewModel favorites,
         SettingsViewModel settings,
         PlayerViewModel player)
@@ -46,17 +49,24 @@ public partial class MainWindowViewModel : ViewModelBase
         LiveTv = liveTv;
         Guide = guide;
         Series = series;
+        Movies = movies;
         Favorites = favorites;
         Settings = settings;
         Player = player;
         _currentPage = liveTv;
 
-        // A series favorited elsewhere is opened by switching to the Series page and asking it to
-        // select that series, reusing its existing "open a series" flow rather than duplicating it.
+        // A series/movie favorited elsewhere is opened by switching to its page and asking it to
+        // select that item, reusing the existing "open a series/movie" flow rather than duplicating it.
         WeakReferenceMessenger.Default.Register<OpenSeriesMessage>(this, (_, message) =>
         {
             CurrentPage = Series;
             Series.SelectSeriesCommand.Execute(new SeriesListItemViewModel(message.Series));
+        });
+
+        WeakReferenceMessenger.Default.Register<OpenMovieMessage>(this, (_, message) =>
+        {
+            CurrentPage = Movies;
+            Movies.SelectMovieCommand.Execute(new MovieListItemViewModel(message.Movie));
         });
     }
 
@@ -68,6 +78,7 @@ public partial class MainWindowViewModel : ViewModelBase
             "LiveTv" => LiveTv,
             "Guide" => Guide,
             "Series" => Series,
+            "Movies" => Movies,
             "Favorites" => Favorites,
             "Settings" => Settings,
             _ => CurrentPage

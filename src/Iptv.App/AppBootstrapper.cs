@@ -51,6 +51,7 @@ internal static class AppBootstrapper
         services.AddTransient<LiveTvViewModel>();
         services.AddTransient<GuideViewModel>();
         services.AddTransient<SeriesViewModel>();
+        services.AddTransient<MoviesViewModel>();
         services.AddTransient<FavoritesViewModel>();
         services.AddTransient<SettingsViewModel>();
 
@@ -59,11 +60,13 @@ internal static class AppBootstrapper
         services.AddSingleton<IChannelRepository, SqliteChannelRepository>();
         services.AddSingleton<IEpgRepository, SqliteEpgRepository>();
         services.AddSingleton<ISeriesRepository, SqliteSeriesRepository>();
+        services.AddSingleton<IMovieRepository, SqliteMovieRepository>();
         services.AddSingleton<IFavoriteRepository, SqliteFavoriteRepository>();
         services.AddSingleton<ISettingsStore, SqliteSettingsStore>();
         services.AddSingleton<PlaylistImportService>();
         services.AddSingleton<EpgImportService>();
         services.AddSingleton<SeriesImportService>();
+        services.AddSingleton<MovieImportService>();
 
         // Some IPTV providers block requests with no User-Agent header (HttpClient sends none by default, unlike curl/browsers).
         const string userAgent = "BennyBox/1.0";
@@ -78,6 +81,8 @@ internal static class AppBootstrapper
         services.AddSingleton<IChannelSource>(sp => sp.GetRequiredService<XtreamChannelSource>());
         services.AddSingleton<XtreamSeriesSource>();
         services.AddSingleton<ISeriesSource>(sp => sp.GetRequiredService<XtreamSeriesSource>());
+        services.AddSingleton<XtreamMovieSource>();
+        services.AddSingleton<IMovieSource>(sp => sp.GetRequiredService<XtreamMovieSource>());
         services.AddTransient<AddProfileViewModel>();
 
         services.AddHttpClient<XmltvEpgSource>(client =>

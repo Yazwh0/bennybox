@@ -10,55 +10,47 @@ using Microsoft.Extensions.Logging;
 
 namespace Iptv.App.ViewModels;
 
-public partial class SeriesViewModel : ViewModelBase
+public partial class MoviesViewModel : ViewModelBase
 {
     private const string AllCategoriesLabel = "All Categories";
 
     private readonly IProfileRepository _profileRepository;
-    private readonly ISeriesRepository _seriesRepository;
-    private readonly SeriesImportService _seriesImportService;
+    private readonly IMovieRepository _movieRepository;
+    private readonly MovieImportService _movieImportService;
     private readonly IFavoriteRepository _favoriteRepository;
-    private readonly ILogger<SeriesViewModel> _logger;
+    private readonly ILogger<MoviesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
-    private List<SeriesCategoryGroupViewModel> _allGroups = [];
+    private List<MovieCategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
 
-    // Keyed by ProfileSource.Id so episodes are always fetched using the credentials of whichever
-    // profile actually owns the clicked series - a single shared "current profile" field would silently
-    // use the wrong (e.g. last-loaded) profile's credentials whenever more than one Xtream profile has
-    // series, since series across profiles are merged into one browsing list.
-    private Dictionary<Guid, ProfileSource> _seriesProfilesById = [];
+    // Keyed by ProfileSource.Id so a movie's details/playback always use the credentials of whichever
+    // profile actually owns it - see the equivalent field in SeriesViewModel for why a single shared
+    // "current profile" field is wrong once more than one Xtream profile has content.
+    private Dictionary<Guid, ProfileSource> _movieProfilesById = [];
 
-    public string Title => "Series";
+    public string Title => "Movies";
 
     public PlayerViewModel Player { get; }
 
-    // Flattened header+series rows for a single virtualized list, shown while browsing (see
+    // Flattened header+movie rows for a single virtualized list, shown while browsing (see
     // CategoryHeaderRow) - same rationale as LiveTvViewModel.Rows.
     public ObservableCollection<object> Rows { get; } = [];
-
-    // Flattened season-header+episode rows for the selected series, shown instead of Rows once a
-    // series is opened.
-    public ObservableCollection<object> Episodes { get; } = [];
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
     [ObservableProperty]
-    private SeriesListItemViewModel? _selectedSeries;
+    private MovieListItemViewModel? _selectedMovie;
 
     [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
-    private bool _isLoadingEpisodes;
-
-    [ObservableProperty]
     private string? _loadError;
 
     [ObservableProperty]
-    private bool _hasNoSeries;
+    private bool _hasNoMovies;
 
     [ObservableProperty]
     private bool _hasNoMatches;
@@ -69,32 +61,32 @@ public partial class SeriesViewModel : ViewModelBase
     [ObservableProperty]
     private string _selectedCategory = AllCategoriesLabel;
 
-    public SeriesViewModel(
+    public MoviesViewModel(
         PlayerViewModel player,
         IProfileRepository profileRepository,
-        ISeriesRepository seriesRepository,
-        SeriesImportService seriesImportService,
+        IMovieRepository movieRepository,
+        MovieImportService movieImportService,
         IFavoriteRepository favoriteRepository,
-        ILogger<SeriesViewModel> logger)
+        ILogger<MoviesViewModel> logger)
     {
         Player = player;
         _profileRepository = profileRepository;
-        _seriesRepository = seriesRepository;
-        _seriesImportService = seriesImportService;
+        _movieRepository = movieRepository;
+        _movieImportService = movieImportService;
         _favoriteRepository = favoriteRepository;
         _logger = logger;
 
-        WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadSeriesAsync());
+        WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadMoviesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
-        _ = LoadSeriesAsync();
+        _ = LoadMoviesAsync();
     }
 
     [RelayCommand]
-    private async Task RefreshAsync() => await LoadSeriesAsync();
+    private async Task RefreshAsync() => await LoadMoviesAsync();
 
     [RelayCommand]
-    private async Task ToggleFavoriteAsync(SeriesListItemViewModel? item)
+    private async Task ToggleFavoriteAsync(MovieListItemViewModel? item)
     {
         if (item is null)
         {
@@ -103,86 +95,78 @@ public partial class SeriesViewModel : ViewModelBase
 
         if (item.IsFavorite)
         {
-            await _favoriteRepository.RemoveSeriesAsync(item.Series.Id);
+            await _favoriteRepository.RemoveMovieAsync(item.Movie.Id);
             item.IsFavorite = false;
         }
         else
         {
-            await _favoriteRepository.AddSeriesAsync(item.Series.ProfileId, item.Series.Id);
+            await _favoriteRepository.AddMovieAsync(item.Movie.ProfileId, item.Movie.Id);
             item.IsFavorite = true;
         }
 
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
-    // A favorite can be toggled from this page, Favorites, or nowhere else (Guide/Live TV don't show
-    // series) - but Favorites removing one should still update this page's stars without a full
-    // reload (which would re-fetch every series from the database just to flip some booleans).
+    // Same rationale as SeriesViewModel.RefreshFavoriteFlagsAsync - keep this page's stars in sync
+    // without a full reload when a favorite is toggled elsewhere (e.g. Favorites' remove button).
     private async Task RefreshFavoriteFlagsAsync()
     {
-        var favoriteIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
+        var favoriteIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
         foreach (var group in _allGroups)
         {
-            foreach (var series in group.Series)
+            foreach (var movie in group.Movies)
             {
-                series.IsFavorite = favoriteIds.Contains(series.Series.Id);
+                movie.IsFavorite = favoriteIds.Contains(movie.Movie.Id);
             }
         }
     }
 
     [RelayCommand]
-    private async Task SelectSeriesAsync(SeriesListItemViewModel? series)
+    private async Task SelectMovieAsync(MovieListItemViewModel? movie)
     {
-        if (series is null || !_seriesProfilesById.TryGetValue(series.Series.ProfileId, out var profile))
+        if (movie is null)
         {
             return;
         }
 
-        SelectedSeries = series;
-        Episodes.Clear();
-        IsLoadingEpisodes = true;
+        SelectedMovie = movie;
+
+        if (movie.HasPlot || !_movieProfilesById.TryGetValue(movie.Movie.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        movie.IsLoadingDetails = true;
         try
         {
-            var episodes = await _seriesImportService.GetEpisodesAsync(profile, series.Series);
-
-            var rows = new List<object>();
-            foreach (var seasonGroup in episodes.GroupBy(e => e.Season).OrderBy(g => g.Key))
+            var details = await _movieImportService.GetDetailsAsync(profile, movie.Movie);
+            if (details is not null)
             {
-                rows.Add(new CategoryHeaderRow($"Season {seasonGroup.Key}"));
-                rows.AddRange(seasonGroup.Select(e => new EpisodeListItemViewModel(e)));
-            }
-
-            foreach (var row in rows)
-            {
-                Episodes.Add(row);
+                movie.ApplyDetails(details);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load episodes for series {SeriesName}", series.Name);
+            _logger.LogError(ex, "Failed to load details for movie {MovieName}", movie.Name);
         }
         finally
         {
-            IsLoadingEpisodes = false;
+            movie.IsLoadingDetails = false;
         }
     }
 
     [RelayCommand]
-    private void BackToList()
-    {
-        SelectedSeries = null;
-        Episodes.Clear();
-    }
+    private void BackToList() => SelectedMovie = null;
 
     [RelayCommand]
-    private void PlayEpisode(EpisodeListItemViewModel? episode)
+    private void PlayMovie(MovieListItemViewModel? movie)
     {
-        if (episode is null)
+        if (movie is null)
         {
             return;
         }
 
-        Player.PlayEpisode(episode.Episode);
+        Player.PlayMovie(movie.Movie);
     }
 
     partial void OnSearchTextChanged(string value) => DebounceApplyFilter();
@@ -197,8 +181,8 @@ public partial class SeriesViewModel : ViewModelBase
         _ = ApplyFilterDebouncedAsync(cts.Token);
     }
 
-    // Same rationale as LiveTvViewModel: debounce so we only filter once the user pauses typing, and
-    // do the scan on a background thread so a large series library never blocks the UI.
+    // Same rationale as LiveTvViewModel/SeriesViewModel: debounce so we only filter once the user
+    // pauses typing, and do the scan on a background thread so a large library never blocks the UI.
     private async Task ApplyFilterDebouncedAsync(CancellationToken cancellationToken)
     {
         try
@@ -240,13 +224,13 @@ public partial class SeriesViewModel : ViewModelBase
         {
             Rows.Add(row);
         }
-        HasNoSeries = _allGroups.Count == 0;
+        HasNoMovies = _allGroups.Count == 0;
         HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
     }
 
-    private static List<SeriesCategoryGroupViewModel> Filter(List<SeriesCategoryGroupViewModel> groups, string query, string category)
+    private static List<MovieCategoryGroupViewModel> Filter(List<MovieCategoryGroupViewModel> groups, string query, string category)
     {
-        var result = new List<SeriesCategoryGroupViewModel>();
+        var result = new List<MovieCategoryGroupViewModel>();
         foreach (var group in groups)
         {
             if (category != AllCategoriesLabel && group.Name != category)
@@ -255,79 +239,79 @@ public partial class SeriesViewModel : ViewModelBase
             }
 
             var matching = string.IsNullOrEmpty(query)
-                ? group.Series
-                : group.Series.Where(s => s.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+                ? group.Movies
+                : group.Movies.Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
 
             if (matching.Count == 0)
             {
                 continue;
             }
 
-            result.Add(new SeriesCategoryGroupViewModel(group.Name, matching));
+            result.Add(new MovieCategoryGroupViewModel(group.Name, matching));
         }
 
         return result;
     }
 
-    private static List<object> Flatten(List<SeriesCategoryGroupViewModel> groups)
+    private static List<object> Flatten(List<MovieCategoryGroupViewModel> groups)
     {
         var rows = new List<object>();
         foreach (var group in groups)
         {
             rows.Add(new CategoryHeaderRow(group.Name));
-            rows.AddRange(group.Series);
+            rows.AddRange(group.Movies);
         }
 
         return rows;
     }
 
-    private async Task LoadSeriesAsync()
+    private async Task LoadMoviesAsync()
     {
         IsLoading = true;
         LoadError = null;
         try
         {
-            var favoriteIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
+            var favoriteIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
             var profiles = await _profileRepository.GetAllAsync();
 
-            // Series is Xtream-specific (no equivalent structured API for M3U) - every Xtream profile
-            // with any imported series contributes to the browsing list, same as Live TV merges
+            // Movies is Xtream-specific (no equivalent structured API for M3U) - every Xtream profile
+            // with any imported movies contributes to the browsing list, same as Live TV merges
             // channels across all profiles.
-            var profileData = new List<(ProfileSource Profile, IReadOnlyList<Category> Categories, IReadOnlyList<Series> SeriesList)>();
-            var seriesProfilesById = new Dictionary<Guid, ProfileSource>();
+            var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Movie> MovieList)>();
+            var movieProfilesById = new Dictionary<Guid, ProfileSource>();
             foreach (var profile in profiles)
             {
-                var categories = await _seriesRepository.GetCategoriesAsync(profile.Id);
-                var seriesList = await _seriesRepository.GetSeriesAsync(profile.Id);
-                if (seriesList.Count == 0)
+                var categories = await _movieRepository.GetCategoriesAsync(profile.Id);
+                var movieList = await _movieRepository.GetMoviesAsync(profile.Id);
+                if (movieList.Count == 0)
                 {
                     continue;
                 }
 
-                profileData.Add((profile, categories, seriesList));
-                seriesProfilesById[profile.Id] = profile;
+                profileData.Add((categories, movieList));
+                movieProfilesById[profile.Id] = profile;
             }
-            _seriesProfilesById = seriesProfilesById;
+            _movieProfilesById = movieProfilesById;
 
             // Grouping/sorting/object-construction can be real CPU work for a large library - keep it
             // off the UI thread, same rationale as LiveTvViewModel.
             _allGroups = await Task.Run(() =>
             {
-                var groups = new List<SeriesCategoryGroupViewModel>();
-                foreach (var (_, categories, seriesList) in profileData)
+                var groups = new List<MovieCategoryGroupViewModel>();
+                foreach (var (categories, movieList) in profileData)
                 {
-                    var seriesByCategory = seriesList.ToLookup(s => s.CategoryId);
+                    var moviesByCategory = movieList.ToLookup(m => m.CategoryId);
                     foreach (var category in categories)
                     {
-                        var categorySeries = seriesByCategory[category.Id]
-                            .Select(s => new SeriesListItemViewModel(s, favoriteIds.Contains(s.Id)))
+                        var categoryMovies = moviesByCategory[category.Id]
+                            .Select(m => new MovieListItemViewModel(m, favoriteIds.Contains(m.Id)))
                             .ToList();
-                        if (categorySeries.Count == 0)
+                        if (categoryMovies.Count == 0)
                         {
                             continue;
                         }
 
-                        groups.Add(new SeriesCategoryGroupViewModel(category.Name, categorySeries));
+                        groups.Add(new MovieCategoryGroupViewModel(category.Name, categoryMovies));
                     }
                 }
 
@@ -352,8 +336,8 @@ public partial class SeriesViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            LoadError = "Failed to load series.";
-            _logger.LogError(ex, "Failed to load series");
+            LoadError = "Failed to load movies.";
+            _logger.LogError(ex, "Failed to load movies");
         }
         finally
         {
