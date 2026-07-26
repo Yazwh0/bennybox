@@ -9,7 +9,12 @@
     <Product>Benny Box</Product>
     <Company>BitMagic</Company>
     <PackageId>BitMagic.BennyBox</PackageId>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />

@@ -6,6 +6,7 @@
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         x:Class="BitMagic.BennyBox.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        Icon="avares://BitMagic.BennyBox/Assets/icon.ico"
         Title="Benny Box"
         Width="1280" Height="800">
     <!-- The video area lives here once, permanently, rather than once per page (as it used to).

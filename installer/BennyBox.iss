@@ -45,7 +45,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
-; No app icon or code-signing certificate yet - installer ships unsigned, using Inno's default icon.
+SetupIconFile=..\src\BitMagic.BennyBox\Assets\icon.ico
+; No code-signing certificate yet - installer ships unsigned.
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
