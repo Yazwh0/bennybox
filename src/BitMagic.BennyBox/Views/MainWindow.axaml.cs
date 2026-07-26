@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using BitMagic.BennyBox.ViewModels;
 using BitMagic.BennyBox.Core.Services;
+using FluentAvalonia.UI.Controls;
 
 namespace BitMagic.BennyBox.Views;
 
@@ -14,12 +15,15 @@ public partial class MainWindow : Window
 {
     private readonly ISettingsStore _settingsStore;
     private readonly PlayerViewModel _player;
+    private readonly MainWindowViewModel _mainWindowViewModel;
     private WindowState _windowStateBeforeFullscreen = WindowState.Normal;
+    private bool _forceClosing;
 
-    public MainWindow(ISettingsStore settingsStore, PlayerViewModel player)
+    public MainWindow(ISettingsStore settingsStore, PlayerViewModel player, MainWindowViewModel mainWindowViewModel)
     {
         _settingsStore = settingsStore;
         _player = player;
+        _mainWindowViewModel = mainWindowViewModel;
         InitializeComponent();
         Opened += OnOpened;
         Closing += OnClosing;
@@ -136,7 +140,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnClosing(object? sender, WindowClosingEventArgs e)
+    private async void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         // Never persist FullScreen itself - if the user closes while fullscreen, remember what was active before it.
         var effectiveState = _player.IsFullscreen ? _windowStateBeforeFullscreen : WindowState;
@@ -144,5 +148,30 @@ public partial class MainWindow : Window
         var width = state == WindowState.Maximized ? Width : Bounds.Width;
         var height = state == WindowState.Maximized ? Height : Bounds.Height;
         _ = _settingsStore.SetAsync("WindowState", $"{width}|{height}|{state}");
+
+        // _forceClosing lets the "Force Exit" branch below re-invoke Close() without looping back
+        // into this same warning - the second pass falls straight through instead of re-cancelling.
+        if (_forceClosing || !_mainWindowViewModel.IsAnyRefreshInProgress)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+
+        var dialog = new FAContentDialog
+        {
+            Title = "Refresh in progress",
+            Content = "A refresh is still running. Closing now may leave channels, the guide, or your library partially updated.",
+            PrimaryButtonText = "Force Exit",
+            CloseButtonText = "Wait",
+            DefaultButton = FAContentDialogButton.Close
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == FAContentDialogResult.Primary)
+        {
+            _forceClosing = true;
+            Close();
+        }
     }
 }

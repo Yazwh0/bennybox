@@ -50,6 +50,13 @@ public partial class MainWindowViewModel : ViewModelBase
         _ => ""
     };
 
+    // Checked once at window-close time (see MainWindow.OnClosing) rather than kept as a bound,
+    // change-notifying property - nothing displays this live, so there's no need to wire up
+    // PropertyChanged forwarding from six separate child view models just to answer "is anything
+    // still loading right now?" on demand.
+    public bool IsAnyRefreshInProgress =>
+        LiveTv.IsLoading || Guide.IsLoading || Series.IsLoading || Movies.IsLoading || Favorites.IsLoading || Settings.IsBusy;
+
     public LiveTvViewModel LiveTv { get; }
     public GuideViewModel Guide { get; }
     public SeriesViewModel Series { get; }
