@@ -32,6 +32,18 @@ public class SqliteConnectionFactory
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
 
+        // Every repository call opens its own connection (see comment below), so with the default
+        // rollback journal and a 0ms busy timeout, any two connections touching the DB at the same
+        // moment - e.g. a refresh's write transaction still running when the window closes and
+        // fire-and-forget-saves WindowState - throw SQLITE_BUSY ("database is locked") immediately
+        // instead of one just waiting for the other. WAL lets readers and a writer run concurrently,
+        // and the busy timeout makes writer-vs-writer contention wait briefly instead of throwing.
+        using (var pragma = connection.CreateCommand())
+        {
+            pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;";
+            pragma.ExecuteNonQuery();
+        }
+
         EnsureSchemaCreated(connection);
         EnsureMigrations(connection);
 
