@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -62,6 +63,11 @@ public partial class FavoritesViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = LoadAsync());
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadAsync());
+        // Playback progress changes (a stop/switch, or completion) fire far more often than actual
+        // favorite add/remove - a full LoadAsync() reload on every one flickers the whole page (see
+        // Rows.Clear() below) for a change that's scoped to the "Continue Watching" section, so this
+        // gets a narrower handler that only splices that section back in.
+        WeakReferenceMessenger.Default.Register<WatchProgressUpdatedMessage>(this, (_, _) => _ = RefreshContinueWatchingAsync());
 
         _ = LoadAsync();
     }
@@ -149,7 +155,64 @@ public partial class FavoritesViewModel : ViewModelBase
         }
 
         await _watchProgressRepository.RemoveAsync(item.Progress.ProfileId, item.Progress.ContentType, item.Progress.ContentKey);
-        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+
+        // Targeted removal instead of a full reload - removing one row doesn't need every other
+        // favorite/channel/series/movie row on the page to be torn down and rebuilt.
+        var index = Rows.IndexOf(item);
+        if (index >= 0)
+        {
+            Rows.RemoveAt(index);
+            var wasLastInSection = index >= Rows.Count || Rows[index] is not WatchProgressItemViewModel;
+            if (index > 0 && wasLastInSection && Rows[index - 1] is CategoryHeaderRow { Name: "Continue Watching" })
+            {
+                Rows.RemoveAt(index - 1);
+            }
+        }
+
+        HasNoFavorites = Rows.Count == 0;
+    }
+
+    // Playback progress changes far more often than favorites do, so this only re-fetches and
+    // splices the "Continue Watching" section - which is always first, per LoadAsync's ordering -
+    // leaving the Channels/Series/Movies rows below it untouched.
+    private async Task RefreshContinueWatchingAsync()
+    {
+        IReadOnlyList<WatchProgress> recentProgress;
+        try
+        {
+            recentProgress = await _watchProgressRepository.GetRecentAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh continue watching");
+            return;
+        }
+
+        var oldCount = 0;
+        if (Rows.Count > 0 && Rows[0] is CategoryHeaderRow { Name: "Continue Watching" })
+        {
+            oldCount = 1;
+            while (oldCount < Rows.Count && Rows[oldCount] is WatchProgressItemViewModel)
+            {
+                oldCount++;
+            }
+        }
+
+        for (var i = oldCount - 1; i >= 0; i--)
+        {
+            Rows.RemoveAt(i);
+        }
+
+        if (recentProgress.Count > 0)
+        {
+            Rows.Insert(0, new CategoryHeaderRow("Continue Watching"));
+            for (var i = 0; i < recentProgress.Count; i++)
+            {
+                Rows.Insert(1 + i, new WatchProgressItemViewModel(recentProgress[i]));
+            }
+        }
+
+        HasNoFavorites = Rows.Count == 0;
     }
 
     private async Task LoadAsync()
@@ -230,6 +293,12 @@ public partial class FavoritesViewModel : ViewModelBase
             }
 
             HasNoFavorites = channelItems.Count == 0 && seriesItems.Count == 0 && movieItems.Count == 0 && recentProgress.Count == 0;
+
+            // The Rows.Add() calls above don't finish re-realizing/rendering synchronously - that
+            // layout pass is queued, not immediate. Without this, IsLoading flips back to false -
+            // hiding the spinner - a frame or two before the list has actually caught up, which reads
+            // as "it says it's done but the list is still updating" (same fix as GuideViewModel.LoadAsync).
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
         }
         catch (Exception ex)
         {

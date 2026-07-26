@@ -485,9 +485,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
         // Only worth telling Favorites' "Continue Watching" list to refresh if there was actually
         // tracked content to finalize - avoids a spurious broadcast on every plain channel switch.
+        // A dedicated message (rather than FavoritesUpdatedMessage) lets Favorites re-fetch just that
+        // section instead of doing a full-page reload on every single playback stop/switch.
         if (_currentContentType is not null)
         {
-            WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+            WeakReferenceMessenger.Default.Send(new WatchProgressUpdatedMessage());
         }
 
         _currentContentType = null;
