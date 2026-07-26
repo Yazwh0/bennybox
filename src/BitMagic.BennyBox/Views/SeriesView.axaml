@@ -11,11 +11,19 @@
         <!-- Browsing mode: search + refresh + category filter + the flattened category/series list. -->
         <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4"
                     IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNull}}">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search series..." />
-                <Button Grid.Column="1" Content="&#8635;" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh" Margin="6,0,0,0" />
+                <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                    Width="18" Height="18" Margin="6,0,0,0" ToolTip.Tip="Refreshing..." />
+                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
+                        ToolTip.Tip="Refresh" Margin="6,0,0,0" />
             </Grid>
-            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+            <!-- A plain ComboBox for standard click-to-open/select behavior, with a separate TextBox
+                 to narrow which categories it shows (FilteredCategories) - typing here never touches
+                 SelectedCategory itself, only picking an item from the ComboBox does. -->
+            <TextBox Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
+            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+                      HorizontalAlignment="Stretch" />
         </StackPanel>
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
                     IsVisible="{Binding IsLoading}">

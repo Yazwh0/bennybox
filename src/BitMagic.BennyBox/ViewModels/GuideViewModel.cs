@@ -44,10 +44,24 @@ public partial class GuideViewModel : ViewModelBase
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
+    // What the category ComboBox actually shows - narrowed by CategoryFilterText, but always a
+    // subset of Categories. Kept separate so typing a filter query never touches SelectedCategory
+    // (and so re-triggers a full reload) until an item is actually picked from the (possibly
+    // narrowed) list. Replaced wholesale (not mutated via Clear()+Add()) - clearing the ComboBox's
+    // bound ItemsSource down to zero items, even briefly, resets its selection, and since
+    // SelectedCategory is often unchanged across a reload (no PropertyChanged fires to re-push it)
+    // that selection never came back. A one-shot swap to an already-complete list avoids that empty
+    // gap entirely.
+    [ObservableProperty]
+    private ObservableCollection<string> _filteredCategories = [AllCategoriesLabel];
+
     public double PixelsPerMinute => PixelsPerMinuteValue;
 
     [ObservableProperty]
     private string _selectedCategory = AllCategoriesLabel;
+
+    [ObservableProperty]
+    private string _categoryFilterText = string.Empty;
 
     [ObservableProperty]
     private bool _hideEmptyChannels = true;
@@ -101,6 +115,19 @@ public partial class GuideViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
         _ = LoadAsync();
+    }
+
+    // The timeline (EpgRowControl) only tunes when a click lands inside a rendered programme block,
+    // so a channel with no EPG data in the current window (or a click in the dead space around
+    // programmes) had no way to be tuned from Guide at all. This gives the channel name/logo column
+    // an always-available tune action that doesn't depend on EPG data being present.
+    [RelayCommand]
+    private void SelectChannel(GuideRowViewModel? row)
+    {
+        if (row is not null)
+        {
+            Player.PlayChannel(row.Channel);
+        }
     }
 
     [RelayCommand]
@@ -163,7 +190,49 @@ public partial class GuideViewModel : ViewModelBase
     [RelayCommand]
     private async Task RefreshAsync() => await LoadAsync();
 
-    partial void OnSelectedCategoryChanged(string value) => _ = LoadAsync();
+    // The ComboBox transiently nulls its own selection whenever FilteredCategories is swapped to a
+    // new collection (see ApplyCategoryFilter) - even though the new list still contains a matching
+    // entry, that null still gets pushed through the TwoWay binding. Reacting to it here would call
+    // LoadAsync, which calls ApplyCategoryFilter again, which nulls the selection again - a tight,
+    // self-sustaining reload loop (hundreds of calls a second) that showed up as the "Loading guide"
+    // overlay flashing continuously. Ignoring the null breaks the cycle; the ComboBox resolves back
+    // to the real value on its own without any help from here.
+    partial void OnSelectedCategoryChanged(string value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        _ = LoadAsync();
+    }
+
+    partial void OnCategoryFilterTextChanged(string value) => ApplyCategoryFilter();
+
+    // Narrows the ComboBox's visible options as you type, without touching Categories (the source of
+    // truth) or SelectedCategory itself. The current selection is always kept in the list even if it
+    // doesn't match the filter, so typing to browse for something else never silently clears - and
+    // never has the ComboBox null out - what's already selected.
+    private void ApplyCategoryFilter()
+    {
+        var query = CategoryFilterText.Trim();
+        var matching = Categories.Where(category =>
+            string.IsNullOrEmpty(query) ||
+            category.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            category == SelectedCategory).ToList();
+
+        // Only actually replace the collection if its contents changed - reassigning on every single
+        // reload (even when nothing about the category list or filter actually changed) makes the
+        // ComboBox reset and transiently null its own selection every time, which OnSelectedCategoryChanged
+        // reacts to by reloading again - a self-sustaining loop that showed up as the "Loading guide"
+        // overlay flashing continuously. The null-guard on OnSelectedCategoryChanged alone wasn't
+        // enough: the ComboBox still resolves back to the real value a moment later, and that
+        // *non-null* change was itself enough to keep the cycle going every time this ran.
+        if (!matching.SequenceEqual(FilteredCategories))
+        {
+            FilteredCategories = new ObservableCollection<string>(matching);
+        }
+    }
 
     partial void OnHideEmptyChannelsChanged(bool value) => DebounceApplyRowFilter();
 
@@ -378,9 +447,18 @@ public partial class GuideViewModel : ViewModelBase
                 selectedCategory = AllCategoriesLabel;
             }
             SelectedCategory = selectedCategory;
+            ApplyCategoryFilter();
 
             _allRows = rows.OrderBy(r => r.ChannelName).ToList();
             ApplyRowFilter();
+
+            // ApplyRowFilter swaps Rows to a brand-new collection (see its own comment), which the two
+            // synced ItemsControls (channel names + EPG timeline body) don't finish re-realizing and
+            // rendering synchronously - that layout/render pass is queued, not immediate. Without this,
+            // IsLoading flips back to false - hiding the spinner - a frame or two before the list has
+            // actually caught up, which reads as "it says it's done but the list is still updating".
+            // Awaiting a Render-priority dispatch here blocks until that queued work has drained.
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
         }
         catch (Exception ex)
         {

@@ -14,11 +14,19 @@
                 <Button Content="▶" Command="{Binding GoToNextDayCommand}" />
             </StackPanel>
             <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" />
-            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels or what's on..." />
-                <Button Grid.Column="1" Content="&#8635;" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh" Margin="6,0,0,0" />
+                <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                    Width="18" Height="18" Margin="6,0,0,0" ToolTip.Tip="Refreshing..." />
+                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
+                        ToolTip.Tip="Refresh" Margin="6,0,0,0" />
             </Grid>
+            <!-- A plain ComboBox for standard click-to-open/select behavior, with a separate TextBox
+                 to narrow which categories it shows (FilteredCategories) - typing here never touches
+                 SelectedCategory itself, only picking an item from the ComboBox does. -->
+            <TextBox Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
+            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+                      HorizontalAlignment="Stretch" />
             <CheckBox Content="Hide channels with no info" IsChecked="{Binding HideEmptyChannels}" />
         </StackPanel>
 
@@ -48,17 +56,25 @@
                                      button's VerticalAlignment="Stretch" below can reach the row's full height
                                      top-to-bottom - matching Live TV/Series - instead of being inset by 6px
                                      top/bottom the way Border.Padding would apply it. -->
-                                <Grid ColumnDefinitions="Auto,Auto,*" Margin="6,0">
+                                <Grid ColumnDefinitions="Auto,*" Margin="6,0">
                                     <Button Grid.Column="0"
                                             Content="{Binding FavoriteIcon}"
                                             Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
                                             CommandParameter="{Binding}"
                                             VerticalAlignment="Stretch"
                                             Padding="6,0" Margin="0,0,4,0" />
-                                    <controls:ChannelLogoImage Grid.Column="1" LogoUrl="{Binding Channel.LogoUrl}"
-                                                                Width="28" Height="28" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                    <TextBlock Grid.Column="2" Text="{Binding ChannelName}" VerticalAlignment="Center"
-                                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="12" />
+                                    <Button Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Left"
+                                            Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
+                                                                        Width="28" Height="28" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ChannelName}" VerticalAlignment="Center"
+                                                       TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
                                 </Grid>
                             </Border>
                         </DataTemplate>

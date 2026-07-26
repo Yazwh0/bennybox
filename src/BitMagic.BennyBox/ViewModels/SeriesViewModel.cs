@@ -46,6 +46,16 @@ public partial class SeriesViewModel : ViewModelBase
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
+    // What the category ComboBox actually shows - narrowed by CategoryFilterText, but always a
+    // subset of Categories. Kept separate so typing a filter query never touches SelectedCategory
+    // (and so re-triggers a reload) until an item is actually picked from the (possibly narrowed)
+    // list. Replaced wholesale (not mutated via Clear()+Add()) - clearing the ComboBox's bound
+    // ItemsSource down to zero items, even briefly, resets its selection, and since SelectedCategory
+    // is often unchanged across a reload (no PropertyChanged fires to re-push it) that selection
+    // never came back. A one-shot swap to an already-complete list avoids that empty gap entirely.
+    [ObservableProperty]
+    private ObservableCollection<string> _filteredCategories = [AllCategoriesLabel];
+
     [ObservableProperty]
     private SeriesListItemViewModel? _selectedSeries;
 
@@ -69,6 +79,9 @@ public partial class SeriesViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _selectedCategory = AllCategoriesLabel;
+
+    [ObservableProperty]
+    private string _categoryFilterText = string.Empty;
 
     public SeriesViewModel(
         PlayerViewModel player,
@@ -293,7 +306,45 @@ public partial class SeriesViewModel : ViewModelBase
 
     partial void OnSearchTextChanged(string value) => DebounceApplyFilter();
 
-    partial void OnSelectedCategoryChanged(string value) => DebounceApplyFilter();
+    // The ComboBox transiently nulls its own selection whenever FilteredCategories is swapped to a
+    // new collection (see ApplyCategoryFilter), even though the new list still contains a matching
+    // entry. Reacting to that null here is harmless on this page (DebounceApplyFilter is cheap and
+    // debounced), but it's still not a real category change, so it's ignored for correctness -
+    // GuideViewModel's equivalent guard is load-bearing (its handler triggers a full reload).
+    partial void OnSelectedCategoryChanged(string value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        DebounceApplyFilter();
+    }
+
+    partial void OnCategoryFilterTextChanged(string value) => ApplyCategoryFilter();
+
+    // Narrows the ComboBox's visible options as you type, without touching Categories (the source of
+    // truth) or SelectedCategory itself. The current selection is always kept in the list even if it
+    // doesn't match the filter, so typing to browse for something else never silently clears - and
+    // never has the ComboBox null out - what's already selected.
+    private void ApplyCategoryFilter()
+    {
+        var query = CategoryFilterText.Trim();
+        var matching = Categories.Where(category =>
+            string.IsNullOrEmpty(query) ||
+            category.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            category == SelectedCategory).ToList();
+
+        // Only actually replace the collection if its contents changed - reassigning on every single
+        // reload (even when nothing about the category list or filter actually changed) makes the
+        // ComboBox reset and transiently null its own selection every time, which - on pages that
+        // react to SelectedCategory by reloading - turns into a self-sustaining loop (see
+        // GuideViewModel.OnSelectedCategoryChanged).
+        if (!matching.SequenceEqual(FilteredCategories))
+        {
+            FilteredCategories = new ObservableCollection<string>(matching);
+        }
+    }
 
     private void DebounceApplyFilter()
     {
@@ -457,8 +508,16 @@ public partial class SeriesViewModel : ViewModelBase
                 selectedCategory = AllCategoriesLabel;
             }
             SelectedCategory = selectedCategory;
+            ApplyCategoryFilter();
 
             ApplyFilter();
+
+            // ApplyFilter mutates Rows (Clear + per-item Add), which the virtualized ItemsControl
+            // doesn't finish re-realizing/rendering synchronously - that layout pass is queued, not
+            // immediate. Without this, IsLoading flips back to false - hiding the spinner - a frame or
+            // two before the list has actually caught up, which reads as "it says it's done but the
+            // list is still updating" (same fix as GuideViewModel.LoadAsync).
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
         }
         catch (Exception ex)
         {
