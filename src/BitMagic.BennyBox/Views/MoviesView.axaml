@@ -24,6 +24,8 @@
             <TextBox Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
             <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
                       HorizontalAlignment="Stretch" />
+            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
+                       IsVisible="{Binding HasLoadError}" />
         </StackPanel>
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
                     IsVisible="{Binding IsLoading}">

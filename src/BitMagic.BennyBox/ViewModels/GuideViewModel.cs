@@ -22,6 +22,7 @@ public partial class GuideViewModel : ViewModelBase
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly TimeshiftUrlService _timeshiftUrlService;
     private readonly IReminderRepository _reminderRepository;
+    private readonly EpgImportService _epgImportService;
     private readonly ILogger<GuideViewModel> _logger;
 
     // The full (category-filtered, sorted) row set for the current window - Rows is re-derived from
@@ -29,6 +30,15 @@ public partial class GuideViewModel : ViewModelBase
     // database.
     private List<GuideRowViewModel> _allRows = [];
     private CancellationTokenSource? _filterCts;
+
+    // Every LoadAsync call opens several fresh DB connections (see SqliteConnectionFactory) and awaits
+    // a handful of queries sequentially, so two overlapping calls - e.g. clicking Next Day then Refresh
+    // before the first has finished - are not guaranteed to complete in the order they started. Without
+    // a guard, whichever happens to finish *last* wins and overwrites Categories/Rows/the day window
+    // with its own results, even if that call was the older, now-stale one - visible as the guide
+    // flashing to one set of rows and then silently changing again a moment later. Each call captures
+    // its own id and checks it's still the latest before touching any observable state.
+    private int _loadRequestId;
 
     public string Title => "Guide";
 
@@ -82,8 +92,14 @@ public partial class GuideViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoading;
 
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
     [ObservableProperty]
     private string? _loadError;
+
+    // LoadError was previously write-only (set on failure, never bound in GuideView) - now that
+    // RefreshAsync can set a real, actionable message when an EPG re-import fails, it needs somewhere
+    // to actually show up.
+    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
     public string CurrentDayLabel => DayOffset switch
     {
@@ -99,6 +115,7 @@ public partial class GuideViewModel : ViewModelBase
         IFavoriteRepository favoriteRepository,
         TimeshiftUrlService timeshiftUrlService,
         IReminderRepository reminderRepository,
+        EpgImportService epgImportService,
         PlayerViewModel player,
         ILogger<GuideViewModel> logger)
     {
@@ -108,6 +125,7 @@ public partial class GuideViewModel : ViewModelBase
         _favoriteRepository = favoriteRepository;
         _timeshiftUrlService = timeshiftUrlService;
         _reminderRepository = reminderRepository;
+        _epgImportService = epgImportService;
         Player = player;
         _logger = logger;
 
@@ -187,8 +205,44 @@ public partial class GuideViewModel : ViewModelBase
         }
     }
 
+    // Day navigation and the initial load only re-read the local cache (fast, no network) - see
+    // LoadAsync. An explicit Refresh press is the one moment this page should actually go fetch new
+    // EPG data: without this, "Refresh" can never show anything beyond whatever was last imported, and
+    // for channels whose provider only ships a day or two of listings, that window quietly rolls past
+    // "now" and every future press just re-reads the same now-expired rows - a spinner flash that
+    // looks like it did nothing, because from the local cache's point of view it genuinely did nothing.
     [RelayCommand]
-    private async Task RefreshAsync() => await LoadAsync();
+    private async Task RefreshAsync()
+    {
+        IsLoading = true;
+        var failedProfiles = new List<string>();
+        try
+        {
+            var profiles = await _profileRepository.GetAllAsync();
+            foreach (var profile in profiles)
+            {
+                try
+                {
+                    await _epgImportService.ImportAsync(profile);
+                }
+                catch (Exception ex)
+                {
+                    failedProfiles.Add(profile.Name);
+                    _logger.LogWarning(ex, "Failed to refresh EPG for profile {ProfileName}", profile.Name);
+                }
+            }
+        }
+        finally
+        {
+            // LoadAsync resets LoadError to null on entry, so any failure message has to be applied
+            // after it returns rather than before.
+            await LoadAsync();
+            if (failedProfiles.Count > 0)
+            {
+                LoadError = $"Couldn't refresh EPG for: {string.Join(", ", failedProfiles)}. Showing cached data.";
+            }
+        }
+    }
 
     // The ComboBox transiently nulls its own selection whenever FilteredCategories is swapped to a
     // new collection (see ApplyCategoryFilter) - even though the new list still contains a matching
@@ -355,6 +409,7 @@ public partial class GuideViewModel : ViewModelBase
 
     private async Task LoadAsync()
     {
+        var requestId = ++_loadRequestId;
         IsLoading = true;
         LoadError = null;
         try
@@ -434,6 +489,14 @@ public partial class GuideViewModel : ViewModelBase
                 return (names, builtRows);
             });
 
+            if (requestId != _loadRequestId)
+            {
+                // Superseded by a newer LoadAsync call while these DB reads were in flight - see
+                // _loadRequestId. Drop this stale pass instead of overwriting whatever the latest
+                // call already produced (or is still producing).
+                return;
+            }
+
             var selectedCategory = SelectedCategory;
             Categories.Clear();
             Categories.Add(AllCategoriesLabel);
@@ -467,7 +530,12 @@ public partial class GuideViewModel : ViewModelBase
         }
         finally
         {
-            IsLoading = false;
+            // Only the latest call gets to clear the spinner - if a newer LoadAsync started while this
+            // one was still running, it's already the one driving IsLoading now.
+            if (requestId == _loadRequestId)
+            {
+                IsLoading = false;
+            }
         }
     }
 }

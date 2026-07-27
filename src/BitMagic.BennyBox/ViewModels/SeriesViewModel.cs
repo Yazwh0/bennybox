@@ -26,6 +26,10 @@ public partial class SeriesViewModel : ViewModelBase
     private List<SeriesCategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
 
+    // See GuideViewModel._loadRequestId - LoadSeriesAsync now does a real network import on an
+    // explicit Refresh (can take seconds), so two overlapping calls are a real possibility.
+    private int _loadRequestId;
+
     // Keyed by ProfileSource.Id so episodes are always fetched using the credentials of whichever
     // profile actually owns the clicked series - a single shared "current profile" field would silently
     // use the wrong (e.g. last-loaded) profile's credentials whenever more than one Xtream profile has
@@ -65,8 +69,11 @@ public partial class SeriesViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoadingEpisodes;
 
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
     [ObservableProperty]
     private string? _loadError;
+
+    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
     [ObservableProperty]
     private bool _hasNoSeries;
@@ -107,8 +114,41 @@ public partial class SeriesViewModel : ViewModelBase
         _ = LoadSeriesAsync();
     }
 
+    // See LiveTvViewModel.RefreshAsync / GuideViewModel.RefreshAsync - an explicit Refresh press is the
+    // one moment this page should actually go re-fetch series from the server, rather than just
+    // re-reading whatever's already in the local cache.
     [RelayCommand]
-    private async Task RefreshAsync() => await LoadSeriesAsync();
+    private async Task RefreshAsync()
+    {
+        IsLoading = true;
+        var failedProfiles = new List<string>();
+        try
+        {
+            var profiles = await _profileRepository.GetAllAsync();
+            foreach (var profile in profiles)
+            {
+                try
+                {
+                    await _seriesImportService.ImportAsync(profile);
+                }
+                catch (Exception ex)
+                {
+                    failedProfiles.Add(profile.Name);
+                    _logger.LogWarning(ex, "Failed to refresh series for profile {ProfileName}", profile.Name);
+                }
+            }
+        }
+        finally
+        {
+            // LoadSeriesAsync resets LoadError to null on entry, so any failure message has to be
+            // applied after it returns rather than before.
+            await LoadSeriesAsync();
+            if (failedProfiles.Count > 0)
+            {
+                LoadError = $"Couldn't refresh: {string.Join(", ", failedProfiles)}. Showing cached data.";
+            }
+        }
+    }
 
     [RelayCommand]
     private async Task ToggleFavoriteAsync(SeriesListItemViewModel? item)
@@ -440,6 +480,7 @@ public partial class SeriesViewModel : ViewModelBase
 
     private async Task LoadSeriesAsync()
     {
+        var requestId = ++_loadRequestId;
         IsLoading = true;
         LoadError = null;
         try
@@ -495,6 +536,14 @@ public partial class SeriesViewModel : ViewModelBase
                 return groups.OrderBy(g => g.Name).ToList();
             });
 
+            if (requestId != _loadRequestId)
+            {
+                // Superseded by a newer LoadSeriesAsync call while these DB reads were in flight - see
+                // _loadRequestId. Drop this stale pass instead of overwriting whatever the latest call
+                // already produced (or is still producing).
+                return;
+            }
+
             var selectedCategory = SelectedCategory;
             Categories.Clear();
             Categories.Add(AllCategoriesLabel);
@@ -526,7 +575,12 @@ public partial class SeriesViewModel : ViewModelBase
         }
         finally
         {
-            IsLoading = false;
+            // Only the latest call gets to clear the spinner - if a newer LoadSeriesAsync started
+            // while this one was still running, it's already the one driving IsLoading now.
+            if (requestId == _loadRequestId)
+            {
+                IsLoading = false;
+            }
         }
     }
 }

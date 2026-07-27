@@ -9,11 +9,13 @@
     <Grid RowDefinitions="Auto,Auto,*">
         <StackPanel Grid.Row="0" Spacing="6" Margin="8">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button Content="Today" Command="{Binding GoToTodayCommand}" />
-                <Button Content="◀" Command="{Binding GoToPreviousDayCommand}" />
-                <Button Content="▶" Command="{Binding GoToNextDayCommand}" />
+                <Button Content="Today" Command="{Binding GoToTodayCommand}" IsEnabled="{Binding !IsLoading}" />
+                <Button Content="◀" Command="{Binding GoToPreviousDayCommand}" IsEnabled="{Binding !IsLoading}" />
+                <Button Content="▶" Command="{Binding GoToNextDayCommand}" IsEnabled="{Binding !IsLoading}" />
             </StackPanel>
             <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" />
+            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
+                       IsVisible="{Binding HasLoadError}" />
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels or what's on..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"

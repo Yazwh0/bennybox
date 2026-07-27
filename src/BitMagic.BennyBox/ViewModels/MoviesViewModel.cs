@@ -26,6 +26,10 @@ public partial class MoviesViewModel : ViewModelBase
     private List<MovieCategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
 
+    // See GuideViewModel._loadRequestId - LoadMoviesAsync now does a real network import on an
+    // explicit Refresh (can take seconds), so two overlapping calls are a real possibility.
+    private int _loadRequestId;
+
     // Keyed by ProfileSource.Id so a movie's details/playback always use the credentials of whichever
     // profile actually owns it - see the equivalent field in SeriesViewModel for why a single shared
     // "current profile" field is wrong once more than one Xtream profile has content.
@@ -57,8 +61,11 @@ public partial class MoviesViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoading;
 
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
     [ObservableProperty]
     private string? _loadError;
+
+    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
     [ObservableProperty]
     private bool _hasNoMovies;
@@ -99,8 +106,41 @@ public partial class MoviesViewModel : ViewModelBase
         _ = LoadMoviesAsync();
     }
 
+    // See LiveTvViewModel.RefreshAsync / GuideViewModel.RefreshAsync - an explicit Refresh press is the
+    // one moment this page should actually go re-fetch movies from the server, rather than just
+    // re-reading whatever's already in the local cache.
     [RelayCommand]
-    private async Task RefreshAsync() => await LoadMoviesAsync();
+    private async Task RefreshAsync()
+    {
+        IsLoading = true;
+        var failedProfiles = new List<string>();
+        try
+        {
+            var profiles = await _profileRepository.GetAllAsync();
+            foreach (var profile in profiles)
+            {
+                try
+                {
+                    await _movieImportService.ImportAsync(profile);
+                }
+                catch (Exception ex)
+                {
+                    failedProfiles.Add(profile.Name);
+                    _logger.LogWarning(ex, "Failed to refresh movies for profile {ProfileName}", profile.Name);
+                }
+            }
+        }
+        finally
+        {
+            // LoadMoviesAsync resets LoadError to null on entry, so any failure message has to be
+            // applied after it returns rather than before.
+            await LoadMoviesAsync();
+            if (failedProfiles.Count > 0)
+            {
+                LoadError = $"Couldn't refresh: {string.Join(", ", failedProfiles)}. Showing cached data.";
+            }
+        }
+    }
 
     [RelayCommand]
     private async Task ToggleFavoriteAsync(MovieListItemViewModel? item)
@@ -361,6 +401,7 @@ public partial class MoviesViewModel : ViewModelBase
 
     private async Task LoadMoviesAsync()
     {
+        var requestId = ++_loadRequestId;
         IsLoading = true;
         LoadError = null;
         try
@@ -416,6 +457,14 @@ public partial class MoviesViewModel : ViewModelBase
                 return groups.OrderBy(g => g.Name).ToList();
             });
 
+            if (requestId != _loadRequestId)
+            {
+                // Superseded by a newer LoadMoviesAsync call while these DB reads were in flight - see
+                // _loadRequestId. Drop this stale pass instead of overwriting whatever the latest call
+                // already produced (or is still producing).
+                return;
+            }
+
             var selectedCategory = SelectedCategory;
             Categories.Clear();
             Categories.Add(AllCategoriesLabel);
@@ -447,7 +496,12 @@ public partial class MoviesViewModel : ViewModelBase
         }
         finally
         {
-            IsLoading = false;
+            // Only the latest call gets to clear the spinner - if a newer LoadMoviesAsync started
+            // while this one was still running, it's already the one driving IsLoading now.
+            if (requestId == _loadRequestId)
+            {
+                IsLoading = false;
+            }
         }
     }
 }

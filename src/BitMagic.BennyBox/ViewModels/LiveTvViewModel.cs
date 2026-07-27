@@ -18,12 +18,19 @@ public partial class LiveTvViewModel : ViewModelBase
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly PlaylistImportService _playlistImportService;
+    private readonly EpgImportService _epgImportService;
     private readonly ILogger<LiveTvViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
     private List<CategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
+
+    // See GuideViewModel._loadRequestId - LoadChannelsAsync now does real network imports on an
+    // explicit Refresh (can take seconds), so two overlapping calls (e.g. Refresh pressed twice, or
+    // ChannelsUpdatedMessage arriving mid-refresh) are a real possibility, not just a theoretical one.
+    private int _loadRequestId;
 
     public string Title => "Live TV";
 
@@ -49,8 +56,11 @@ public partial class LiveTvViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoading;
 
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
     [ObservableProperty]
     private string? _loadError;
+
+    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -67,6 +77,8 @@ public partial class LiveTvViewModel : ViewModelBase
         IChannelRepository channelRepository,
         IEpgRepository epgRepository,
         IFavoriteRepository favoriteRepository,
+        PlaylistImportService playlistImportService,
+        EpgImportService epgImportService,
         ILogger<LiveTvViewModel> logger)
     {
         Player = player;
@@ -74,6 +86,8 @@ public partial class LiveTvViewModel : ViewModelBase
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
         _favoriteRepository = favoriteRepository;
+        _playlistImportService = playlistImportService;
+        _epgImportService = epgImportService;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadChannelsAsync());
@@ -96,8 +110,43 @@ public partial class LiveTvViewModel : ViewModelBase
         }
     }
 
+    // ChannelsUpdatedMessage-triggered reloads and the initial load only re-read the local cache (fast,
+    // no network) - see LoadChannelsAsync. An explicit Refresh press is the one moment this page should
+    // actually go fetch new channels/EPG data - see GuideViewModel.RefreshAsync for why re-reading an
+    // unchanged local cache makes "Refresh" look like it does nothing.
     [RelayCommand]
-    private async Task RefreshAsync() => await LoadChannelsAsync();
+    private async Task RefreshAsync()
+    {
+        IsLoading = true;
+        var failedProfiles = new List<string>();
+        try
+        {
+            var profiles = await _profileRepository.GetAllAsync();
+            foreach (var profile in profiles)
+            {
+                try
+                {
+                    await _playlistImportService.ImportAsync(profile);
+                    await _epgImportService.ImportAsync(profile);
+                }
+                catch (Exception ex)
+                {
+                    failedProfiles.Add(profile.Name);
+                    _logger.LogWarning(ex, "Failed to refresh channels/EPG for profile {ProfileName}", profile.Name);
+                }
+            }
+        }
+        finally
+        {
+            // LoadChannelsAsync resets LoadError to null on entry, so any failure message has to be
+            // applied after it returns rather than before.
+            await LoadChannelsAsync();
+            if (failedProfiles.Count > 0)
+            {
+                LoadError = $"Couldn't refresh: {string.Join(", ", failedProfiles)}. Showing cached data.";
+            }
+        }
+    }
 
     [RelayCommand]
     private void SelectChannel(Channel? channel)
@@ -270,6 +319,7 @@ public partial class LiveTvViewModel : ViewModelBase
 
     private async Task LoadChannelsAsync()
     {
+        var requestId = ++_loadRequestId;
         IsLoading = true;
         LoadError = null;
         try
@@ -312,6 +362,14 @@ public partial class LiveTvViewModel : ViewModelBase
                 return groups.OrderBy(g => g.Name).ToList();
             });
 
+            if (requestId != _loadRequestId)
+            {
+                // Superseded by a newer LoadChannelsAsync call while these DB reads were in flight -
+                // see _loadRequestId. Drop this stale pass instead of overwriting whatever the latest
+                // call already produced (or is still producing).
+                return;
+            }
+
             var selectedCategory = SelectedCategory;
             Categories.Clear();
             Categories.Add(AllCategoriesLabel);
@@ -343,7 +401,12 @@ public partial class LiveTvViewModel : ViewModelBase
         }
         finally
         {
-            IsLoading = false;
+            // Only the latest call gets to clear the spinner - if a newer LoadChannelsAsync started
+            // while this one was still running, it's already the one driving IsLoading now.
+            if (requestId == _loadRequestId)
+            {
+                IsLoading = false;
+            }
         }
     }
 
