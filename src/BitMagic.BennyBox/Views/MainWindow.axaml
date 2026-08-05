@@ -109,6 +109,9 @@
                                        Width="48" Height="48" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="16"
                                HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="400" />
+                    <Button Content="Retry" Command="{Binding Player.RetryCommand}"
+                            IsVisible="{Binding Player.HasPlaybackError}"
+                            HorizontalAlignment="Center" />
                 </StackPanel>
             </Grid>
             <StackPanel Grid.Row="1" Spacing="6" Margin="12"

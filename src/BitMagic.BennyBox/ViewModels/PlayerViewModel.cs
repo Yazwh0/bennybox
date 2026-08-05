@@ -30,6 +30,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     private static readonly TimeSpan ProgressSaveInterval = TimeSpan.FromSeconds(15);
 
+    // How long playback can go without a TimeChanged event before we treat it as frozen rather than
+    // just a legitimately slow buffer - libVLC doesn't always raise Buffering/EncounteredError when a
+    // connection silently stalls mid-stream, so this is the only thing that catches that case.
+    private static readonly TimeSpan StallThreshold = TimeSpan.FromSeconds(15);
+
     // A title is treated as "finished" (and its bookmark removed rather than saved) once playback
     // gets this close to the reported duration - avoids leaving a useless "resume at 99%" entry
     // behind for everything the user watches to the end.
@@ -43,6 +48,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private Media? _currentMedia;
     private DispatcherTimer? _loadTimeoutTimer;
     private DispatcherTimer? _progressSaveTimer;
+    private DispatcherTimer? _stallWatchdogTimer;
+    private long _lastKnownTimeMs;
+    private DateTime _lastTimeChangeUtc;
+    private long _lastDisplayedPictures;
+    private DateTime _lastDisplayedPicturesChangeUtc;
     private string? _currentUrl;
     private bool _isApplyingSavedSidebarWidth;
     private bool _isApplyingSavedVolume;
@@ -90,6 +100,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLoadingOverlay))]
     [NotifyPropertyChangedFor(nameof(ShowBufferingBadge))]
+    [NotifyCanExecuteChangedFor(nameof(RetryCommand))]
     private bool _hasPlaybackError;
 
     // Full video-area takeover: no usable frame yet (still connecting) or playback failed outright.
@@ -323,6 +334,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     {
         FinalizeCurrentProgress();
         CancelLoadTimeout();
+        CancelStallWatchdog();
         MediaPlayer.Stop();
         StatusText = "Idle";
         IsPlaying = false;
@@ -331,6 +343,21 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         HasPlaybackError = false;
         NowPlayingChannelName = null;
         ResetSeekState();
+    }
+
+    // Re-issues the exact same URL that just failed/froze. _currentUrl and (for tracked content)
+    // _pendingResumeMs are left untouched by the error/stall handlers specifically so this can resume
+    // from precisely where playback stopped rather than re-running BeginTrackedPlayback's DB lookup,
+    // which can be up to ProgressSaveInterval stale.
+    [RelayCommand(CanExecute = nameof(HasPlaybackError))]
+    private void Retry()
+    {
+        if (_currentUrl is null)
+        {
+            return;
+        }
+
+        PlayUrl(_currentUrl);
     }
 
     [RelayCommand(CanExecute = nameof(CanPause))]
@@ -370,6 +397,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private void PlayUrl(string url)
     {
         CancelLoadTimeout();
+        CancelStallWatchdog();
 
         _currentUrl = url;
         _currentMedia?.Dispose();
@@ -421,6 +449,80 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     {
         _loadTimeoutTimer?.Stop();
         _loadTimeoutTimer = null;
+    }
+
+    // Started once a frame has actually shown (OnPlaying) - the load timeout above only covers the
+    // initial connect. Ticks periodically and compares against DisplayedPictures (see GetDisplayedPictures)
+    // rather than MediaPlayer.Time/TimeChanged - confirmed via live testing that some streams keep their
+    // demux clock free-running (Time keeps climbing smoothly at real-time rate) for minutes after the
+    // connection has actually died and the picture is genuinely frozen, so Time is not a trustworthy
+    // "is a new frame actually being rendered" signal here. DisplayedPictures only increments when
+    // libVLC has actually decoded and handed a frame to the video output.
+    private void StartStallWatchdog()
+    {
+        CancelStallWatchdog();
+        _lastDisplayedPictures = GetDisplayedPictures();
+        _lastDisplayedPicturesChangeUtc = DateTime.UtcNow;
+        _stallWatchdogTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _stallWatchdogTimer.Tick += (_, _) =>
+        {
+            var displayed = GetDisplayedPictures();
+            if (displayed > _lastDisplayedPictures)
+            {
+                _lastDisplayedPictures = displayed;
+                _lastDisplayedPicturesChangeUtc = DateTime.UtcNow;
+                return;
+            }
+
+            if (IsPlaying && DateTime.UtcNow - _lastDisplayedPicturesChangeUtc >= StallThreshold)
+            {
+                _logger.LogWarning("Playback stalled (no new frame displayed for {Seconds}s): {Url}", StallThreshold.TotalSeconds, _currentUrl);
+                HandlePlaybackStalled();
+            }
+        };
+        _stallWatchdogTimer.Start();
+    }
+
+    // Returns 0 (never treated as "no progress" on its own, since the very next real tick's comparison
+    // point would also be 0) if stats aren't available yet - matches how a fresh CreateStatistics-less
+    // media is handled by libVLC itself.
+    private long GetDisplayedPictures() => _currentMedia?.Statistics.DisplayedPictures ?? 0;
+
+    private void CancelStallWatchdog()
+    {
+        _stallWatchdogTimer?.Stop();
+        _stallWatchdogTimer = null;
+    }
+
+    private void HandlePlaybackStalled()
+    {
+        CancelStallWatchdog();
+        CancelLoadTimeout();
+        CaptureExactResumePoint();
+
+        IsPlaying = false;
+        IsPaused = false;
+        IsBuffering = false;
+        HasPlaybackError = true;
+        StatusText = "Playback stalled";
+        MediaPlayer.Stop();
+    }
+
+    // Only meaningful for tracked (seekable VOD) content - re-seeking a fresh connection to a live
+    // channel's stale absolute time doesn't make sense, so live playback is left to just reconnect at
+    // the live point instead (_pendingResumeMs stays null, same as it already is for live playback
+    // once BeginTrackedPlayback's one-time resume value has been consumed).
+    private void CaptureExactResumePoint()
+    {
+        if (_currentContentType is null)
+        {
+            return;
+        }
+
+        var lastKnownMs = MediaPlayer.Time > 0 ? MediaPlayer.Time : _lastKnownTimeMs;
+        SaveProgressTick();
+        _pendingResumeMs = lastKnownMs > 0 ? lastKnownMs : null;
+        WeakReferenceMessenger.Default.Send(new WatchProgressUpdatedMessage());
     }
 
     private void StartProgressSaveTimer()
@@ -547,6 +649,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         Dispatcher.UIThread.Post(() =>
         {
             CancelLoadTimeout();
+            StartStallWatchdog();
             IsPlaying = true;
             IsPaused = false;
             StatusText = "Playing";
@@ -582,8 +685,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private void OnEncounteredError(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() =>
         {
-            FinalizeCurrentProgress();
             CancelLoadTimeout();
+            CancelStallWatchdog();
+            CaptureExactResumePoint();
             IsPlaying = false;
             IsPaused = false;
             IsBuffering = false;
@@ -595,6 +699,23 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private void OnEndReached(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() =>
         {
+            // Confirmed via live testing: when the connection drops mid-stream, this particular
+            // demuxer/protocol combination reports it as a clean EndReached, not EncounteredError and
+            // not a stall (TimeChanged/DisplayedPictures both just stop, same as a genuine end) - so a
+            // dropped connection 90 seconds into a 40-minute episode looked identical to "the user
+            // finished watching it". If we're stopping well short of the known duration, treat this
+            // the same as any other interrupted playback (error state + exact-position Retry) instead
+            // of silently marking the title watched and discarding the resume point.
+            if (DurationSeconds > 0 && MediaPlayer.Time < DurationSeconds * 1000 * CompletionThreshold)
+            {
+                _logger.LogWarning(
+                    "EndReached fired well short of the known duration ({Time}ms of {Duration}ms) - treating as an interrupted stream, not a finished one: {Url}",
+                    MediaPlayer.Time, DurationSeconds * 1000, _currentUrl);
+                HandlePlaybackStalled();
+                return;
+            }
+
+            CancelStallWatchdog();
             MarkCurrentContentFinished();
             IsPlaying = false;
             IsPaused = false;
@@ -614,6 +735,16 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         {
             CanPause = MediaPlayer.CanPause;
             IsSeekable = MediaPlayer.IsSeekable;
+
+            // Only reset the stall watchdog's clock on a genuine position advance - libVLC can keep
+            // firing TimeChanged with the *same* stale value on some sort of internal heartbeat while
+            // actually stalled, which would otherwise keep resetting the watchdog forever and mask
+            // exactly the freeze it exists to catch.
+            if (e.Time != _lastKnownTimeMs)
+            {
+                _lastTimeChangeUtc = DateTime.UtcNow;
+            }
+            _lastKnownTimeMs = e.Time;
 
             if (!_isUserSeeking)
             {
@@ -675,6 +806,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     {
         FinalizeCurrentProgress();
         CancelLoadTimeout();
+        CancelStallWatchdog();
         MediaPlayer.Playing -= OnPlaying;
         MediaPlayer.Paused -= OnPaused;
         MediaPlayer.Buffering -= OnBuffering;
