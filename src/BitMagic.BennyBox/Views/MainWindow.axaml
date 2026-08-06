@@ -61,7 +61,12 @@
                  WrapPanel) so the sidebar's remaining height goes to the actual channel/series/movie
                  lists below rather than the nav itself. ToolTip.Tip carries the label that used to be
                  visible text. -->
-            <UniformGrid Grid.Row="1" Columns="7" Margin="8,8,8,4">
+            <!-- MaxWidth+Left alignment matters specifically on the Settings page, where this sidebar
+                 column widens to the full window (see IsSettingsActive/ContentArea*Converter) - without
+                 a cap, UniformGrid stretches all 7 cells across that whole width, leaving each icon
+                 marooned in the middle of a huge empty cell instead of the compact row it is everywhere
+                 else. -->
+            <UniformGrid Grid.Row="1" Columns="7" Margin="8,8,8,4" MaxWidth="600" HorizontalAlignment="Left">
                 <Button Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=LiveTv}"
                         ToolTip.Tip="Live TV">
