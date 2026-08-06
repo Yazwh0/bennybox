@@ -6,6 +6,7 @@
              x:Class="BitMagic.BennyBox.Views.SettingsView"
              x:DataType="vm:SettingsViewModel"
              x:Name="RootControl">
+    <ScrollViewer>
     <StackPanel Margin="16" Spacing="12">
         <TextBlock Text="Settings" FontSize="24" />
 
@@ -14,7 +15,43 @@
             <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" Width="160" />
         </StackPanel>
 
-        <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" />
+        <TextBlock Text="Playback recovery" FontSize="18" Margin="0,12,0,0" />
+        <TextBlock Text="How quickly a frozen/dropped stream is detected and offered a retry."
+                   Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Connect timeout" VerticalAlignment="Center" Width="160" />
+            <NumericUpDown Value="{Binding LoadTimeoutSeconds}" Minimum="3" Maximum="120" Increment="1"
+                            FormatString="0" Width="140" />
+            <TextBlock Text="seconds" VerticalAlignment="Center" Opacity="0.7" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Stall detection" VerticalAlignment="Center" Width="160" />
+            <NumericUpDown Value="{Binding StallThresholdSeconds}" Minimum="2" Maximum="60" Increment="1"
+                            FormatString="0" Width="140" />
+            <TextBlock Text="seconds" VerticalAlignment="Center" Opacity="0.7" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Pause reconnect after" VerticalAlignment="Center" Width="160" />
+            <NumericUpDown Value="{Binding PauseReconnectThresholdSeconds}" Minimum="5" Maximum="600" Increment="5"
+                            FormatString="0" Width="140" />
+            <TextBlock Text="seconds" VerticalAlignment="Center" Opacity="0.7" />
+        </StackPanel>
+
+        <TextBlock Text="Track defaults" FontSize="18" Margin="0,12,0,0" />
+        <TextBlock Text="Matched loosely against whatever name the stream/episode reports for its tracks (e.g. &quot;English&quot;) - leave blank to leave it as the stream's own default. Subtitles default to off unless a language is set here."
+                   Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Preferred audio" VerticalAlignment="Center" Width="160" />
+            <AutoCompleteBox Text="{Binding PreferredAudioLanguage}" ItemsSource="{Binding CommonLanguages}"
+                              FilterMode="Contains" PlaceholderText="e.g. English" Width="200" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Preferred subtitles" VerticalAlignment="Center" Width="160" />
+            <AutoCompleteBox Text="{Binding PreferredSubtitleLanguage}" ItemsSource="{Binding CommonLanguages}"
+                              FilterMode="Contains" PlaceholderText="blank = off" Width="200" />
+        </StackPanel>
+
+        <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" Margin="0,12,0,0" />
         <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" />
         <ItemsControl ItemsSource="{Binding Profiles}">
             <ItemsControl.ItemTemplate>
@@ -53,4 +90,5 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
     </StackPanel>
+    </ScrollViewer>
 </UserControl>

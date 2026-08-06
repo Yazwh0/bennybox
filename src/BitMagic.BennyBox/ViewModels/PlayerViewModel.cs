@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
@@ -30,10 +31,13 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     private static readonly TimeSpan ProgressSaveInterval = TimeSpan.FromSeconds(15);
 
-    // How long playback can go without a TimeChanged event before we treat it as frozen rather than
-    // just a legitimately slow buffer - libVLC doesn't always raise Buffering/EncounteredError when a
-    // connection silently stalls mid-stream, so this is the only thing that catches that case.
-    private static readonly TimeSpan StallThreshold = TimeSpan.FromSeconds(15);
+    // Defaults for the three playback recovery timings below - user-editable on the Settings page
+    // (see SettingsViewModel), persisted via ISettingsStore, and re-read live via
+    // PlaybackTimingSettingsChangedMessage since this VM is a long-lived singleton rather than
+    // something that gets recreated whenever Settings does.
+    private static readonly TimeSpan DefaultLoadTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan DefaultStallThreshold = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DefaultPauseReconnectThreshold = TimeSpan.FromSeconds(45);
 
     // A title is treated as "finished" (and its bookmark removed rather than saved) once playback
     // gets this close to the reported duration - avoids leaving a useless "resume at 99%" entry
@@ -53,6 +57,20 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private DateTime _lastTimeChangeUtc;
     private long _lastDisplayedPictures;
     private DateTime _lastDisplayedPicturesChangeUtc;
+    private DateTime? _pausedAtUtc;
+    private TimeSpan _loadTimeout = DefaultLoadTimeout;
+    private TimeSpan _stallThreshold = DefaultStallThreshold;
+    private TimeSpan _pauseReconnectThreshold = DefaultPauseReconnectThreshold;
+    private string? _preferredAudioLanguage;
+    private string? _preferredSubtitleLanguage;
+
+    // Only the *first* track-list refresh for a given PlayUrl should apply the language preference -
+    // later refreshes (a track appearing/disappearing mid-stream) instead follow MediaPlayer.AudioTrack/
+    // Spu's current value, which is whatever the user last manually picked, so a mid-stream ES event
+    // doesn't stomp on their in-session choice. Audio and subtitle tracks can be discovered by separate
+    // ES-added events, so each gets its own flag rather than one shared "preferences applied" bool.
+    private bool _audioPreferenceApplied;
+    private bool _subtitlePreferenceApplied;
     private string? _currentUrl;
     private bool _isApplyingSavedSidebarWidth;
     private bool _isApplyingSavedVolume;
@@ -188,6 +206,31 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
         _ = LoadSidebarWidthAsync();
         _ = LoadVolumeAsync();
+        _ = LoadPlaybackTimingSettingsAsync();
+        _ = LoadTrackPreferencesAsync();
+        WeakReferenceMessenger.Default.Register<PlaybackTimingSettingsChangedMessage>(this, (_, _) => _ = LoadPlaybackTimingSettingsAsync());
+        WeakReferenceMessenger.Default.Register<PlaybackTrackPreferencesChangedMessage>(this, (_, _) => _ = LoadTrackPreferencesAsync());
+    }
+
+    private async Task LoadPlaybackTimingSettingsAsync()
+    {
+        _loadTimeout = await GetSecondsSettingAsync("PlaybackLoadTimeoutSeconds", DefaultLoadTimeout);
+        _stallThreshold = await GetSecondsSettingAsync("PlaybackStallThresholdSeconds", DefaultStallThreshold);
+        _pauseReconnectThreshold = await GetSecondsSettingAsync("PlaybackPauseReconnectThresholdSeconds", DefaultPauseReconnectThreshold);
+    }
+
+    private async Task LoadTrackPreferencesAsync()
+    {
+        _preferredAudioLanguage = await _settingsStore.GetAsync("PreferredAudioLanguage");
+        _preferredSubtitleLanguage = await _settingsStore.GetAsync("PreferredSubtitleLanguage");
+    }
+
+    private async Task<TimeSpan> GetSecondsSettingAsync(string key, TimeSpan fallback)
+    {
+        var saved = await _settingsStore.GetAsync(key);
+        return saved is not null && int.TryParse(saved, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) && seconds > 0
+            ? TimeSpan.FromSeconds(seconds)
+            : fallback;
     }
 
     private async Task LoadSidebarWidthAsync()
@@ -361,7 +404,23 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(CanPause))]
-    private void TogglePause() => MediaPlayer.SetPause(!IsPaused);
+    private void TogglePause()
+    {
+        if (IsPaused && _pausedAtUtc is { } pausedAt && DateTime.UtcNow - pausedAt >= _pauseReconnectThreshold && _currentUrl is not null)
+        {
+            // IPTV/Xtream-style backends commonly drop a connection that's gone idle for a while,
+            // which is exactly what pausing does - a plain SetPause(false) after a long enough pause
+            // would just resume against a dead connection and sit there until the stall watchdog
+            // eventually caught it, forcing a manual Retry. Reconnect proactively instead, from the
+            // exact position we paused at, so a long pause resumes seamlessly instead of guaranteed
+            // stall-then-retry.
+            _pendingResumeMs = MediaPlayer.Time > 0 ? MediaPlayer.Time : _lastKnownTimeMs;
+            PlayUrl(_currentUrl);
+            return;
+        }
+
+        MediaPlayer.SetPause(!IsPaused);
+    }
 
     [RelayCommand(CanExecute = nameof(IsSeekable))]
     private void SkipForward() => SeekBy(SkipInterval);
@@ -407,12 +466,14 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         IsPaused = false;
         HasPlaybackError = false;
         _hasShownFrame = false;
+        _audioPreferenceApplied = false;
+        _subtitlePreferenceApplied = false;
         IsBuffering = true;
         ResetSeekState();
         MediaPlayer.Play(_currentMedia);
 
         // Avoid hammering a dead server: time out once, don't auto-retry.
-        _loadTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _loadTimeoutTimer = new DispatcherTimer { Interval = _loadTimeout };
         _loadTimeoutTimer.Tick += (_, _) =>
         {
             CancelLoadTimeout();
@@ -463,7 +524,10 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         CancelStallWatchdog();
         _lastDisplayedPictures = GetDisplayedPictures();
         _lastDisplayedPicturesChangeUtc = DateTime.UtcNow;
-        _stallWatchdogTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        // Never check less often than the threshold itself allows, so a short user-configured
+        // threshold (e.g. 2s) isn't silently floored to this timer's usual 5s tick rate.
+        var tickInterval = _stallThreshold < TimeSpan.FromSeconds(5) ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(5);
+        _stallWatchdogTimer = new DispatcherTimer { Interval = tickInterval };
         _stallWatchdogTimer.Tick += (_, _) =>
         {
             var displayed = GetDisplayedPictures();
@@ -474,9 +538,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 return;
             }
 
-            if (IsPlaying && DateTime.UtcNow - _lastDisplayedPicturesChangeUtc >= StallThreshold)
+            if (IsPlaying && DateTime.UtcNow - _lastDisplayedPicturesChangeUtc >= _stallThreshold)
             {
-                _logger.LogWarning("Playback stalled (no new frame displayed for {Seconds}s): {Url}", StallThreshold.TotalSeconds, _currentUrl);
+                _logger.LogWarning("Playback stalled (no new frame displayed for {Seconds}s): {Url}", _stallThreshold.TotalSeconds, _currentUrl);
                 HandlePlaybackStalled();
             }
         };
@@ -650,6 +714,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         {
             CancelLoadTimeout();
             StartStallWatchdog();
+            _pausedAtUtc = null;
             IsPlaying = true;
             IsPaused = false;
             StatusText = "Playing";
@@ -672,6 +737,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         {
             IsPlaying = false;
             IsPaused = true;
+            _pausedAtUtc = DateTime.UtcNow;
             StatusText = "Paused";
         });
 
@@ -784,14 +850,35 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             {
                 AudioTracks.Add(new TrackOption(track.Id, track.Name));
             }
-            SelectedAudioTrack = AudioTracks.FirstOrDefault(t => t.Id == MediaPlayer.AudioTrack) ?? AudioTracks.FirstOrDefault();
+            TrackOption? preferredAudio = null;
+            if (!_audioPreferenceApplied && AudioTracks.Count > 0)
+            {
+                preferredAudio = FindPreferredTrack(AudioTracks, _preferredAudioLanguage);
+                _audioPreferenceApplied = true;
+            }
+            SelectedAudioTrack = preferredAudio
+                ?? AudioTracks.FirstOrDefault(t => t.Id == MediaPlayer.AudioTrack)
+                ?? AudioTracks.FirstOrDefault();
 
             SubtitleTracks.Clear();
             foreach (var track in MediaPlayer.SpuDescription ?? [])
             {
                 SubtitleTracks.Add(new TrackOption(track.Id, track.Name));
             }
-            SelectedSubtitleTrack = SubtitleTracks.FirstOrDefault(t => t.Id == MediaPlayer.Spu) ?? SubtitleTracks.FirstOrDefault();
+            TrackOption? preferredSubtitle = null;
+            if (!_subtitlePreferenceApplied && SubtitleTracks.Count > 0)
+            {
+                // No preferred language configured means subtitles off by default - "Disable" is
+                // libVLC's own standard entry for that, present whenever a stream has any subtitle
+                // tracks at all, so this is deterministic rather than depending on whatever this
+                // particular stream/container happened to mark as its own default track.
+                preferredSubtitle = FindPreferredTrack(SubtitleTracks, _preferredSubtitleLanguage)
+                    ?? SubtitleTracks.FirstOrDefault(t => t.Name.Equals("Disable", StringComparison.OrdinalIgnoreCase));
+                _subtitlePreferenceApplied = true;
+            }
+            SelectedSubtitleTrack = preferredSubtitle
+                ?? SubtitleTracks.FirstOrDefault(t => t.Id == MediaPlayer.Spu)
+                ?? SubtitleTracks.FirstOrDefault();
         }
         finally
         {
@@ -802,8 +889,18 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasSubtitleTracks));
     }
 
+    // Substring match against the track name libVLC/the container reports (e.g. "English",
+    // "eng", "English (undetermined)") - there's no standardized language code exposed here, so this
+    // is deliberately a loose, best-effort match rather than an exact one.
+    private static TrackOption? FindPreferredTrack(IEnumerable<TrackOption> tracks, string? preferredLanguage) =>
+        string.IsNullOrWhiteSpace(preferredLanguage)
+            ? null
+            : tracks.FirstOrDefault(t => t.Name.Contains(preferredLanguage, StringComparison.OrdinalIgnoreCase));
+
     public void Dispose()
     {
+        WeakReferenceMessenger.Default.Unregister<PlaybackTimingSettingsChangedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<PlaybackTrackPreferencesChangedMessage>(this);
         FinalizeCurrentProgress();
         CancelLoadTimeout();
         CancelStallWatchdog();

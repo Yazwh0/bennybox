@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -23,6 +24,8 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
+    private bool _isApplyingSavedPlaybackTiming;
+    private bool _isApplyingSavedTrackPreferences;
 
     public string Title => "Settings";
 
@@ -30,8 +33,43 @@ public partial class SettingsViewModel : ViewModelBase
 
     public string[] ThemeOptions { get; } = ["System", "Light", "Dark"];
 
+    // Just a starting point for the AutoCompleteBox's suggestion list on SettingsView - matching is a
+    // loose substring match against whatever the stream itself calls the track (see
+    // PlayerViewModel.FindPreferredTrack), so typing anything not in this list still works fine.
+    public string[] CommonLanguages { get; } =
+    [
+        "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Russian",
+        "Arabic", "Hindi", "Mandarin", "Japanese", "Korean", "Turkish", "Polish", "Swedish"
+    ];
+
     [ObservableProperty]
     private string _selectedTheme = "System";
+
+    // Defaults mirror PlayerViewModel's DefaultLoadTimeout/DefaultStallThreshold/
+    // DefaultPauseReconnectThreshold - kept in sync manually since there's no shared constants class
+    // between the two VMs, only the persisted setting keys they both agree on.
+
+    // How long the initial connection attempt gets before "Channel unavailable (timed out)".
+    [ObservableProperty]
+    private int _loadTimeoutSeconds = 15;
+
+    // How long playback can go with no new frame actually displayed before it's treated as frozen.
+    [ObservableProperty]
+    private int _stallThresholdSeconds = 5;
+
+    // How long a pause has to last before resuming reconnects from scratch instead of just
+    // unpausing, to get ahead of IPTV providers that drop idle connections.
+    [ObservableProperty]
+    private int _pauseReconnectThresholdSeconds = 45;
+
+    // Loose substring match against whatever the stream/container calls the track (e.g. "English"),
+    // applied once per playback - see PlayerViewModel.FindPreferredTrack. Blank means "use whatever
+    // the stream defaults to" for audio, and "off" for subtitles specifically.
+    [ObservableProperty]
+    private string _preferredAudioLanguage = "";
+
+    [ObservableProperty]
+    private string _preferredSubtitleLanguage = "";
 
     [ObservableProperty]
     private bool _isBusy;
@@ -63,6 +101,8 @@ public partial class SettingsViewModel : ViewModelBase
 
         _ = LoadProfilesAsync();
         _ = LoadThemeAsync();
+        _ = LoadPlaybackTimingSettingsAsync();
+        _ = LoadTrackPreferencesAsync();
     }
 
     private async Task LoadThemeAsync()
@@ -91,6 +131,60 @@ public partial class SettingsViewModel : ViewModelBase
         {
             _ = _settingsStore.SetAsync("Theme", value);
         }
+    }
+
+    private async Task LoadPlaybackTimingSettingsAsync()
+    {
+        _isApplyingSavedPlaybackTiming = true;
+        LoadTimeoutSeconds = await GetSavedIntAsync("PlaybackLoadTimeoutSeconds", LoadTimeoutSeconds);
+        StallThresholdSeconds = await GetSavedIntAsync("PlaybackStallThresholdSeconds", StallThresholdSeconds);
+        PauseReconnectThresholdSeconds = await GetSavedIntAsync("PlaybackPauseReconnectThresholdSeconds", PauseReconnectThresholdSeconds);
+        _isApplyingSavedPlaybackTiming = false;
+    }
+
+    private async Task<int> GetSavedIntAsync(string key, int fallback)
+    {
+        var saved = await _settingsStore.GetAsync(key);
+        return saved is not null && int.TryParse(saved, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0
+            ? value
+            : fallback;
+    }
+
+    partial void OnLoadTimeoutSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackLoadTimeoutSeconds", value);
+    partial void OnStallThresholdSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackStallThresholdSeconds", value);
+    partial void OnPauseReconnectThresholdSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackPauseReconnectThresholdSeconds", value);
+
+    private void SavePlaybackTimingSetting(string key, int value)
+    {
+        if (_isApplyingSavedPlaybackTiming || value <= 0)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync(key, value.ToString(CultureInfo.InvariantCulture));
+        WeakReferenceMessenger.Default.Send(new PlaybackTimingSettingsChangedMessage());
+    }
+
+    private async Task LoadTrackPreferencesAsync()
+    {
+        _isApplyingSavedTrackPreferences = true;
+        PreferredAudioLanguage = await _settingsStore.GetAsync("PreferredAudioLanguage") ?? "";
+        PreferredSubtitleLanguage = await _settingsStore.GetAsync("PreferredSubtitleLanguage") ?? "";
+        _isApplyingSavedTrackPreferences = false;
+    }
+
+    partial void OnPreferredAudioLanguageChanged(string value) => SaveTrackPreference("PreferredAudioLanguage", value);
+    partial void OnPreferredSubtitleLanguageChanged(string value) => SaveTrackPreference("PreferredSubtitleLanguage", value);
+
+    private void SaveTrackPreference(string key, string value)
+    {
+        if (_isApplyingSavedTrackPreferences)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync(key, value);
+        WeakReferenceMessenger.Default.Send(new PlaybackTrackPreferencesChangedMessage());
     }
 
     private async Task LoadProfilesAsync()

@@ -8,7 +8,11 @@ using BitMagic.BennyBox.Views;
 using BitMagic.BennyBox.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Serilog;
+#if DEBUG
+using BitMagic.BennyBox.Debug;
+#endif
 
 namespace BitMagic.BennyBox;
 
@@ -17,6 +21,9 @@ public partial class App : Application
     public static IServiceProvider? Services { get; set; }
 
     private IHost? _host;
+#if DEBUG
+    private DebugRemoteControlServer? _debugRemoteControlServer;
+#endif
 
     public override void Initialize()
     {
@@ -34,7 +41,13 @@ public partial class App : Application
             desktop.MainWindow = splash;
             splash.Show();
 
-            desktop.Exit += (_, _) => _host?.Dispose();
+            desktop.Exit += (_, _) =>
+            {
+                _host?.Dispose();
+#if DEBUG
+                _debugRemoteControlServer?.Dispose();
+#endif
+            };
 
             _ = LoadAndShowMainWindowAsync(desktop, splash);
         }
@@ -71,11 +84,17 @@ public partial class App : Application
             splash.SetStatus("Almost there...");
 
             var mainWindow = host.Services.GetRequiredService<MainWindow>();
-            mainWindow.DataContext = host.Services.GetRequiredService<MainWindowViewModel>();
+            var mainWindowViewModel = host.Services.GetRequiredService<MainWindowViewModel>();
+            mainWindow.DataContext = mainWindowViewModel;
 
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
             splash.Close();
+
+#if DEBUG
+            _debugRemoteControlServer = new DebugRemoteControlServer(mainWindowViewModel, host.Services.GetRequiredService<ILogger<DebugRemoteControlServer>>());
+            _debugRemoteControlServer.Start();
+#endif
         }
         catch (Exception ex)
         {
