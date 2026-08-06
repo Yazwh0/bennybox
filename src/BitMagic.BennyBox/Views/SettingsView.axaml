@@ -15,6 +15,14 @@
             <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" Width="160" />
         </StackPanel>
 
+        <TextBlock Text="Playback controls" FontSize="18" Margin="0,12,0,0" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Skip interval" VerticalAlignment="Center" Width="160" />
+            <NumericUpDown Value="{Binding SkipIntervalSeconds}" Minimum="5" Maximum="300" Increment="5"
+                            FormatString="0" Width="140" />
+            <TextBlock Text="seconds" VerticalAlignment="Center" Opacity="0.7" />
+        </StackPanel>
+
         <TextBlock Text="Playback recovery" FontSize="18" Margin="0,12,0,0" />
         <TextBlock Text="How quickly a frozen/dropped stream is detected and offered a retry."
                    Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
@@ -42,13 +50,11 @@
                    Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
         <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Preferred audio" VerticalAlignment="Center" Width="160" />
-            <AutoCompleteBox Text="{Binding PreferredAudioLanguage}" ItemsSource="{Binding CommonLanguages}"
-                              FilterMode="Contains" PlaceholderText="e.g. English" Width="200" />
+            <ComboBox ItemsSource="{Binding CommonLanguages}" SelectedItem="{Binding PreferredAudioLanguage}" Width="200" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Preferred subtitles" VerticalAlignment="Center" Width="160" />
-            <AutoCompleteBox Text="{Binding PreferredSubtitleLanguage}" ItemsSource="{Binding CommonLanguages}"
-                              FilterMode="Contains" PlaceholderText="blank = off" Width="200" />
+            <ComboBox ItemsSource="{Binding CommonLanguages}" SelectedItem="{Binding PreferredSubtitleLanguage}" Width="200" />
         </StackPanel>
 
         <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" Margin="0,12,0,0" />

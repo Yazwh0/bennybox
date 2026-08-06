@@ -19,8 +19,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private readonly IReminderRepository _reminderRepository;
     private readonly IChannelRepository _channelRepository;
+    private readonly ISettingsStore _settingsStore;
     private readonly Queue<Reminder> _pendingReminders = new();
     private readonly DispatcherTimer _reminderTimer;
+    private bool _isRestoringLastPage;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
@@ -64,6 +66,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public FavoritesViewModel Favorites { get; }
     public SettingsViewModel Settings { get; }
     public PlayerViewModel Player { get; }
+    public RemoteControlViewModel RemoteControl { get; }
 
     public MainWindowViewModel(
         LiveTvViewModel liveTv,
@@ -73,8 +76,10 @@ public partial class MainWindowViewModel : ViewModelBase
         FavoritesViewModel favorites,
         SettingsViewModel settings,
         PlayerViewModel player,
+        RemoteControlViewModel remoteControl,
         IReminderRepository reminderRepository,
-        IChannelRepository channelRepository)
+        IChannelRepository channelRepository,
+        ISettingsStore settingsStore)
     {
         LiveTv = liveTv;
         Guide = guide;
@@ -83,8 +88,10 @@ public partial class MainWindowViewModel : ViewModelBase
         Favorites = favorites;
         Settings = settings;
         Player = player;
+        RemoteControl = remoteControl;
         _reminderRepository = reminderRepository;
         _channelRepository = channelRepository;
+        _settingsStore = settingsStore;
         _currentPage = liveTv;
 
         // A series/movie favorited elsewhere is opened by switching to its page and asking it to
@@ -105,6 +112,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _reminderTimer.Tick += (_, _) => _ = CheckRemindersAsync();
         _reminderTimer.Start();
         _ = CheckRemindersAsync();
+        _ = RestoreLastPageAsync();
     }
 
     [RelayCommand]
@@ -120,6 +128,32 @@ public partial class MainWindowViewModel : ViewModelBase
             "Settings" => Settings,
             _ => CurrentPage
         };
+    }
+
+    // Remembers whichever page was last active so the app reopens there next launch, rather than
+    // always defaulting back to Live TV - skipped while RestoreLastPageAsync itself is applying the
+    // saved value, so restoring doesn't just immediately re-save the same tag it just read.
+    partial void OnCurrentPageChanged(ViewModelBase value)
+    {
+        if (_isRestoringLastPage)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("LastVisitedPage", CurrentPageTag);
+    }
+
+    private async Task RestoreLastPageAsync()
+    {
+        var saved = await _settingsStore.GetAsync("LastVisitedPage");
+        if (string.IsNullOrEmpty(saved))
+        {
+            return;
+        }
+
+        _isRestoringLastPage = true;
+        NavigateCommand.Execute(saved);
+        _isRestoringLastPage = false;
     }
 
     private async Task CheckRemindersAsync()

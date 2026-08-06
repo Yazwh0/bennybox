@@ -27,14 +27,13 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public const double MinSidebarWidth = 180;
     public const double MaxSidebarWidth = 560;
 
-    private static readonly TimeSpan SkipInterval = TimeSpan.FromSeconds(30);
-
     private static readonly TimeSpan ProgressSaveInterval = TimeSpan.FromSeconds(15);
 
-    // Defaults for the three playback recovery timings below - user-editable on the Settings page
-    // (see SettingsViewModel), persisted via ISettingsStore, and re-read live via
+    // Defaults for the four playback timings below - user-editable on the Settings page (see
+    // SettingsViewModel), persisted via ISettingsStore, and re-read live via
     // PlaybackTimingSettingsChangedMessage since this VM is a long-lived singleton rather than
     // something that gets recreated whenever Settings does.
+    private static readonly TimeSpan DefaultSkipInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan DefaultLoadTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan DefaultStallThreshold = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DefaultPauseReconnectThreshold = TimeSpan.FromSeconds(45);
@@ -58,6 +57,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private long _lastDisplayedPictures;
     private DateTime _lastDisplayedPicturesChangeUtc;
     private DateTime? _pausedAtUtc;
+    private TimeSpan _skipInterval = DefaultSkipInterval;
     private TimeSpan _loadTimeout = DefaultLoadTimeout;
     private TimeSpan _stallThreshold = DefaultStallThreshold;
     private TimeSpan _pauseReconnectThreshold = DefaultPauseReconnectThreshold;
@@ -183,6 +183,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public string PlayPauseButtonText => IsPaused ? "Play" : "Pause";
     public string PositionLabel => FormatTime(SeekSliderValue);
     public string DurationLabel => FormatTime(DurationSeconds);
+    public string SkipBackwardLabel => $"⏪ {(int)_skipInterval.TotalSeconds}s";
+    public string SkipForwardLabel => $"{(int)_skipInterval.TotalSeconds}s ⏩";
 
     public PlayerViewModel(LibVLC libVlc, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, ILogger<PlayerViewModel> logger)
     {
@@ -214,6 +216,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     private async Task LoadPlaybackTimingSettingsAsync()
     {
+        _skipInterval = await GetSecondsSettingAsync("PlaybackSkipIntervalSeconds", DefaultSkipInterval);
+        OnPropertyChanged(nameof(SkipBackwardLabel));
+        OnPropertyChanged(nameof(SkipForwardLabel));
         _loadTimeout = await GetSecondsSettingAsync("PlaybackLoadTimeoutSeconds", DefaultLoadTimeout);
         _stallThreshold = await GetSecondsSettingAsync("PlaybackStallThresholdSeconds", DefaultStallThreshold);
         _pauseReconnectThreshold = await GetSecondsSettingAsync("PlaybackPauseReconnectThresholdSeconds", DefaultPauseReconnectThreshold);
@@ -423,10 +428,10 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(IsSeekable))]
-    private void SkipForward() => SeekBy(SkipInterval);
+    private void SkipForward() => SeekBy(_skipInterval);
 
     [RelayCommand(CanExecute = nameof(IsSeekable))]
-    private void SkipBackward() => SeekBy(-SkipInterval);
+    private void SkipBackward() => SeekBy(-_skipInterval);
 
     private void SeekBy(TimeSpan delta)
     {

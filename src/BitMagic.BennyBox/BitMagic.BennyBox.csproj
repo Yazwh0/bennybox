@@ -17,6 +17,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Gives RemoteControlServer.cs access to Kestrel/minimal APIs without switching this project's
+         SDK to Microsoft.NET.Sdk.Web - FrameworkReference is supported from any SDK-style project and
+         needs no separate download (the shared framework ships with the .NET runtime already). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
@@ -29,6 +36,7 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="LibVLCSharp" />
     <PackageReference Include="LibVLCSharp.Avalonia" />
+    <PackageReference Include="QRCoder" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Http" />

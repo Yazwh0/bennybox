@@ -53,6 +53,7 @@ public sealed class DebugRemoteControlServer : IDisposable
             ["Favorites"] = mainWindowViewModel.Favorites,
             ["Settings"] = mainWindowViewModel.Settings,
             ["Player"] = mainWindowViewModel.Player,
+            ["RemoteControl"] = mainWindowViewModel.RemoteControl,
         };
         _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
     }

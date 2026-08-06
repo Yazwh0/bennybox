@@ -1,3 +1,4 @@
+using BitMagic.BennyBox.RemoteControl;
 using BitMagic.BennyBox.Services;
 using BitMagic.BennyBox.ViewModels;
 using BitMagic.BennyBox.Views;
@@ -48,6 +49,8 @@ internal static class AppBootstrapper
         // background (it started at the very top of Main) - this mostly just picks up the result.
         services.AddSingleton(_ => libVlcTask.GetAwaiter().GetResult());
         services.AddSingleton<PlayerViewModel>();
+        services.AddSingleton<RemoteControlServer>();
+        services.AddSingleton<RemoteControlViewModel>();
         services.AddTransient<LiveTvViewModel>();
         services.AddTransient<GuideViewModel>();
         services.AddTransient<SeriesViewModel>();

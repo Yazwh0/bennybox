@@ -33,21 +33,27 @@ public partial class SettingsViewModel : ViewModelBase
 
     public string[] ThemeOptions { get; } = ["System", "Light", "Dark"];
 
-    // Just a starting point for the AutoCompleteBox's suggestion list on SettingsView - matching is a
-    // loose substring match against whatever the stream itself calls the track (see
-    // PlayerViewModel.FindPreferredTrack), so typing anything not in this list still works fine.
+    // ComboBox source for the Preferred audio/subtitle pickers on SettingsView - "" is the leading
+    // entry deliberately (renders as a blank row) so "no preference" is selectable, matching
+    // PreferredAudioLanguage/PreferredSubtitleLanguage's blank-means-default/off behavior. Matching
+    // against the actual stream is a loose substring match (see PlayerViewModel.FindPreferredTrack),
+    // so this list doesn't need to be exhaustive - it's just the common cases up front.
     public string[] CommonLanguages { get; } =
     [
-        "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Russian",
+        "", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Russian",
         "Arabic", "Hindi", "Mandarin", "Japanese", "Korean", "Turkish", "Polish", "Swedish"
     ];
 
     [ObservableProperty]
     private string _selectedTheme = "System";
 
-    // Defaults mirror PlayerViewModel's DefaultLoadTimeout/DefaultStallThreshold/
+    // Defaults mirror PlayerViewModel's DefaultSkipInterval/DefaultLoadTimeout/DefaultStallThreshold/
     // DefaultPauseReconnectThreshold - kept in sync manually since there's no shared constants class
     // between the two VMs, only the persisted setting keys they both agree on.
+
+    // How far the skip forward/back transport buttons jump.
+    [ObservableProperty]
+    private int _skipIntervalSeconds = 30;
 
     // How long the initial connection attempt gets before "Channel unavailable (timed out)".
     [ObservableProperty]
@@ -136,6 +142,7 @@ public partial class SettingsViewModel : ViewModelBase
     private async Task LoadPlaybackTimingSettingsAsync()
     {
         _isApplyingSavedPlaybackTiming = true;
+        SkipIntervalSeconds = await GetSavedIntAsync("PlaybackSkipIntervalSeconds", SkipIntervalSeconds);
         LoadTimeoutSeconds = await GetSavedIntAsync("PlaybackLoadTimeoutSeconds", LoadTimeoutSeconds);
         StallThresholdSeconds = await GetSavedIntAsync("PlaybackStallThresholdSeconds", StallThresholdSeconds);
         PauseReconnectThresholdSeconds = await GetSavedIntAsync("PlaybackPauseReconnectThresholdSeconds", PauseReconnectThresholdSeconds);
@@ -150,6 +157,7 @@ public partial class SettingsViewModel : ViewModelBase
             : fallback;
     }
 
+    partial void OnSkipIntervalSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackSkipIntervalSeconds", value);
     partial void OnLoadTimeoutSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackLoadTimeoutSeconds", value);
     partial void OnStallThresholdSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackStallThresholdSeconds", value);
     partial void OnPauseReconnectThresholdSecondsChanged(int value) => SavePlaybackTimingSetting("PlaybackPauseReconnectThresholdSeconds", value);

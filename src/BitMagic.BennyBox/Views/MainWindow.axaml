@@ -57,28 +57,68 @@
                 </Grid>
             </Border>
             <!-- Nav "pane" is just a row of buttons above the page content now, instead of its own
-                 separate column - a WrapPanel lets it degrade gracefully (wrapping to a second row)
-                 across the sidebar's resizable width range rather than clipping or squeezing. -->
-            <WrapPanel Grid.Row="1" Margin="8,8,8,4">
-                <Button Content="Live TV" Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="0,0,4,4"
+                 separate column. Icon-only and deliberately condensed to one row (not a wrapping
+                 WrapPanel) so the sidebar's remaining height goes to the actual channel/series/movie
+                 lists below rather than the nav itself. ToolTip.Tip carries the label that used to be
+                 visible text. -->
+            <UniformGrid Grid.Row="1" Columns="7" Margin="8,8,8,4">
+                <Button Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=LiveTv}"
-                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=LiveTv}" />
-                <Button Content="Guide" Command="{Binding NavigateCommand}" CommandParameter="Guide" Margin="0,0,4,4"
+                        ToolTip.Tip="Live TV">
+                    <ui:FASymbolIcon Symbol="Video" FontSize="16" />
+                </Button>
+                <Button Command="{Binding NavigateCommand}" CommandParameter="Guide" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Guide}"
-                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Guide}" />
-                <Button Content="Series" Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="0,0,4,4"
+                        ToolTip.Tip="Guide">
+                    <ui:FASymbolIcon Symbol="CalendarDay" FontSize="16" />
+                </Button>
+                <Button Command="{Binding NavigateCommand}" CommandParameter="Series" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Series}"
-                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Series}" />
-                <Button Content="Movies" Command="{Binding NavigateCommand}" CommandParameter="Movies" Margin="0,0,4,4"
+                        ToolTip.Tip="Series">
+                    <ui:FASymbolIcon Symbol="List" FontSize="16" />
+                </Button>
+                <Button Command="{Binding NavigateCommand}" CommandParameter="Movies" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Movies}"
-                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Movies}" />
-                <Button Content="Favorites" Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="0,0,4,4"
+                        ToolTip.Tip="Movies">
+                    <ui:FASymbolIcon Symbol="Library" FontSize="16" />
+                </Button>
+                <Button Command="{Binding NavigateCommand}" CommandParameter="Favorites" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Favorites}"
-                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Favorites}" />
-                <Button Content="Settings" Command="{Binding NavigateCommand}" CommandParameter="Settings" Margin="0,0,4,4"
+                        ToolTip.Tip="Favorites">
+                    <ui:FASymbolIcon Symbol="Star" FontSize="16" />
+                </Button>
+                <Button Command="{Binding NavigateCommand}" CommandParameter="Settings" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Settings}"
-                        FontWeight="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToFontWeightConverter}, ConverterParameter=Settings}" />
-            </WrapPanel>
+                        ToolTip.Tip="Settings">
+                    <ui:FASymbolIcon Symbol="Settings" FontSize="16" />
+                </Button>
+                <!-- Clicking this both runs StartCommand (no-ops if already active) and, via the
+                     attached Flyout, opens the QR panel - Avalonia shows a Button's Flyout on click
+                     automatically, independent of whatever its own Command does. -->
+                <Button Command="{Binding RemoteControl.StartCommand}" Padding="7,6" Margin="1" HorizontalContentAlignment="Center" ToolTip.Tip="Remote control">
+                    <ui:FASymbolIcon Symbol="Remote" FontSize="16" />
+                    <Button.Flyout>
+                        <Flyout Placement="Bottom">
+                            <StackPanel Spacing="10" Width="260" Margin="4">
+                                <TextBlock Text="Scan with your phone to control playback"
+                                           TextWrapping="Wrap" FontSize="13" Opacity="0.8" />
+                                <Image Source="{Binding RemoteControl.QrCodeImage}" Width="220" Height="220" />
+                                <TextBlock Text="{Binding RemoteControl.StatusMessage}"
+                                           IsVisible="{Binding RemoteControl.HasStatusMessage}"
+                                           Foreground="OrangeRed" TextWrapping="Wrap" FontSize="12" />
+                                <TextBox Text="{Binding RemoteControl.ConnectUrl}" IsReadOnly="True"
+                                         IsVisible="{Binding RemoteControl.IsActive}"
+                                         FontSize="11" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="8"
+                                            IsVisible="{Binding RemoteControl.IsActive}">
+                                    <Button Content="New Code" Command="{Binding RemoteControl.RegenerateCodeCommand}" />
+                                    <Button Content="Stop" Command="{Binding RemoteControl.StopCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+            </UniformGrid>
 
             <ContentControl Grid.Row="2" Content="{Binding CurrentPage}" />
         </Grid>
@@ -134,9 +174,9 @@
                 </Grid>
                 <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
                     <Button Content="Stop" Command="{Binding Player.StopCommand}" />
-                    <Button Content="⏪ 30s" Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
+                    <Button Content="{Binding Player.SkipBackwardLabel}" Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
                     <Button Content="{Binding Player.PlayPauseButtonText}" Command="{Binding Player.TogglePauseCommand}" IsVisible="{Binding Player.CanPause}" />
-                    <Button Content="30s ⏩" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
+                    <Button Content="{Binding Player.SkipForwardLabel}" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}" />
                     <Button Content="{Binding Player.FullscreenButtonText}" Command="{Binding Player.ToggleFullscreenCommand}" />
                     <Button Content="{Binding Player.MuteButtonText}" Command="{Binding Player.ToggleMuteCommand}" />
                     <Slider Width="100" Minimum="0" Maximum="100"
