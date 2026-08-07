@@ -25,11 +25,20 @@
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
                        IsVisible="{Binding HasLoadError}" />
         </StackPanel>
-        <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
-                    IsVisible="{Binding IsLoading}">
-            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" Opacity="0.7" />
-        </StackPanel>
+        <!-- Opaque card, not just floating text - against a list already full of channel logos/rows,
+             low-opacity text with no background behind it was very hard to read.
+             VerticalAlignment="Top" + a fixed Margin, not "Center" - centering against a row/panel
+             containing a VirtualizingStackPanel-based ItemsControl measured to an inflated height,
+             placing the card almost entirely below the visible window (see GuideView.axaml for the
+             fuller writeup - same underlying issue here). -->
+        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,90,0,0"
+                IsVisible="{Binding IsLoading}"
+                Background="#33333F" BorderBrush="#55556A" BorderThickness="1" CornerRadius="10" Padding="24,20">
+            <StackPanel Spacing="8" HorizontalAlignment="Center">
+                <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" />
+            </StackPanel>
+        </Border>
         <!--
             Rows is a flattened list of category headers + channels (see CategoryHeaderRow) shown
             in a single virtualized list, rather than one ItemsControl per category nested inside

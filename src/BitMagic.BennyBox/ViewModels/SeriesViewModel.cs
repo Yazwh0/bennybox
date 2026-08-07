@@ -152,8 +152,19 @@ public partial class SeriesViewModel : ViewModelBase
     {
         IsLoading = true;
         var stopwatch = Stopwatch.StartNew();
+        // DispatcherTimer.Stop() only prevents *future* ticks from being scheduled - a tick already
+        // queued on the UI thread at the moment Stop() is called can still fire afterward, which would
+        // otherwise clobber the RefreshElapsedLabel = null reset below with stale "Refreshing... Ns"
+        // text that then never clears. This flag makes that late tick a no-op.
+        var isRefreshing = true;
         var elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        elapsedTimer.Tick += (_, _) => RefreshElapsedLabel = FormatRefreshElapsedLabel(stopwatch.Elapsed);
+        elapsedTimer.Tick += (_, _) =>
+        {
+            if (isRefreshing)
+            {
+                RefreshElapsedLabel = FormatRefreshElapsedLabel(stopwatch.Elapsed);
+            }
+        };
         RefreshElapsedLabel = FormatRefreshElapsedLabel(TimeSpan.Zero);
         elapsedTimer.Start();
 
@@ -176,6 +187,7 @@ public partial class SeriesViewModel : ViewModelBase
         }
         finally
         {
+            isRefreshing = false;
             elapsedTimer.Stop();
             RefreshElapsedLabel = null;
             _lastRefreshSeconds = (int)Math.Round(stopwatch.Elapsed.TotalSeconds);
