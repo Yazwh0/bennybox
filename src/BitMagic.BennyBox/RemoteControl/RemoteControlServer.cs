@@ -140,6 +140,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         MapSeriesRoutes(app);
         MapMoviesRoutes(app);
         MapFavoritesRoutes(app);
+        MapSearchRoutes(app);
     }
 
     public void Regenerate() => Token = Guid.NewGuid();

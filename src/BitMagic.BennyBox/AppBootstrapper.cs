@@ -51,6 +51,7 @@ internal static class AppBootstrapper
         services.AddSingleton<PlayerViewModel>();
         services.AddSingleton<RemoteControlServer>();
         services.AddSingleton<RemoteControlViewModel>();
+        services.AddTransient<SearchViewModel>();
         services.AddTransient<LiveTvViewModel>();
         services.AddTransient<GuideViewModel>();
         services.AddTransient<SeriesViewModel>();

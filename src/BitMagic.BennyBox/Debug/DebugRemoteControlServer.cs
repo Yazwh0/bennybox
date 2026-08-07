@@ -46,6 +46,7 @@ public sealed class DebugRemoteControlServer : IDisposable
         _viewModels = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
             ["MainWindow"] = mainWindowViewModel,
+            ["Search"] = mainWindowViewModel.Search,
             ["LiveTv"] = mainWindowViewModel.LiveTv,
             ["Guide"] = mainWindowViewModel.Guide,
             ["Series"] = mainWindowViewModel.Series,

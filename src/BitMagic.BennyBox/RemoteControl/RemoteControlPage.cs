@@ -127,6 +127,14 @@ internal static class RemoteControlPage
             <div id="status-banner"></div>
           </div>
 
+          <div class="page" id="page-search">
+            <h1>Search</h1>
+            <div class="search-row">
+              <input type="text" id="search-query" placeholder="Search Live TV, Series, and Movies..." />
+            </div>
+            <div id="search-results"><div class="empty-note">Type to search across Live TV, Series, and Movies.</div></div>
+          </div>
+
           <div class="page" id="page-livetv">
             <h1>Live TV</h1>
             <div class="search-row">
@@ -176,6 +184,7 @@ internal static class RemoteControlPage
 
           <nav class="tabs">
             <button data-tab="now-playing" class="active"><span class="icon">▶️</span>Playing</button>
+            <button data-tab="search"><span class="icon">🔍</span>Search</button>
             <button data-tab="livetv"><span class="icon">📺</span>Live TV</button>
             <button data-tab="guide"><span class="icon">📅</span>Guide</button>
             <button data-tab="series"><span class="icon">📋</span>Series</button>
@@ -334,6 +343,90 @@ internal static class RemoteControlPage
               categories.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join("");
             select.value = categories.includes(current) ? current : "";
           }
+
+          // ---------- Search ----------
+          const searchQueryInput = document.getElementById("search-query");
+
+          async function loadSearch() {
+            const query = searchQueryInput.value.trim();
+            const results = document.getElementById("search-results");
+            if (!query) {
+              results.innerHTML = '<div class="empty-note">Type to search across Live TV, Series, and Movies.</div>';
+              return;
+            }
+            try {
+              const res = await api("/api/search?q=" + encodeURIComponent(query));
+              if (!res.ok) throw new Error("search " + res.status);
+              renderSearchResults(await res.json());
+            } catch (e) {
+              showToast("Couldn't search.");
+            }
+          }
+
+          // Every section is appended with insertAdjacentHTML, never innerHTML += - see the Favorites
+          // tab fix for why mixing the two silently strips click handlers off rows added earlier.
+          function renderSearchResults(data) {
+            const results = document.getElementById("search-results");
+            results.innerHTML = "";
+
+            if (data.channels.length === 0 && data.series.length === 0 && data.movies.length === 0) {
+              results.innerHTML = '<div class="empty-note">No matches found.</div>';
+              return;
+            }
+
+            if (data.channels.length > 0) {
+              results.insertAdjacentHTML("beforeend", '<div class="section-header">Live TV</div>');
+              if (data.channelsTruncated) {
+                results.insertAdjacentHTML("beforeend", '<div class="truncated-note">Showing first ' + data.channels.length + ' results - refine your search for more.</div>');
+              }
+              for (const item of data.channels) {
+                const row = document.createElement("div");
+                row.className = "list-item tap";
+                row.innerHTML =
+                  '<img src="' + esc(item.logoUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />' +
+                  '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
+                row.onclick = () => playChannel(item.id, "/api/livetv/play");
+                row.appendChild(starButton("channel", item.id, item.isFavorite));
+                results.appendChild(row);
+              }
+            }
+
+            if (data.series.length > 0) {
+              results.insertAdjacentHTML("beforeend", '<div class="section-header">Series</div>');
+              if (data.seriesTruncated) {
+                results.insertAdjacentHTML("beforeend", '<div class="truncated-note">Showing first ' + data.series.length + ' results - refine your search for more.</div>');
+              }
+              for (const item of data.series) {
+                const row = document.createElement("div");
+                row.className = "list-item tap" + (item.isWatched ? " watched" : "");
+                row.innerHTML =
+                  '<img class="cover" src="' + esc(item.coverUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />' +
+                  '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
+                row.onclick = () => openSeriesDetail(item.id);
+                row.appendChild(starButton("series", item.id, item.isFavorite));
+                results.appendChild(row);
+              }
+            }
+
+            if (data.movies.length > 0) {
+              results.insertAdjacentHTML("beforeend", '<div class="section-header">Movies</div>');
+              if (data.moviesTruncated) {
+                results.insertAdjacentHTML("beforeend", '<div class="truncated-note">Showing first ' + data.movies.length + ' results - refine your search for more.</div>');
+              }
+              for (const item of data.movies) {
+                const row = document.createElement("div");
+                row.className = "list-item tap" + (item.isWatched ? " watched" : "");
+                row.innerHTML =
+                  '<img class="cover" src="' + esc(item.coverUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />' +
+                  '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
+                row.onclick = () => openMovieDetail(item.id);
+                row.appendChild(starButton("movie", item.id, item.isFavorite));
+                results.appendChild(row);
+              }
+            }
+          }
+
+          searchQueryInput.addEventListener("input", debounce(loadSearch, 300));
 
           // ---------- Live TV ----------
           const liveTvSearch = document.getElementById("livetv-search");

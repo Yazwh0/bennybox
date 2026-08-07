@@ -43,6 +43,7 @@ public partial class MainWindowViewModel : ViewModelBase
     // Drives which nav button gets highlighted as the active page (see MainWindow.axaml).
     public string CurrentPageTag => CurrentPage switch
     {
+        SearchViewModel => "Search",
         LiveTvViewModel => "LiveTv",
         GuideViewModel => "Guide",
         SeriesViewModel => "Series",
@@ -57,8 +58,9 @@ public partial class MainWindowViewModel : ViewModelBase
     // PropertyChanged forwarding from six separate child view models just to answer "is anything
     // still loading right now?" on demand.
     public bool IsAnyRefreshInProgress =>
-        LiveTv.IsLoading || Guide.IsLoading || Series.IsLoading || Movies.IsLoading || Favorites.IsLoading || Settings.IsBusy;
+        LiveTv.IsLoading || Guide.IsLoading || Series.IsLoading || Movies.IsLoading || Favorites.IsLoading || Search.IsLoading || Settings.IsBusy;
 
+    public SearchViewModel Search { get; }
     public LiveTvViewModel LiveTv { get; }
     public GuideViewModel Guide { get; }
     public SeriesViewModel Series { get; }
@@ -69,6 +71,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public RemoteControlViewModel RemoteControl { get; }
 
     public MainWindowViewModel(
+        SearchViewModel search,
         LiveTvViewModel liveTv,
         GuideViewModel guide,
         SeriesViewModel series,
@@ -81,6 +84,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IChannelRepository channelRepository,
         ISettingsStore settingsStore)
     {
+        Search = search;
         LiveTv = liveTv;
         Guide = guide;
         Series = series;
@@ -120,6 +124,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         CurrentPage = destination switch
         {
+            "Search" => Search,
             "LiveTv" => LiveTv,
             "Guide" => Guide,
             "Series" => Series,
