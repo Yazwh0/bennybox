@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,6 +15,7 @@ public partial class GuideViewModel : ViewModelBase
 {
     private const double PixelsPerMinuteValue = 4;
     private const string AllCategoriesLabel = "All Categories";
+    private const string LastRefreshSecondsKey = "Guide.LastRefreshSeconds";
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
     private readonly IProfileRepository _profileRepository;
@@ -23,7 +25,13 @@ public partial class GuideViewModel : ViewModelBase
     private readonly TimeshiftUrlService _timeshiftUrlService;
     private readonly IReminderRepository _reminderRepository;
     private readonly EpgImportService _epgImportService;
+    private readonly ISettingsStore _settingsStore;
     private readonly ILogger<GuideViewModel> _logger;
+
+    // Loaded once at startup, updated after every Refresh - lets the "Refreshing..." overlay say how
+    // long it took last time, so a genuinely slow-but-working network EPG re-import (tens of seconds
+    // for a large provider) doesn't read as a hang. See RefreshAsync/FormatRefreshElapsedLabel.
+    private int? _lastRefreshSeconds;
 
     // The full (category-filtered, sorted) row set for the current window - Rows is re-derived from
     // this on every HideEmptyChannels/SearchText change so that doesn't require a reload from the
@@ -101,6 +109,12 @@ public partial class GuideViewModel : ViewModelBase
     // to actually show up.
     public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
+    // Null except while an explicit Refresh is actually running - see RefreshAsync. Bound with
+    // TargetNullValue in GuideView.axaml so the overlay falls back to the plain "Loading guide..."
+    // text the rest of the time (day navigation, category changes, the initial startup load).
+    [ObservableProperty]
+    private string? _refreshElapsedLabel;
+
     public string CurrentDayLabel => DayOffset switch
     {
         0 => "Today",
@@ -116,6 +130,7 @@ public partial class GuideViewModel : ViewModelBase
         TimeshiftUrlService timeshiftUrlService,
         IReminderRepository reminderRepository,
         EpgImportService epgImportService,
+        ISettingsStore settingsStore,
         PlayerViewModel player,
         ILogger<GuideViewModel> logger)
     {
@@ -126,6 +141,7 @@ public partial class GuideViewModel : ViewModelBase
         _timeshiftUrlService = timeshiftUrlService;
         _reminderRepository = reminderRepository;
         _epgImportService = epgImportService;
+        _settingsStore = settingsStore;
         Player = player;
         _logger = logger;
 
@@ -133,6 +149,24 @@ public partial class GuideViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
         _ = LoadAsync();
+        _ = LoadLastRefreshSecondsAsync();
+    }
+
+    private async Task LoadLastRefreshSecondsAsync()
+    {
+        var stored = await _settingsStore.GetAsync(LastRefreshSecondsKey);
+        if (int.TryParse(stored, out var seconds))
+        {
+            _lastRefreshSeconds = seconds;
+        }
+    }
+
+    private string FormatRefreshElapsedLabel(TimeSpan elapsed)
+    {
+        var seconds = (int)elapsed.TotalSeconds;
+        return _lastRefreshSeconds is { } last
+            ? $"Refreshing... {seconds}s (last time: ~{last}s)"
+            : $"Refreshing... {seconds}s";
     }
 
     // The timeline (EpgRowControl) only tunes when a click lands inside a rendered programme block,
@@ -215,6 +249,12 @@ public partial class GuideViewModel : ViewModelBase
     private async Task RefreshAsync()
     {
         IsLoading = true;
+        var stopwatch = Stopwatch.StartNew();
+        var elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        elapsedTimer.Tick += (_, _) => RefreshElapsedLabel = FormatRefreshElapsedLabel(stopwatch.Elapsed);
+        RefreshElapsedLabel = FormatRefreshElapsedLabel(TimeSpan.Zero);
+        elapsedTimer.Start();
+
         var failedProfiles = new List<string>();
         try
         {
@@ -234,6 +274,11 @@ public partial class GuideViewModel : ViewModelBase
         }
         finally
         {
+            elapsedTimer.Stop();
+            RefreshElapsedLabel = null;
+            _lastRefreshSeconds = (int)Math.Round(stopwatch.Elapsed.TotalSeconds);
+            _ = _settingsStore.SetAsync(LastRefreshSecondsKey, _lastRefreshSeconds.Value.ToString());
+
             // LoadAsync resets LoadError to null on entry, so any failure message has to be applied
             // after it returns rather than before.
             await LoadAsync();

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,18 +14,23 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class SeriesViewModel : ViewModelBase
 {
     private const string AllCategoriesLabel = "All Categories";
+    private const string LastRefreshSecondsKey = "Series.LastRefreshSeconds";
 
     private readonly IProfileRepository _profileRepository;
     private readonly ISeriesRepository _seriesRepository;
     private readonly SeriesImportService _seriesImportService;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
+    private readonly ISettingsStore _settingsStore;
     private readonly ILogger<SeriesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
     private List<SeriesCategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
+
+    // See GuideViewModel's equivalent field for why this exists.
+    private int? _lastRefreshSeconds;
 
     // See GuideViewModel._loadRequestId - LoadSeriesAsync now does a real network import on an
     // explicit Refresh (can take seconds), so two overlapping calls are a real possibility.
@@ -75,6 +81,10 @@ public partial class SeriesViewModel : ViewModelBase
 
     public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
+    // See GuideViewModel's equivalent property for why this exists and how it's bound.
+    [ObservableProperty]
+    private string? _refreshElapsedLabel;
+
     [ObservableProperty]
     private bool _hasNoSeries;
 
@@ -97,6 +107,7 @@ public partial class SeriesViewModel : ViewModelBase
         SeriesImportService seriesImportService,
         IFavoriteRepository favoriteRepository,
         IWatchedItemRepository watchedItemRepository,
+        ISettingsStore settingsStore,
         ILogger<SeriesViewModel> logger)
     {
         Player = player;
@@ -105,6 +116,7 @@ public partial class SeriesViewModel : ViewModelBase
         _seriesImportService = seriesImportService;
         _favoriteRepository = favoriteRepository;
         _watchedItemRepository = watchedItemRepository;
+        _settingsStore = settingsStore;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadSeriesAsync());
@@ -112,6 +124,24 @@ public partial class SeriesViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
 
         _ = LoadSeriesAsync();
+        _ = LoadLastRefreshSecondsAsync();
+    }
+
+    private async Task LoadLastRefreshSecondsAsync()
+    {
+        var stored = await _settingsStore.GetAsync(LastRefreshSecondsKey);
+        if (int.TryParse(stored, out var seconds))
+        {
+            _lastRefreshSeconds = seconds;
+        }
+    }
+
+    private string FormatRefreshElapsedLabel(TimeSpan elapsed)
+    {
+        var seconds = (int)elapsed.TotalSeconds;
+        return _lastRefreshSeconds is { } last
+            ? $"Refreshing... {seconds}s (last time: ~{last}s)"
+            : $"Refreshing... {seconds}s";
     }
 
     // See LiveTvViewModel.RefreshAsync / GuideViewModel.RefreshAsync - an explicit Refresh press is the
@@ -121,6 +151,12 @@ public partial class SeriesViewModel : ViewModelBase
     private async Task RefreshAsync()
     {
         IsLoading = true;
+        var stopwatch = Stopwatch.StartNew();
+        var elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        elapsedTimer.Tick += (_, _) => RefreshElapsedLabel = FormatRefreshElapsedLabel(stopwatch.Elapsed);
+        RefreshElapsedLabel = FormatRefreshElapsedLabel(TimeSpan.Zero);
+        elapsedTimer.Start();
+
         var failedProfiles = new List<string>();
         try
         {
@@ -140,6 +176,11 @@ public partial class SeriesViewModel : ViewModelBase
         }
         finally
         {
+            elapsedTimer.Stop();
+            RefreshElapsedLabel = null;
+            _lastRefreshSeconds = (int)Math.Round(stopwatch.Elapsed.TotalSeconds);
+            _ = _settingsStore.SetAsync(LastRefreshSecondsKey, _lastRefreshSeconds.Value.ToString());
+
             // LoadSeriesAsync resets LoadError to null on entry, so any failure message has to be
             // applied after it returns rather than before.
             await LoadSeriesAsync();

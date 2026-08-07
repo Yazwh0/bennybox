@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +14,7 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class LiveTvViewModel : ViewModelBase
 {
     private const string AllCategoriesLabel = "All Categories";
+    private const string LastRefreshSecondsKey = "LiveTv.LastRefreshSeconds";
 
     private readonly IProfileRepository _profileRepository;
     private readonly IChannelRepository _channelRepository;
@@ -20,12 +22,16 @@ public partial class LiveTvViewModel : ViewModelBase
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly PlaylistImportService _playlistImportService;
     private readonly EpgImportService _epgImportService;
+    private readonly ISettingsStore _settingsStore;
     private readonly ILogger<LiveTvViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
     private List<CategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
+
+    // See GuideViewModel's equivalent field for why this exists.
+    private int? _lastRefreshSeconds;
 
     // See GuideViewModel._loadRequestId - LoadChannelsAsync now does real network imports on an
     // explicit Refresh (can take seconds), so two overlapping calls (e.g. Refresh pressed twice, or
@@ -62,6 +68,10 @@ public partial class LiveTvViewModel : ViewModelBase
 
     public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
+    // See GuideViewModel's equivalent property for why this exists and how it's bound.
+    [ObservableProperty]
+    private string? _refreshElapsedLabel;
+
     [ObservableProperty]
     private string _searchText = string.Empty;
 
@@ -79,6 +89,7 @@ public partial class LiveTvViewModel : ViewModelBase
         IFavoriteRepository favoriteRepository,
         PlaylistImportService playlistImportService,
         EpgImportService epgImportService,
+        ISettingsStore settingsStore,
         ILogger<LiveTvViewModel> logger)
     {
         Player = player;
@@ -88,12 +99,31 @@ public partial class LiveTvViewModel : ViewModelBase
         _favoriteRepository = favoriteRepository;
         _playlistImportService = playlistImportService;
         _epgImportService = epgImportService;
+        _settingsStore = settingsStore;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadChannelsAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
 
         _ = LoadChannelsAsync();
+        _ = LoadLastRefreshSecondsAsync();
+    }
+
+    private async Task LoadLastRefreshSecondsAsync()
+    {
+        var stored = await _settingsStore.GetAsync(LastRefreshSecondsKey);
+        if (int.TryParse(stored, out var seconds))
+        {
+            _lastRefreshSeconds = seconds;
+        }
+    }
+
+    private string FormatRefreshElapsedLabel(TimeSpan elapsed)
+    {
+        var seconds = (int)elapsed.TotalSeconds;
+        return _lastRefreshSeconds is { } last
+            ? $"Refreshing... {seconds}s (last time: ~{last}s)"
+            : $"Refreshing... {seconds}s";
     }
 
     // A favorite toggled from Guide or Favorites should show up here too without a full reload
@@ -118,6 +148,12 @@ public partial class LiveTvViewModel : ViewModelBase
     private async Task RefreshAsync()
     {
         IsLoading = true;
+        var stopwatch = Stopwatch.StartNew();
+        var elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        elapsedTimer.Tick += (_, _) => RefreshElapsedLabel = FormatRefreshElapsedLabel(stopwatch.Elapsed);
+        RefreshElapsedLabel = FormatRefreshElapsedLabel(TimeSpan.Zero);
+        elapsedTimer.Start();
+
         var failedProfiles = new List<string>();
         try
         {
@@ -138,6 +174,11 @@ public partial class LiveTvViewModel : ViewModelBase
         }
         finally
         {
+            elapsedTimer.Stop();
+            RefreshElapsedLabel = null;
+            _lastRefreshSeconds = (int)Math.Round(stopwatch.Elapsed.TotalSeconds);
+            _ = _settingsStore.SetAsync(LastRefreshSecondsKey, _lastRefreshSeconds.Value.ToString());
+
             // LoadChannelsAsync resets LoadError to null on entry, so any failure message has to be
             // applied after it returns rather than before.
             await LoadChannelsAsync();

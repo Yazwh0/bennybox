@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,18 +14,23 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class MoviesViewModel : ViewModelBase
 {
     private const string AllCategoriesLabel = "All Categories";
+    private const string LastRefreshSecondsKey = "Movies.LastRefreshSeconds";
 
     private readonly IProfileRepository _profileRepository;
     private readonly IMovieRepository _movieRepository;
     private readonly MovieImportService _movieImportService;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
+    private readonly ISettingsStore _settingsStore;
     private readonly ILogger<MoviesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
 
     private List<MovieCategoryGroupViewModel> _allGroups = [];
     private CancellationTokenSource? _searchCts;
+
+    // See GuideViewModel's equivalent field for why this exists.
+    private int? _lastRefreshSeconds;
 
     // See GuideViewModel._loadRequestId - LoadMoviesAsync now does a real network import on an
     // explicit Refresh (can take seconds), so two overlapping calls are a real possibility.
@@ -67,6 +73,10 @@ public partial class MoviesViewModel : ViewModelBase
 
     public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
+    // See GuideViewModel's equivalent property for why this exists and how it's bound.
+    [ObservableProperty]
+    private string? _refreshElapsedLabel;
+
     [ObservableProperty]
     private bool _hasNoMovies;
 
@@ -89,6 +99,7 @@ public partial class MoviesViewModel : ViewModelBase
         MovieImportService movieImportService,
         IFavoriteRepository favoriteRepository,
         IWatchedItemRepository watchedItemRepository,
+        ISettingsStore settingsStore,
         ILogger<MoviesViewModel> logger)
     {
         Player = player;
@@ -97,6 +108,7 @@ public partial class MoviesViewModel : ViewModelBase
         _movieImportService = movieImportService;
         _favoriteRepository = favoriteRepository;
         _watchedItemRepository = watchedItemRepository;
+        _settingsStore = settingsStore;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadMoviesAsync());
@@ -104,6 +116,24 @@ public partial class MoviesViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
 
         _ = LoadMoviesAsync();
+        _ = LoadLastRefreshSecondsAsync();
+    }
+
+    private async Task LoadLastRefreshSecondsAsync()
+    {
+        var stored = await _settingsStore.GetAsync(LastRefreshSecondsKey);
+        if (int.TryParse(stored, out var seconds))
+        {
+            _lastRefreshSeconds = seconds;
+        }
+    }
+
+    private string FormatRefreshElapsedLabel(TimeSpan elapsed)
+    {
+        var seconds = (int)elapsed.TotalSeconds;
+        return _lastRefreshSeconds is { } last
+            ? $"Refreshing... {seconds}s (last time: ~{last}s)"
+            : $"Refreshing... {seconds}s";
     }
 
     // See LiveTvViewModel.RefreshAsync / GuideViewModel.RefreshAsync - an explicit Refresh press is the
@@ -113,6 +143,12 @@ public partial class MoviesViewModel : ViewModelBase
     private async Task RefreshAsync()
     {
         IsLoading = true;
+        var stopwatch = Stopwatch.StartNew();
+        var elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        elapsedTimer.Tick += (_, _) => RefreshElapsedLabel = FormatRefreshElapsedLabel(stopwatch.Elapsed);
+        RefreshElapsedLabel = FormatRefreshElapsedLabel(TimeSpan.Zero);
+        elapsedTimer.Start();
+
         var failedProfiles = new List<string>();
         try
         {
@@ -132,6 +168,11 @@ public partial class MoviesViewModel : ViewModelBase
         }
         finally
         {
+            elapsedTimer.Stop();
+            RefreshElapsedLabel = null;
+            _lastRefreshSeconds = (int)Math.Round(stopwatch.Elapsed.TotalSeconds);
+            _ = _settingsStore.SetAsync(LastRefreshSecondsKey, _lastRefreshSeconds.Value.ToString());
+
             // LoadMoviesAsync resets LoadError to null on entry, so any failure message has to be
             // applied after it returns rather than before.
             await LoadMoviesAsync();

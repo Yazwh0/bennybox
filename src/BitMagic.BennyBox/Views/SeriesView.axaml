@@ -14,7 +14,8 @@
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search series..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
-                                    Width="18" Height="18" Margin="6,0,0,0" ToolTip.Tip="Refreshing..." />
+                                    Width="18" Height="18" Margin="6,0,0,0"
+                                    ToolTip.Tip="{Binding RefreshElapsedLabel, TargetNullValue='Loading...'}" />
                 <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
                         ToolTip.Tip="Refresh" Margin="6,0,0,0" />
             </Grid>
@@ -30,7 +31,7 @@
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
                     IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-            <TextBlock Text="Loading series..." Opacity="0.7" />
+            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading series...'}" Opacity="0.7" />
         </StackPanel>
         <TextBlock Grid.Row="1" Text="No series available yet - add an Xtream profile and refresh it in Settings."
                    Margin="16" TextWrapping="Wrap" Opacity="0.7">
