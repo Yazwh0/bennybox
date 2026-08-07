@@ -18,6 +18,8 @@
         <converters:FullscreenToMarginConverter x:Key="FullscreenToMarginConverter" />
         <converters:ActiveTagToBackgroundConverter x:Key="ActiveTagToBackgroundConverter" />
         <converters:ActiveTagToFontWeightConverter x:Key="ActiveTagToFontWeightConverter" />
+        <converters:NavBarMaxWidthConverter x:Key="NavBarMaxWidthConverter" />
+        <converters:NavBarHorizontalAlignmentConverter x:Key="NavBarHorizontalAlignmentConverter" />
     </Application.Resources>
 
     <Application.Styles>

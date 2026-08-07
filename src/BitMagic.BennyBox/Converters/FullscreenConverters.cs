@@ -4,6 +4,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
+using Avalonia.Layout;
 using Avalonia.Media;
 
 namespace BitMagic.BennyBox.Converters;
@@ -73,6 +74,29 @@ public class ContentAreaMaxWidthConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is true ? double.PositiveInfinity : 560.0;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+// The nav button row should stretch to fill the sidebar's actual width on every normal page (so
+// buttons resize as the window/sidebar is resized, instead of sitting at a fixed size with dead
+// space to the right) - except on Settings, where that same sidebar column widens to the full
+// window, and stretching 8 cells across that would maroon each icon in the middle of a huge empty
+// cell. These two converters apply the cap/left-alignment only while Settings is actually active.
+public class NavBarMaxWidthConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? 600.0 : double.PositiveInfinity;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class NavBarHorizontalAlignmentConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

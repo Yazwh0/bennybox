@@ -9,6 +9,14 @@
         Icon="avares://BitMagic.BennyBox/Assets/icon.ico"
         Title="Benny Box"
         Width="1280" Height="800">
+    <Window.Styles>
+        <Style Selector="GridSplitter:pointerover">
+            <Setter Property="Background" Value="#55556A" />
+        </Style>
+        <Style Selector="GridSplitter:pressed">
+            <Setter Property="Background" Value="#6B6B85" />
+        </Style>
+    </Window.Styles>
     <!-- The video area lives here once, permanently, rather than once per page (as it used to).
          LibVLC's video surface is a native child window - swapping pages used to destroy and
          recreate it each time, and the replacement didn't reliably reclaim rendering, so video
@@ -61,12 +69,15 @@
                  WrapPanel) so the sidebar's remaining height goes to the actual channel/series/movie
                  lists below rather than the nav itself. ToolTip.Tip carries the label that used to be
                  visible text. -->
-            <!-- MaxWidth+Left alignment matters specifically on the Settings page, where this sidebar
+            <!-- MaxWidth+Left alignment only kick in while Settings is active, where this sidebar
                  column widens to the full window (see IsSettingsActive/ContentArea*Converter) - without
-                 a cap, UniformGrid stretches all 8 cells across that whole width, leaving each icon
-                 marooned in the middle of a huge empty cell instead of the compact row it is everywhere
-                 else. -->
-            <UniformGrid Grid.Row="1" Columns="8" Margin="8,8,8,4" MaxWidth="600" HorizontalAlignment="Left">
+                 that cap, UniformGrid would stretch all 8 cells across that whole width, leaving each
+                 icon marooned in the middle of a huge empty cell. Everywhere else it stretches to fill
+                 the sidebar's actual width, so the buttons resize as the window/sidebar is resized
+                 instead of sitting fixed-size with dead space to the right. -->
+            <UniformGrid Grid.Row="1" Columns="8" Margin="8,8,8,4"
+                         MaxWidth="{Binding IsSettingsActive, Converter={StaticResource NavBarMaxWidthConverter}}"
+                         HorizontalAlignment="{Binding IsSettingsActive, Converter={StaticResource NavBarHorizontalAlignmentConverter}}">
                 <Button Command="{Binding NavigateCommand}" CommandParameter="Search" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Search}"
                         ToolTip.Tip="Search">
@@ -133,7 +144,10 @@
             <ContentControl Grid.Row="2" Content="{Binding CurrentPage}" />
         </Grid>
 
-        <GridSplitter Grid.Column="1" Width="6" Background="Transparent"
+        <!-- Tinted (not Transparent) so this reads as a draggable resize handle rather than dead
+             space next to the nav row - brightens further on hover/press for the usual "this is
+             interactive" affordance. -->
+        <GridSplitter Grid.Column="1" Width="6" Background="#3A3A44"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       DragCompleted="OnContentSidebarSplitterDragCompleted">
             <GridSplitter.IsVisible>
