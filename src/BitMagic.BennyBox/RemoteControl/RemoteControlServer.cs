@@ -1,13 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using BitMagic.BennyBox.Core.Services;
 using BitMagic.BennyBox.ViewModels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.RemoteControl;
@@ -15,29 +15,75 @@ namespace BitMagic.BennyBox.RemoteControl;
 // Real, ships-in-Release phone remote control - distinct from DebugRemoteControlServer (which is
 // #if DEBUG-only, localhost-only, and gives unrestricted access for development). This binds to the
 // LAN so a phone on the same network can reach it, which is exactly why it needs to be gated by a
-// session token and exposes only a small, purpose-built surface (playback control), not arbitrary
-// ViewModel access.
+// session token and exposes only a small, purpose-built surface, not arbitrary ViewModel access.
 //
 // Uses Kestrel (via the Microsoft.AspNetCore.App framework reference), not HttpListener like the
 // debug bridge - HttpListener's underlying http.sys driver refuses to bind any non-loopback address
 // (including a specific LAN IP, not just wildcards) without either running elevated or a one-time
 // `netsh http add urlacl` reservation. Kestrel binds via plain managed sockets, so it works for a
 // normal, non-administrator user - the only realistic option for a consumer feature.
-public sealed class RemoteControlServer : IAsyncDisposable
+//
+// Split across RemoteControlServer.{LiveTv,Guide,Series,Movies,Favorites}.cs by content area - this
+// file is just the core (auth, lifecycle, routing table) plus the original playback-transport routes.
+// Every content-area route deliberately reads repositories directly rather than driving
+// LiveTvViewModel/GuideViewModel/SeriesViewModel/MoviesViewModel/FavoritesViewModel - those are
+// effectively singletons bound straight to the desktop screen, so searching from the phone would
+// otherwise visibly hijack whatever's shown on the TV/desktop at that moment.
+public sealed partial class RemoteControlServer : IAsyncDisposable
 {
     private const int PreferredPort = 47819;
 
+    // The desktop virtualizes lists of 15k+ rows in a native control; a phone browser rendering that
+    // many DOM nodes would not be pleasant, so any browsing list route caps its results and reports
+    // Truncated=true rather than shipping everything.
+    private const int MaxListResults = 200;
+
     private readonly PlayerViewModel _player;
-    private readonly ILogger _logger;
+    private readonly IProfileRepository _profileRepository;
+    private readonly IChannelRepository _channelRepository;
+    private readonly IEpgRepository _epgRepository;
+    private readonly ISeriesRepository _seriesRepository;
+    private readonly IMovieRepository _movieRepository;
+    private readonly IFavoriteRepository _favoriteRepository;
+    private readonly IWatchedItemRepository _watchedItemRepository;
+    private readonly IWatchProgressRepository _watchProgressRepository;
+    private readonly IReminderRepository _reminderRepository;
+    private readonly SeriesImportService _seriesImportService;
+    private readonly MovieImportService _movieImportService;
+    private readonly ILogger<RemoteControlServer> _logger;
     private WebApplication? _app;
 
     public int? Port { get; private set; }
     public Guid Token { get; private set; }
     public bool IsRunning => _app is not null;
 
-    public RemoteControlServer(PlayerViewModel player, ILogger<RemoteControlServer> logger)
+    public RemoteControlServer(
+        PlayerViewModel player,
+        IProfileRepository profileRepository,
+        IChannelRepository channelRepository,
+        IEpgRepository epgRepository,
+        ISeriesRepository seriesRepository,
+        IMovieRepository movieRepository,
+        IFavoriteRepository favoriteRepository,
+        IWatchedItemRepository watchedItemRepository,
+        IWatchProgressRepository watchProgressRepository,
+        IReminderRepository reminderRepository,
+        SeriesImportService seriesImportService,
+        MovieImportService movieImportService,
+        ILogger<RemoteControlServer> logger)
     {
         _player = player;
+        _profileRepository = profileRepository;
+        _channelRepository = channelRepository;
+        _epgRepository = epgRepository;
+        _seriesRepository = seriesRepository;
+        _movieRepository = movieRepository;
+        _favoriteRepository = favoriteRepository;
+        _watchedItemRepository = watchedItemRepository;
+        _watchProgressRepository = watchProgressRepository;
+        _reminderRepository = reminderRepository;
+        _seriesImportService = seriesImportService;
+        _movieImportService = movieImportService;
         _logger = logger;
     }
 
@@ -63,10 +109,7 @@ public sealed class RemoteControlServer : IAsyncDisposable
         builder.WebHost.UseKestrel(o => o.ListenAnyIP(port));
 
         var app = builder.Build();
-        app.MapGet("/", HandleIndex);
-        app.MapGet("/api/status", HandleStatus);
-        app.MapPost("/api/command", HandleCommand);
-        app.MapPost("/api/volume", HandleVolume);
+        MapRoutes(app);
 
         try
         {
@@ -83,6 +126,20 @@ public sealed class RemoteControlServer : IAsyncDisposable
         Port = new Uri(app.Urls.First()).Port;
         _logger.LogWarning("Remote control server listening on port {Port}", Port);
         return true;
+    }
+
+    private void MapRoutes(WebApplication app)
+    {
+        app.MapGet("/", HandleIndex);
+        app.MapGet("/api/status", HandleStatus);
+        app.MapPost("/api/command", HandleCommand);
+        app.MapPost("/api/volume", HandleVolume);
+
+        MapLiveTvRoutes(app);
+        MapGuideRoutes(app);
+        MapSeriesRoutes(app);
+        MapMoviesRoutes(app);
+        MapFavoritesRoutes(app);
     }
 
     public void Regenerate() => Token = Guid.NewGuid();
@@ -137,14 +194,13 @@ public sealed class RemoteControlServer : IAsyncDisposable
         return Results.Json(status);
     }
 
-    private async Task<IResult> HandleCommand(HttpRequest request)
+    private async Task<IResult> HandleCommand(HttpRequest request, CommandRequest? body)
     {
         if (!IsAuthorized(request))
         {
             return Results.StatusCode(401);
         }
 
-        var body = await request.ReadFromJsonAsync<CommandRequest>();
         if (body?.Command is null)
         {
             return Results.BadRequest();
@@ -184,14 +240,13 @@ public sealed class RemoteControlServer : IAsyncDisposable
         return Results.Ok();
     }
 
-    private async Task<IResult> HandleVolume(HttpRequest request)
+    private async Task<IResult> HandleVolume(HttpRequest request, VolumeRequest? body)
     {
         if (!IsAuthorized(request))
         {
             return Results.StatusCode(401);
         }
 
-        var body = await request.ReadFromJsonAsync<VolumeRequest>();
         if (body is null)
         {
             return Results.BadRequest();
@@ -205,8 +260,17 @@ public sealed class RemoteControlServer : IAsyncDisposable
     private static async Task<T> RunOnUiThreadAsync<T>(Func<T> action) => await Dispatcher.UIThread.InvokeAsync(action);
     private static async Task RunOnUiThreadAsync(Action action) => await Dispatcher.UIThread.InvokeAsync(action);
 
+    private static (List<T> Items, bool Truncated) FilterAndCap<T>(IEnumerable<T> items, Func<T, bool> matches)
+    {
+        var matched = items.Where(matches).ToList();
+        return matched.Count > MaxListResults
+            ? (matched.Take(MaxListResults).ToList(), true)
+            : (matched, false);
+    }
+
     private sealed record CommandRequest(string? Command);
     private sealed record VolumeRequest(int Value);
+    private sealed record IdRequest(Guid Id);
     private sealed record StatusResponse(
         string? NowPlaying, bool IsPlaying, bool IsPaused, bool CanPause, bool IsSeekable,
         string PositionLabel, string DurationLabel, int Volume, bool IsMuted);
