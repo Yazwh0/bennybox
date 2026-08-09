@@ -9,18 +9,18 @@
     <Grid RowDefinitions="Auto,*">
         <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4">
             <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels..." />
+                <TextBox Classes="glass" Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                     Width="18" Height="18" Margin="6,0,0,0"
                                     ToolTip.Tip="{Binding RefreshElapsedLabel, TargetNullValue='Loading...'}" />
-                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
+                <Button Classes="glass-nav" Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
                         ToolTip.Tip="Refresh" Margin="6,0,0,0" />
             </Grid>
             <!-- A plain ComboBox for standard click-to-open/select behavior, with a separate TextBox
                  to narrow which categories it shows (FilteredCategories) - typing here never touches
                  SelectedCategory itself, only picking an item from the ComboBox does. -->
-            <TextBox Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
-            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+            <TextBox Classes="glass" Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
+            <ComboBox Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
                       HorizontalAlignment="Stretch" />
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
                        IsVisible="{Binding HasLoadError}" />
@@ -33,10 +33,10 @@
              fuller writeup - same underlying issue here). -->
         <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,90,0,0"
                 IsVisible="{Binding IsLoading}"
-                Background="#33333F" BorderBrush="#55556A" BorderThickness="1" CornerRadius="10" Padding="24,20">
+                Background="{StaticResource GlassPanelStrongBrush}" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="24,20">
             <StackPanel Spacing="8" HorizontalAlignment="Center">
                 <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" />
+                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" Foreground="{StaticResource GlassTextBrush}" />
             </StackPanel>
         </Border>
         <!--
@@ -54,17 +54,17 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" Foreground="{StaticResource GlassTextBrush}" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:ChannelListItemViewModel">
                         <Grid ColumnDefinitions="Auto,*" Margin="8,1">
-                            <Button Grid.Column="0"
+                            <Button Classes="glass-nav" Grid.Column="0"
                                     Content="{Binding FavoriteIcon}"
                                     Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="1"
+                            <Button Classes="glass-ctrl" Grid.Column="1"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
@@ -73,9 +73,9 @@
                                     <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
                                                                 Width="44" Height="44" VerticalAlignment="Center" />
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource GlassTextBrush}" />
                                         <TextBlock Text="{Binding NowTitle}"
-                                                    FontSize="11" Opacity="0.7"
+                                                    FontSize="11" Foreground="{StaticResource GlassTextDimBrush}"
                                                     IsVisible="{Binding HasNowTitle}" />
                                     </StackPanel>
                                 </StackPanel>

@@ -12,18 +12,18 @@
         <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4"
                     IsVisible="{Binding SelectedMovie, Converter={x:Static conv:ObjectConverters.IsNull}}">
             <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search movies..." />
+                <TextBox Classes="glass" Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search movies..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                     Width="18" Height="18" Margin="6,0,0,0"
                                     ToolTip.Tip="{Binding RefreshElapsedLabel, TargetNullValue='Loading...'}" />
-                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
+                <Button Classes="glass-nav" Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
                         ToolTip.Tip="Refresh" Margin="6,0,0,0" />
             </Grid>
             <!-- A plain ComboBox for standard click-to-open/select behavior, with a separate TextBox
                  to narrow which categories it shows (FilteredCategories) - typing here never touches
                  SelectedCategory itself, only picking an item from the ComboBox does. -->
-            <TextBox Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
-            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+            <TextBox Classes="glass" Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
+            <ComboBox Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
                       HorizontalAlignment="Stretch" />
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
                        IsVisible="{Binding HasLoadError}" />
@@ -36,10 +36,10 @@
              fuller writeup - same underlying issue here). -->
         <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,90,0,0"
                 IsVisible="{Binding IsLoading}"
-                Background="#33333F" BorderBrush="#55556A" BorderThickness="1" CornerRadius="10" Padding="24,20">
+                Background="{StaticResource GlassPanelStrongBrush}" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="24,20">
             <StackPanel Spacing="8" HorizontalAlignment="Center">
                 <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading movies...'}" />
+                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading movies...'}" Foreground="{StaticResource GlassTextBrush}" />
             </StackPanel>
         </Border>
         <TextBlock Grid.Row="1" Text="No movies available yet - add an Xtream profile and refresh it in Settings."
@@ -74,24 +74,24 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" Foreground="{StaticResource GlassTextBrush}" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:MovieListItemViewModel">
                         <Grid ColumnDefinitions="Auto,Auto,*" Margin="8,1">
-                            <Button Grid.Column="0"
+                            <Button Classes="glass-nav" Grid.Column="0"
                                     Content="{Binding FavoriteIcon}"
                                     Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="1"
+                            <Button Classes="glass-nav" Grid.Column="1"
                                     Content="{Binding WatchedIcon}"
                                     ToolTip.Tip="Toggle watched"
                                     Command="{Binding #RootControl.DataContext.ToggleWatchedCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch" MinWidth="28"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="2"
+                            <Button Classes="glass-ctrl" Grid.Column="2"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectMovieCommand}"
@@ -99,7 +99,7 @@
                                 <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
                                     <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
                                                                 Width="44" Height="44" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -114,7 +114,7 @@
              import show immediately, the rest fades in once IsLoadingDetails clears. -->
         <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,Auto,*"
               IsVisible="{Binding SelectedMovie, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
-            <Button Grid.Row="0" Content="&#8592; Back to Movies" Command="{Binding BackToListCommand}" Margin="8,8,8,4" HorizontalAlignment="Stretch" />
+            <Button Classes="glass-ctrl" Grid.Row="0" Content="&#8592; Back to Movies" Command="{Binding BackToListCommand}" Margin="8,8,8,4" HorizontalAlignment="Stretch" />
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="8,4">
                 <controls:ChannelLogoImage Grid.Column="0" LogoUrl="{Binding SelectedMovie.CoverUrl}"
                                             Width="110" Height="165" VerticalAlignment="Top" />
@@ -128,8 +128,8 @@
                     <TextBlock Text="{Binding SelectedMovie.Plot}" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
                                IsVisible="{Binding SelectedMovie.HasPlot}" />
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                        <Button Content="▶ Play" Command="{Binding PlayMovieCommand}" CommandParameter="{Binding SelectedMovie}" />
-                        <Button Content="{Binding SelectedMovie.WatchedIcon}" ToolTip.Tip="Toggle watched" MinWidth="32"
+                        <Button Classes="glass-ctrl accent" Content="▶ Play" Command="{Binding PlayMovieCommand}" CommandParameter="{Binding SelectedMovie}" />
+                        <Button Classes="glass-nav" Content="{Binding SelectedMovie.WatchedIcon}" ToolTip.Tip="Toggle watched" MinWidth="32"
                                 Command="{Binding ToggleWatchedCommand}" CommandParameter="{Binding SelectedMovie}" />
                     </StackPanel>
                 </StackPanel>

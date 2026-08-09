@@ -9,7 +9,7 @@
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
         <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4">
-            <TextBox Text="{Binding SearchText}" PlaceholderText="Search Live TV, Series, and Movies..." />
+            <TextBox Classes="glass" Text="{Binding SearchText}" PlaceholderText="Search Live TV, Series, and Movies..." />
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
                        IsVisible="{Binding HasLoadError}" />
         </StackPanel>
@@ -44,17 +44,17 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" />
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" Foreground="{StaticResource GlassTextBrush}" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:ChannelListItemViewModel">
                         <Grid ColumnDefinitions="Auto,*" Margin="8,1">
-                            <Button Grid.Column="0"
+                            <Button Classes="glass-nav" Grid.Column="0"
                                     Content="{Binding FavoriteIcon}"
                                     Command="{Binding #RootControl.DataContext.ToggleChannelFavoriteCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="1"
+                            <Button Classes="glass-ctrl" Grid.Column="1"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
@@ -63,9 +63,9 @@
                                     <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
                                                                 Width="44" Height="44" VerticalAlignment="Center" />
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource GlassTextBrush}" />
                                         <TextBlock Text="{Binding NowTitle}"
-                                                    FontSize="11" Opacity="0.7"
+                                                    FontSize="11" Foreground="{StaticResource GlassTextDimBrush}"
                                                     IsVisible="{Binding HasNowTitle}" />
                                     </StackPanel>
                                 </StackPanel>
@@ -74,13 +74,13 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:SeriesListItemViewModel">
                         <Grid ColumnDefinitions="Auto,*" Margin="8,1">
-                            <Button Grid.Column="0"
+                            <Button Classes="glass-nav" Grid.Column="0"
                                     Content="{Binding FavoriteIcon}"
                                     Command="{Binding #RootControl.DataContext.ToggleSeriesFavoriteCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="1"
+                            <Button Classes="glass-ctrl" Grid.Column="1"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectSeriesCommand}"
@@ -88,27 +88,27 @@
                                 <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
                                     <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
                                                                 Width="44" Height="44" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
                                 </StackPanel>
                             </Button>
                         </Grid>
                     </DataTemplate>
                     <DataTemplate DataType="vm:MovieListItemViewModel">
                         <Grid ColumnDefinitions="Auto,Auto,*" Margin="8,1">
-                            <Button Grid.Column="0"
+                            <Button Classes="glass-nav" Grid.Column="0"
                                     Content="{Binding FavoriteIcon}"
                                     Command="{Binding #RootControl.DataContext.ToggleMovieFavoriteCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="1"
+                            <Button Classes="glass-nav" Grid.Column="1"
                                     Content="{Binding WatchedIcon}"
                                     ToolTip.Tip="Toggle watched"
                                     Command="{Binding #RootControl.DataContext.ToggleMovieWatchedCommand}"
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch" MinWidth="28"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Grid.Column="2"
+                            <Button Classes="glass-ctrl" Grid.Column="2"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectMovieCommand}"
@@ -116,7 +116,7 @@
                                 <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
                                     <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
                                                                 Width="44" Height="44" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
                                 </StackPanel>
                             </Button>
                         </Grid>

@@ -16,32 +16,32 @@
         <Grid RowDefinitions="Auto,Auto,*">
             <StackPanel Grid.Row="0" Spacing="6" Margin="8">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="Today" Command="{Binding GoToTodayCommand}" IsEnabled="{Binding !IsLoading}" />
-                    <Button Content="◀" Command="{Binding GoToPreviousDayCommand}" IsEnabled="{Binding !IsLoading}" />
-                    <Button Content="▶" Command="{Binding GoToNextDayCommand}" IsEnabled="{Binding !IsLoading}" />
+                    <Button Classes="glass-ctrl" Content="Today" Command="{Binding GoToTodayCommand}" IsEnabled="{Binding !IsLoading}" />
+                    <Button Classes="glass-nav" Content="◀" Command="{Binding GoToPreviousDayCommand}" IsEnabled="{Binding !IsLoading}" />
+                    <Button Classes="glass-nav" Content="▶" Command="{Binding GoToNextDayCommand}" IsEnabled="{Binding !IsLoading}" />
                 </StackPanel>
-                <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" />
+                <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" Foreground="{StaticResource GlassTextBrush}" />
                 <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"
                            IsVisible="{Binding HasLoadError}" />
                 <Grid ColumnDefinitions="*,Auto,Auto">
-                    <TextBox Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels or what's on..." />
+                    <TextBox Classes="glass" Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels or what's on..." />
                     <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                         Width="18" Height="18" Margin="6,0,0,0"
                                         ToolTip.Tip="{Binding RefreshElapsedLabel, TargetNullValue='Loading...'}" />
-                    <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
+                    <Button Classes="glass-nav" Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}"
                             ToolTip.Tip="Refresh" Margin="6,0,0,0" />
                 </Grid>
                 <!-- A plain ComboBox for standard click-to-open/select behavior, with a separate TextBox
                      to narrow which categories it shows (FilteredCategories) - typing here never touches
                      SelectedCategory itself, only picking an item from the ComboBox does. -->
-                <TextBox Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
-                <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+                <TextBox Classes="glass" Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
+                <ComboBox Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
                           HorizontalAlignment="Stretch" />
-                <CheckBox Content="Hide channels with no info" IsChecked="{Binding HideEmptyChannels}" />
+                <CheckBox Content="Hide channels with no info" IsChecked="{Binding HideEmptyChannels}" Foreground="{StaticResource GlassTextBrush}" />
             </StackPanel>
 
             <Grid Grid.Row="1" ColumnDefinitions="130,*">
-                <Border Grid.Column="0" Background="#19191E" />
+                <Border Grid.Column="0" Background="{StaticResource SmokedBgBrush}" />
                 <ScrollViewer Grid.Column="1" Name="TimeHeaderScroll"
                               HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
                     <controls:TimeHeaderControl WindowStart="{Binding WindowStartUtc}"
@@ -61,17 +61,23 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:GuideRowViewModel">
-                                <Border Height="48" BorderBrush="#22262C" BorderThickness="0,0,0,1">
+                                <Border Height="48" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="0,0,0,1">
                                     <!-- Padding lives on the Grid (horizontal only), not the Border, so the favorite
                                          button's VerticalAlignment="Stretch" below can reach the row's full height
                                          top-to-bottom - matching Live TV/Series - instead of being inset by 6px
                                          top/bottom the way Border.Padding would apply it. -->
                                     <Grid ColumnDefinitions="Auto,*" Margin="6,0">
+                                        <!-- Rows here are stacked with zero gap (a fixed-height Border with only a
+                                             bottom hairline, not per-row Margin like the other list views), so these
+                                             buttons deliberately skip glass-nav/glass-ctrl's Background+CornerRadius -
+                                             rounded corners on back-to-back rows would notch against each other. Text/
+                                             separator colors still pick up the palette via Foreground/BorderBrush. -->
                                         <Button Grid.Column="0"
                                                 Content="{Binding FavoriteIcon}"
                                                 Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
                                                 CommandParameter="{Binding}"
                                                 VerticalAlignment="Stretch"
+                                                Foreground="{StaticResource GlassTextDimBrush}"
                                                 Padding="6,0" Margin="0,0,4,0" />
                                         <Button Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
@@ -82,7 +88,8 @@
                                                 <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
                                                                             Width="28" Height="28" VerticalAlignment="Center" />
                                                 <TextBlock Text="{Binding ChannelName}" VerticalAlignment="Center"
-                                                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="12" />
+                                                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="12"
+                                                           Foreground="{StaticResource GlassTextBrush}" />
                                             </StackPanel>
                                         </Button>
                                     </Grid>
@@ -117,10 +124,10 @@
              Anchoring from the top sidesteps that unresolved height calculation entirely. -->
         <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,260,0,0"
                 IsVisible="{Binding IsLoading}"
-                Background="#33333F" BorderBrush="#55556A" BorderThickness="1" CornerRadius="10" Padding="24,20">
+                Background="{StaticResource GlassPanelStrongBrush}" BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="24,20">
             <StackPanel Spacing="8" HorizontalAlignment="Center">
                 <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading guide...'}" />
+                <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading guide...'}" Foreground="{StaticResource GlassTextBrush}" />
             </StackPanel>
         </Border>
     </Panel>

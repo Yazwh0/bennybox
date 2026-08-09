@@ -6,17 +6,44 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Media;
+using FluentAvalonia.UI.Controls;
 
 namespace BitMagic.BennyBox.Converters;
 
+// Transport bar buttons are icon-only (matching the sidebar nav's icon-only look) but still need
+// a symbol that reflects which action a click will perform, not the current state - IsPaused=true
+// means playback is paused, so the button should show Play (click to resume).
+public class PausedToPlaySymbolConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? FASymbol.PlayFilled : FASymbol.PauseFilled;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class MutedToSymbolConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? FASymbol.SpeakerMute : FASymbol.Speaker2;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 // Highlights whichever nav button matches MainWindowViewModel.CurrentPageTag - value is the current
 // tag, parameter is the specific button's own tag (set per-button in XAML via ConverterParameter).
+// Every button gets the base glass tint so the row reads as a strip of glass chips even before
+// picking one; the active button additionally gets the accent tint. Colors match App.axaml's
+// GlassPanelBrush/AccentGlassBrush tokens - kept as plain ARGB here since a converter can't easily
+// pull a DynamicResource, so keep these two in sync if the palette ever changes.
 public class ActiveTagToBackgroundConverter : IValueConverter
 {
-    private static readonly IBrush ActiveBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+    private static readonly IBrush ActiveBrush = new SolidColorBrush(Color.FromArgb(51, 0xD9, 0x99, 0x5A));
+    private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.FromArgb(148, 0x2E, 0x25, 0x1E));
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is string tag && parameter is string target && tag == target ? ActiveBrush : Brushes.Transparent;
+        value is string tag && parameter is string target && tag == target ? ActiveBrush : InactiveBrush;
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

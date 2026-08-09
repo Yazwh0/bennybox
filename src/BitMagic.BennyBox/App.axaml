@@ -20,9 +20,126 @@
         <converters:ActiveTagToFontWeightConverter x:Key="ActiveTagToFontWeightConverter" />
         <converters:NavBarMaxWidthConverter x:Key="NavBarMaxWidthConverter" />
         <converters:NavBarHorizontalAlignmentConverter x:Key="NavBarHorizontalAlignmentConverter" />
+        <converters:PausedToPlaySymbolConverter x:Key="PausedToPlaySymbolConverter" />
+        <converters:MutedToSymbolConverter x:Key="MutedToSymbolConverter" />
+
+        <!-- "Smoked Glass" palette - warm, dim, minimal amber-on-near-black, chosen from three
+             mockup directions compared as an HTML artifact. Centralized here so every view pulls
+             from the same handful of tokens instead of each page inventing its own hex colors
+             (which is exactly how the app ended up with three unrelated dark palettes before this). -->
+        <Color x:Key="SmokedBgColor">#120E0B</Color>
+        <Color x:Key="SmokedGlassTintColor">#2E251E</Color>
+        <Color x:Key="SmokedBorderColor">#D9995A</Color>
+        <Color x:Key="SmokedAccentColor">#D9995A</Color>
+        <Color x:Key="SmokedTextColor">#EDE4DA</Color>
+        <Color x:Key="SmokedTextDimColor">#978771</Color>
+
+        <SolidColorBrush x:Key="SmokedBgBrush" Color="{StaticResource SmokedBgColor}" />
+        <!-- For Window.Background specifically, paired with TransparencyLevelHint="AcrylicBlur" -
+             alpha lets the OS blur-behind show through everywhere the window doesn't paint its own
+             opaque content, the actual "Windows Terminal" look. Kept separate from SmokedBgBrush
+             (fully opaque) since that one's still used as a plain solid fill elsewhere. -->
+        <SolidColorBrush x:Key="SmokedBgTranslucentBrush" Color="{StaticResource SmokedBgColor}" Opacity="0.55" />
+        <!-- Transport bar background - a plain translucent fill instead of ExperimentalAcrylicBorder's
+             Digger material. Digger composites within Avalonia's own render pass, before the OS-level
+             AcrylicBlur compositing that makes the rest of the window see-through even applies, so it
+             produced a noticeably more opaque, disconnected-looking band no matter how its own
+             MaterialOpacity was tuned. A flat brush at roughly the same alpha as the window's own
+             background (0.55) participates in that single OS blur instead of layering a second,
+             differently-behaved translucency system on top. -->
+        <SolidColorBrush x:Key="TransportBarBrush" Color="{StaticResource SmokedGlassTintColor}" Opacity="0.6" />
+        <SolidColorBrush x:Key="GlassPanelBrush" Color="{StaticResource SmokedGlassTintColor}" Opacity="0.58" />
+        <SolidColorBrush x:Key="GlassPanelStrongBrush" Color="{StaticResource SmokedGlassTintColor}" Opacity="0.82" />
+        <SolidColorBrush x:Key="GlassBorderBrush" Color="{StaticResource SmokedBorderColor}" Opacity="0.18" />
+        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource SmokedAccentColor}" />
+        <SolidColorBrush x:Key="AccentGlassBrush" Color="{StaticResource SmokedAccentColor}" Opacity="0.2" />
+        <SolidColorBrush x:Key="AccentGlassBrushStrong" Color="{StaticResource SmokedAccentColor}" Opacity="0.38" />
+        <SolidColorBrush x:Key="GlassTextBrush" Color="{StaticResource SmokedTextColor}" />
+        <SolidColorBrush x:Key="GlassTextDimBrush" Color="{StaticResource SmokedTextDimColor}" />
+
     </Application.Resources>
 
     <Application.Styles>
         <styling:FluentAvaloniaTheme />
+
+        <!-- Nav bar / transport bar icon buttons - background is left to whatever set it locally
+             (the active-page highlight uses ActiveTagToBackgroundConverter per-button in
+             MainWindow.axaml) so this only supplies the shared border/corner/foreground chrome.
+             pointerover/pressed explicitly override the template's ContentPresenter Background/
+             BorderBrush - FluentAvaloniaTheme's default Button theme recolors that same part on
+             those pseudo-classes using its own (grey, unrelated) palette, which otherwise "flashes"
+             over our amber tint every time the pointer enters/exits a button (tooltips showing up
+             is just a symptom of the same pointerover trigger, not a separate effect). Pointerover
+             stays a light wash so moving across several buttons in a row reads as a gentle ripple,
+             not a flash; pressed is deliberately more saturated so clicking still gives real feedback. -->
+        <Style Selector="Button.glass-nav">
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource GlassTextDimBrush}" />
+        </Style>
+        <Style Selector="Button.glass-nav:pointerover /template/ ContentPresenter">
+            <Setter Property="Foreground" Value="{StaticResource GlassTextBrush}" />
+            <Setter Property="Background" Value="{StaticResource AccentGlassBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.glass-nav:pressed /template/ ContentPresenter">
+            <Setter Property="Foreground" Value="{StaticResource GlassTextBrush}" />
+            <Setter Property="Background" Value="{StaticResource AccentGlassBrushStrong}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- Transport control buttons (stop/skip/play/fullscreen/mute). -->
+        <Style Selector="Button.glass-ctrl">
+            <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource GlassTextBrush}" />
+        </Style>
+        <Style Selector="Button.glass-ctrl:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource GlassPanelStrongBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.glass-ctrl:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentGlassBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.glass-ctrl.accent">
+            <Setter Property="Background" Value="{StaticResource AccentGlassBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.glass-ctrl.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentGlassBrushStrong}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.glass-ctrl.accent:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- Search/category inputs - opt-in via Classes="glass" so this never touches Settings'
+             NumericUpDown (which has its own internal TextBox part) or the remote-control flyout's
+             read-only URL box. -->
+        <Style Selector="TextBox.glass">
+            <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource GlassTextBrush}" />
+        </Style>
+        <Style Selector="ComboBox.glass">
+            <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource GlassTextBrush}" />
+        </Style>
+
+        <!-- List rows / grid cards (channels, series, movies, guide rows, favorites). -->
+        <Style Selector="Border.glass-card">
+            <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
     </Application.Styles>
 </Application>
