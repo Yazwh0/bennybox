@@ -27,6 +27,15 @@ public partial class AddProfileView : UserControl
         }
     }
 
+    private async void OnBrowseClipsFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AddProfileViewModel viewModel &&
+            await PickFolderAsync("Select Clips Folder") is { } path)
+        {
+            viewModel.LocalClipsPath = path;
+        }
+    }
+
     private async Task<string?> PickFolderAsync(string title)
     {
         var topLevel = TopLevel.GetTopLevel(this);

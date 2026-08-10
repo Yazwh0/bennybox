@@ -23,6 +23,8 @@ public partial class SeriesViewModel : ViewModelBase
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly ISettingsStore _settingsStore;
+    private readonly DownloadManager _downloadManager;
+    private readonly IDownloadRepository _downloadRepository;
     private readonly ILogger<SeriesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
@@ -115,6 +117,8 @@ public partial class SeriesViewModel : ViewModelBase
         IFavoriteRepository favoriteRepository,
         IWatchedItemRepository watchedItemRepository,
         ISettingsStore settingsStore,
+        DownloadManager downloadManager,
+        IDownloadRepository downloadRepository,
         ILogger<SeriesViewModel> logger)
     {
         Player = player;
@@ -124,14 +128,137 @@ public partial class SeriesViewModel : ViewModelBase
         _favoriteRepository = favoriteRepository;
         _watchedItemRepository = watchedItemRepository;
         _settingsStore = settingsStore;
+        _downloadManager = downloadManager;
+        _downloadRepository = downloadRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadSeriesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
+        _downloadManager.DownloadChanged += OnDownloadChanged;
 
         _ = LoadSeriesAsync();
         _ = LoadLastRefreshSecondsAsync();
+    }
+
+    // See MoviesViewModel.OnDownloadChanged - same pattern, scoped to whichever series' episode list
+    // is currently open (Episodes only ever holds one series' worth of rows at a time).
+    private void OnDownloadChanged(object? sender, Download download) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (download.ContentType != WatchProgressContentType.Episode || SelectedSeries is null || download.OriginalProfileId != SelectedSeries.Series.ProfileId)
+            {
+                return;
+            }
+
+            var match = Episodes.OfType<EpisodeListItemViewModel>().FirstOrDefault(e =>
+                ContentKeys.ForEpisode(SelectedSeries.Series.SourceSeriesId, e.Episode.SourceEpisodeId) == download.OriginalSourceId);
+            if (match is null)
+            {
+                return;
+            }
+
+            match.DownloadState = download.Status switch
+            {
+                DownloadStatus.Queued => DownloadUiState.Queued,
+                DownloadStatus.Downloading => DownloadUiState.Downloading,
+                _ => DownloadUiState.NotDownloaded
+            };
+            match.DownloadProgress = download.TotalBytes is { } total && total > 0 ? (double)download.BytesDownloaded / total : 0;
+        });
+
+    [RelayCommand]
+    private async Task DownloadEpisodeAsync(EpisodeListItemViewModel? episode)
+    {
+        if (episode is null || !episode.CanDownload || SelectedSeries is null ||
+            !_seriesProfilesById.TryGetValue(SelectedSeries.Series.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        episode.DownloadState = DownloadUiState.Queued;
+        try
+        {
+            await _downloadManager.QueueEpisodeDownloadAsync(profile, SelectedSeries.Series, episode.Episode);
+        }
+        catch (Exception ex)
+        {
+            episode.DownloadState = DownloadUiState.NotDownloaded;
+            _logger.LogError(ex, "Failed to queue download for episode {EpisodeTitle}", episode.Title);
+        }
+    }
+
+    // Queues every not-yet-downloaded episode in one season - already-downloaded/in-progress episodes
+    // (CanDownload false) are silently skipped rather than re-queued. DownloadManager's own
+    // concurrency limit (2 at a time) means queuing a whole season here is safe/cheap - the rest just
+    // wait as Queued rather than saturating bandwidth.
+    [RelayCommand]
+    private async Task DownloadSeasonAsync(int season)
+    {
+        if (SelectedSeries is null || !_seriesProfilesById.TryGetValue(SelectedSeries.Series.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        var episodesToDownload = Episodes.OfType<EpisodeListItemViewModel>()
+            .Where(e => e.Episode.Season == season && e.CanDownload)
+            .ToList();
+
+        foreach (var episode in episodesToDownload)
+        {
+            episode.DownloadState = DownloadUiState.Queued;
+            try
+            {
+                await _downloadManager.QueueEpisodeDownloadAsync(profile, SelectedSeries.Series, episode.Episode);
+            }
+            catch (Exception ex)
+            {
+                episode.DownloadState = DownloadUiState.NotDownloaded;
+                _logger.LogError(ex, "Failed to queue download for episode {EpisodeTitle}", episode.Title);
+            }
+        }
+    }
+
+    // See DownloadSeasonAsync - same idea, every season at once.
+    [RelayCommand]
+    private async Task DownloadAllEpisodesAsync()
+    {
+        if (SelectedSeries is null || !_seriesProfilesById.TryGetValue(SelectedSeries.Series.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        var episodesToDownload = Episodes.OfType<EpisodeListItemViewModel>().Where(e => e.CanDownload).ToList();
+
+        foreach (var episode in episodesToDownload)
+        {
+            episode.DownloadState = DownloadUiState.Queued;
+            try
+            {
+                await _downloadManager.QueueEpisodeDownloadAsync(profile, SelectedSeries.Series, episode.Episode);
+            }
+            catch (Exception ex)
+            {
+                episode.DownloadState = DownloadUiState.NotDownloaded;
+                _logger.LogError(ex, "Failed to queue download for episode {EpisodeTitle}", episode.Title);
+            }
+        }
+    }
+
+    // See DownloadRowSupport - unlike Movies/Clips, an episode is "already downloaded" by season+
+    // episode number match within the same-named show, not by its own title (episode titles are often
+    // too generic - "Episode 4" - to be a reliable match key on their own).
+    private async Task<HashSet<(int Season, int EpisodeNumber)>> GetDownloadedEpisodeKeysAsync(ProfileSource downloadsProfile, string seriesName)
+    {
+        var downloadsSeriesList = await _seriesRepository.GetSeriesAsync(downloadsProfile.Id);
+        var matched = downloadsSeriesList.FirstOrDefault(s => DownloadRowSupport.Normalize(s.Name) == DownloadRowSupport.Normalize(seriesName));
+        if (matched is null)
+        {
+            return [];
+        }
+
+        var episodes = await _seriesImportService.GetEpisodesAsync(downloadsProfile, matched);
+        return episodes.Select(e => (e.Season, e.EpisodeNumber)).ToHashSet();
     }
 
     private async Task LoadLastRefreshSecondsAsync()
@@ -306,12 +433,32 @@ public partial class SeriesViewModel : ViewModelBase
                 .Select(w => w.ContentKey)
                 .ToHashSet();
 
+            // See DownloadRowSupport/GetDownloadedEpisodeKeysAsync - same "compute once up front" idea
+            // as MoviesViewModel/ClipsViewModel's equivalent block.
+            var downloadsProfile = await _downloadManager.GetDownloadsProfileIfExistsAsync();
+            var isFromDownloadsProfile = downloadsProfile is not null && profile.Id == downloadsProfile.Id;
+            var downloadedEpisodeKeys = downloadsProfile is null || isFromDownloadsProfile
+                ? []
+                : await GetDownloadedEpisodeKeysAsync(downloadsProfile, series.Series.Name);
+            var activeDownloads = (await _downloadRepository.GetAllAsync())
+                .Where(d => d.Status is DownloadStatus.Queued or DownloadStatus.Downloading)
+                .ToList();
+
             var rows = new List<object>();
             foreach (var seasonGroup in episodes.GroupBy(e => e.Season).OrderBy(g => g.Key))
             {
-                rows.Add(new CategoryHeaderRow($"Season {seasonGroup.Key}"));
-                rows.AddRange(seasonGroup.Select(e => new EpisodeListItemViewModel(
-                    e, watchedKeys.Contains(ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId)))));
+                rows.Add(new SeasonHeaderRow($"Season {seasonGroup.Key}", seasonGroup.Key));
+                rows.AddRange(seasonGroup.Select(e =>
+                {
+                    var item = new EpisodeListItemViewModel(
+                        e, watchedKeys.Contains(ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId)), isFromDownloadsProfile);
+                    var (state, progress) = DownloadRowSupport.ComputeState(
+                        activeDownloads, downloadedEpisodeKeys.Contains((e.Season, e.EpisodeNumber)),
+                        profile.Id, WatchProgressContentType.Episode, ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId));
+                    item.DownloadState = state;
+                    item.DownloadProgress = progress;
+                    return item;
+                }));
             }
 
             foreach (var row in rows)

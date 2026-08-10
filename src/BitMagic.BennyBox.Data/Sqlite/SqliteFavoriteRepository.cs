@@ -85,4 +85,28 @@ public class SqliteFavoriteRepository : IFavoriteRepository
             using var connection = _connectionFactory.CreateConnection();
             connection.Execute("DELETE FROM MovieFavorites WHERE MovieId = @movieId", new { movieId });
         }, cancellationToken);
+
+    public Task<IReadOnlySet<Guid>> GetFavoriteClipIdsAsync(CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var ids = connection.Query<Guid>("SELECT ClipId FROM ClipFavorites");
+            return (IReadOnlySet<Guid>)ids.ToHashSet();
+        }, cancellationToken);
+
+    public Task AddClipAsync(Guid profileId, Guid clipId, CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            connection.Execute(
+                "INSERT OR REPLACE INTO ClipFavorites (ClipId, ProfileId, AddedUtc) VALUES (@clipId, @profileId, @addedUtc)",
+                new { clipId, profileId, addedUtc = DateTime.UtcNow });
+        }, cancellationToken);
+
+    public Task RemoveClipAsync(Guid clipId, CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            connection.Execute("DELETE FROM ClipFavorites WHERE ClipId = @clipId", new { clipId });
+        }, cancellationToken);
 }

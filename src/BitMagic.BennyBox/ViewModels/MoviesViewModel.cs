@@ -23,6 +23,8 @@ public partial class MoviesViewModel : ViewModelBase
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly ISettingsStore _settingsStore;
+    private readonly DownloadManager _downloadManager;
+    private readonly IDownloadRepository _downloadRepository;
     private readonly ILogger<MoviesViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
@@ -110,6 +112,8 @@ public partial class MoviesViewModel : ViewModelBase
         IFavoriteRepository favoriteRepository,
         IWatchedItemRepository watchedItemRepository,
         ISettingsStore settingsStore,
+        DownloadManager downloadManager,
+        IDownloadRepository downloadRepository,
         ILogger<MoviesViewModel> logger)
     {
         Player = player;
@@ -119,14 +123,66 @@ public partial class MoviesViewModel : ViewModelBase
         _favoriteRepository = favoriteRepository;
         _watchedItemRepository = watchedItemRepository;
         _settingsStore = settingsStore;
+        _downloadManager = downloadManager;
+        _downloadRepository = downloadRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadMoviesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
+        _downloadManager.DownloadChanged += OnDownloadChanged;
 
         _ = LoadMoviesAsync();
         _ = LoadLastRefreshSecondsAsync();
+    }
+
+    // See DownloadManager.DownloadChanged's own doc comment for why this fires from a background
+    // thread (hence the explicit Dispatcher.UIThread.Post) and DownloadRowSupport for the matching
+    // rationale. A Completed transition doesn't retroactively flip this row - the Downloads profile's
+    // own rescan (see DownloadManager) fires ChannelsUpdatedMessage separately, which re-derives every
+    // row's DownloadState fresh via LoadMoviesAsync, including this one.
+    private void OnDownloadChanged(object? sender, Download download) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (download.ContentType != WatchProgressContentType.Movie)
+            {
+                return;
+            }
+
+            var match = _allGroups.SelectMany(g => g.Movies).FirstOrDefault(m =>
+                m.Movie.ProfileId == download.OriginalProfileId && m.Movie.SourceMovieId == download.OriginalSourceId);
+            if (match is null)
+            {
+                return;
+            }
+
+            match.DownloadState = download.Status switch
+            {
+                DownloadStatus.Queued => DownloadUiState.Queued,
+                DownloadStatus.Downloading => DownloadUiState.Downloading,
+                _ => DownloadUiState.NotDownloaded
+            };
+            match.DownloadProgress = download.TotalBytes is { } total && total > 0 ? (double)download.BytesDownloaded / total : 0;
+        });
+
+    [RelayCommand]
+    private async Task DownloadAsync(MovieListItemViewModel? item)
+    {
+        if (item is null || !item.CanDownload || !_movieProfilesById.TryGetValue(item.Movie.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        item.DownloadState = DownloadUiState.Queued;
+        try
+        {
+            await _downloadManager.QueueMovieDownloadAsync(profile, item.Movie);
+        }
+        catch (Exception ex)
+        {
+            item.DownloadState = DownloadUiState.NotDownloaded;
+            _logger.LogError(ex, "Failed to queue download for movie {MovieName}", item.Name);
+        }
     }
 
     private async Task LoadLastRefreshSecondsAsync()
@@ -488,6 +544,18 @@ public partial class MoviesViewModel : ViewModelBase
                 .ToHashSet();
             var profiles = await _profileRepository.GetAllAsync();
 
+            // See DownloadRowSupport - a movie's initial download button state depends on whether the
+            // Downloads profile already has a matching title (Completed) or an active Download row
+            // exists for it (Queued/Downloading). Both cheap no-ops (empty profile/collections) for
+            // anyone who's never downloaded anything.
+            var downloadsProfile = await _downloadManager.GetDownloadsProfileIfExistsAsync();
+            var activeDownloads = (await _downloadRepository.GetAllAsync())
+                .Where(d => d.Status is DownloadStatus.Queued or DownloadStatus.Downloading)
+                .ToList();
+            var downloadedTitles = downloadsProfile is null
+                ? []
+                : (await _movieRepository.GetMoviesAsync(downloadsProfile.Id)).Select(m => DownloadRowSupport.Normalize(m.Name)).ToHashSet();
+
             // Movies can come from an Xtream profile, or a LocalFolder/Sftp profile's Movies path -
             // every profile with any imported movies contributes to the browsing list, same as Live TV
             // merges channels across all profiles.
@@ -518,7 +586,15 @@ public partial class MoviesViewModel : ViewModelBase
                     foreach (var category in categories)
                     {
                         var categoryMovies = moviesByCategory[category.Id]
-                            .Select(m => new MovieListItemViewModel(m, profile.Name, favoriteIds.Contains(m.Id), watchedKeys.Contains((m.ProfileId, m.SourceMovieId))))
+                            .Select(m =>
+                            {
+                                var isFromDownloadsProfile = downloadsProfile is not null && profile.Id == downloadsProfile.Id;
+                                var item = new MovieListItemViewModel(m, profile.Name, favoriteIds.Contains(m.Id), watchedKeys.Contains((m.ProfileId, m.SourceMovieId)), isFromDownloadsProfile);
+                                var (state, progress) = DownloadRowSupport.ComputeState(activeDownloads, downloadedTitles.Contains(DownloadRowSupport.Normalize(m.Name)), m.ProfileId, WatchProgressContentType.Movie, m.SourceMovieId);
+                                item.DownloadState = state;
+                                item.DownloadProgress = progress;
+                                return item;
+                            })
                             .ToList();
                         if (categoryMovies.Count == 0)
                         {

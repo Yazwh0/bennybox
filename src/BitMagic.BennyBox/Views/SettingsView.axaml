@@ -100,6 +100,25 @@
             </StackPanel>
         </Border>
 
+        <!-- The Downloads profile itself doesn't appear in the profile list below (see
+             SettingsViewModel.LoadProfilesAsync) - it's not something you Add/Edit/Refresh, it's
+             managed automatically the first time you tap a download button anywhere in the app. -->
+        <Border Classes="glass-card" Padding="16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Downloads" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="Where movies, episodes, and clips land when you download them for offline/faster playback. Once something's downloaded, the app plays that local copy instead of re-streaming it - see the download button on any title."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0" Classes="glass" Text="{Binding DownloadsFolderPath}" IsReadOnly="True" />
+                    <Button Grid.Column="1" Classes="glass-ctrl" Content="Change location..." Click="OnChangeDownloadsLocationClick" Margin="6,0,0,0" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding DownloadsDiskUsageLabel}" Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="glass-ctrl" Content="Clear all downloads" Command="{Binding ClearAllDownloadsCommand}" IsEnabled="{Binding !IsBusy}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
         <Border Classes="glass-card" Padding="16">
             <StackPanel Spacing="12">
                 <Button Classes="glass-ctrl" Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" />

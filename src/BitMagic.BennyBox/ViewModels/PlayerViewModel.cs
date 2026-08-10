@@ -47,6 +47,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private readonly ISettingsStore _settingsStore;
     private readonly IWatchProgressRepository _watchProgressRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
+    private readonly DownloadPlaybackResolver _downloadPlaybackResolver;
     private readonly ILogger<PlayerViewModel> _logger;
     private Media? _currentMedia;
     private DispatcherTimer? _loadTimeoutTimer;
@@ -186,12 +187,13 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public string SkipBackwardLabel => $"⏪ {(int)_skipInterval.TotalSeconds}s";
     public string SkipForwardLabel => $"{(int)_skipInterval.TotalSeconds}s ⏩";
 
-    public PlayerViewModel(LibVLC libVlc, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, ILogger<PlayerViewModel> logger)
+    public PlayerViewModel(LibVLC libVlc, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, DownloadPlaybackResolver downloadPlaybackResolver, ILogger<PlayerViewModel> logger)
     {
         _libVlc = libVlc;
         _settingsStore = settingsStore;
         _watchProgressRepository = watchProgressRepository;
         _watchedItemRepository = watchedItemRepository;
+        _downloadPlaybackResolver = downloadPlaybackResolver;
         _logger = logger;
         MediaPlayer = new MediaPlayer(_libVlc);
 
@@ -327,17 +329,42 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         PlayUrl(timeshiftUrl);
     }
 
-    public void PlayEpisode(Episode episode, Series series) =>
-        _ = PlayWithResumeAsync(
+    public void PlayEpisode(Episode episode, Series series) => _ = PlayEpisodeAsync(episode, series);
+
+    private async Task PlayEpisodeAsync(Episode episode, Series series)
+    {
+        // See DownloadPlaybackResolver - a downloaded copy's StreamUrl is preferred when one exists,
+        // but resume tracking always stays keyed to the ORIGINAL series/episode, not the downloaded
+        // copy, so watch progress isn't fragmented by whether a local copy happens to exist.
+        var streamUrl = await _downloadPlaybackResolver.TryResolveEpisodeStreamUrlAsync(series.Name, episode.Season, episode.EpisodeNumber)
+            ?? episode.StreamUrl;
+
+        await PlayWithResumeAsync(
             WatchProgressContentType.Episode,
             series.ProfileId,
             ContentKeys.ForEpisode(series.SourceSeriesId, episode.SourceEpisodeId),
             $"{series.Name} - S{episode.Season:00}E{episode.EpisodeNumber:00} - {episode.Title}",
             series.CoverUrl,
-            episode.StreamUrl);
+            streamUrl);
+    }
 
-    public void PlayMovie(Movie movie) =>
-        _ = PlayWithResumeAsync(WatchProgressContentType.Movie, movie.ProfileId, movie.SourceMovieId, movie.Name, movie.CoverUrl, movie.StreamUrl);
+    public void PlayMovie(Movie movie) => _ = PlayMovieAsync(movie);
+
+    private async Task PlayMovieAsync(Movie movie)
+    {
+        var streamUrl = await _downloadPlaybackResolver.TryResolveMovieStreamUrlAsync(movie.Name) ?? movie.StreamUrl;
+        await PlayWithResumeAsync(WatchProgressContentType.Movie, movie.ProfileId, movie.SourceMovieId, movie.Name, movie.CoverUrl, streamUrl);
+    }
+
+    // Clips reuse the Movie model as their payload shape (see IClipSource) - SourceMovieId here is
+    // really a clip's SourceClipId, just carried on the same property.
+    public void PlayClip(Movie clip) => _ = PlayClipAsync(clip);
+
+    private async Task PlayClipAsync(Movie clip)
+    {
+        var streamUrl = await _downloadPlaybackResolver.TryResolveClipStreamUrlAsync(clip.Name) ?? clip.StreamUrl;
+        await PlayWithResumeAsync(WatchProgressContentType.Clip, clip.ProfileId, clip.SourceMovieId, clip.Name, clip.CoverUrl, streamUrl);
+    }
 
     // Used by the "Continue Watching" list, which already has everything it needs from the saved
     // WatchProgress row - no need to look the original Movie/Episode/Series back up first.

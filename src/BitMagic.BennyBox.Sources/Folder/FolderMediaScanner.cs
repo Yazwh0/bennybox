@@ -36,6 +36,31 @@ public class FolderMediaScanner
     public async Task<(IReadOnlyList<Category> Categories, IReadOnlyList<Movie> Movies)> ScanMoviesAsync(
         IMediaFileSystem fileSystem, Guid profileId, string categoryName, CancellationToken cancellationToken = default)
     {
+        var movies = await ScanMovieUnitsAsync(fileSystem, profileId, cancellationToken);
+        await EnrichMoviesAsync(movies, cancellationToken);
+
+        return ([new Category { Id = CategoryId, ProfileId = profileId, Name = categoryName, SortOrder = 0 }], movies);
+    }
+
+    // One-off/uncategorized media (sports broadcasts, TV specials) - see IClipRepository. Reuses the
+    // exact same "movie unit" grouping/NFO/poster logic as ScanMoviesAsync (a clip is scanned
+    // identically to a movie - single video file, optional NFO/poster sidecar), but deliberately never
+    // calls EnrichMoviesAsync - TMDb's movie search isn't meant to resolve a sports broadcast or TV
+    // special, and a wrong match is worse than no match at all. See the plan discussion on why this is
+    // a separate section rather than a "skip enrichment" toggle on Movies.
+    public async Task<(IReadOnlyList<Category> Categories, IReadOnlyList<Movie> Clips)> ScanClipsAsync(
+        IMediaFileSystem fileSystem, Guid profileId, string categoryName, CancellationToken cancellationToken = default)
+    {
+        var clips = await ScanMovieUnitsAsync(fileSystem, profileId, cancellationToken);
+
+        return ([new Category { Id = CategoryId, ProfileId = profileId, Name = categoryName, SortOrder = 0 }], clips);
+    }
+
+    // Shared by ScanMoviesAsync/ScanClipsAsync - a movie/clip "unit" is either a top-level subfolder
+    // (all its files - video/nfo/poster - group together) or a flat file directly under the root (see
+    // GetUnitKey). Returns un-enriched Movie objects; enrichment (if any) is the caller's decision.
+    private async Task<List<Movie>> ScanMovieUnitsAsync(IMediaFileSystem fileSystem, Guid profileId, CancellationToken cancellationToken)
+    {
         var allFiles = await CollectAsync(fileSystem, cancellationToken);
         var videoFiles = allFiles.Where(f => IsVideoFile(f.RelativePath)).ToList();
 
@@ -75,9 +100,7 @@ public class FolderMediaScanner
             });
         }
 
-        await EnrichMoviesAsync(movies, cancellationToken);
-
-        return ([new Category { Id = CategoryId, ProfileId = profileId, Name = categoryName, SortOrder = 0 }], movies);
+        return movies;
     }
 
     // Fills gaps left by a missing/incomplete NFO from TMDb (see IMetadataEnrichmentService) - only for

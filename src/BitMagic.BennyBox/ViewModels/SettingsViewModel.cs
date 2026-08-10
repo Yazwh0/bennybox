@@ -19,9 +19,11 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly EpgImportService _epgImportService;
     private readonly SeriesImportService _seriesImportService;
     private readonly MovieImportService _movieImportService;
+    private readonly ClipImportService _clipImportService;
     private readonly AccountInfoService _accountInfoService;
     private readonly ISettingsStore _settingsStore;
     private readonly IMetadataEnrichmentService _metadataEnrichmentService;
+    private readonly DownloadManager _downloadManager;
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
@@ -115,15 +117,26 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool HasStatusMessage => !string.IsNullOrEmpty(StatusMessage);
 
+    // Where downloaded movies/episodes/clips land (see DownloadManager) - shown read-only here with a
+    // "Change location..." picker, not editable as free text (same rationale as the Movies/TV Shows
+    // folder pickers on AddProfileView - a typo'd path is worse than not letting you type one).
+    [ObservableProperty]
+    private string _downloadsFolderPath = "";
+
+    [ObservableProperty]
+    private string _downloadsDiskUsageLabel = "Nothing downloaded yet";
+
     public SettingsViewModel(
         IProfileRepository profileRepository,
         PlaylistImportService importService,
         EpgImportService epgImportService,
         SeriesImportService seriesImportService,
         MovieImportService movieImportService,
+        ClipImportService clipImportService,
         AccountInfoService accountInfoService,
         ISettingsStore settingsStore,
         IMetadataEnrichmentService metadataEnrichmentService,
+        DownloadManager downloadManager,
         ILogger<SettingsViewModel> logger)
     {
         _profileRepository = profileRepository;
@@ -131,9 +144,11 @@ public partial class SettingsViewModel : ViewModelBase
         _epgImportService = epgImportService;
         _seriesImportService = seriesImportService;
         _movieImportService = movieImportService;
+        _clipImportService = clipImportService;
         _accountInfoService = accountInfoService;
         _settingsStore = settingsStore;
         _metadataEnrichmentService = metadataEnrichmentService;
+        _downloadManager = downloadManager;
         _logger = logger;
 
         _ = LoadProfilesAsync();
@@ -142,6 +157,88 @@ public partial class SettingsViewModel : ViewModelBase
         _ = LoadTrackPreferencesAsync();
         _ = LoadRemoteKeyModeAsync();
         _ = LoadTmdbApiKeyAsync();
+        _ = LoadDownloadsSectionAsync();
+    }
+
+    private async Task LoadDownloadsSectionAsync()
+    {
+        DownloadsFolderPath = await _downloadManager.GetDownloadsRootAsync();
+        await RefreshDownloadsDiskUsageAsync();
+    }
+
+    private async Task RefreshDownloadsDiskUsageAsync()
+    {
+        var downloadsProfile = await _downloadManager.GetDownloadsProfileIfExistsAsync();
+        if (downloadsProfile is null)
+        {
+            DownloadsDiskUsageLabel = "Nothing downloaded yet";
+            return;
+        }
+
+        var totalBytes = await Task.Run(() =>
+        {
+            long total = 0;
+            foreach (var root in new[] { downloadsProfile.LocalMoviesPath, downloadsProfile.LocalSeriesPath, downloadsProfile.LocalClipsPath })
+            {
+                if (root is null || !Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        total += new FileInfo(file).Length;
+                    }
+                    catch (IOException)
+                    {
+                        // Vanished/locked between enumeration and stat - skip it, same rationale as
+                        // LocalFileSystem.EnumerateFilesAsync.
+                    }
+                }
+            }
+            return total;
+        });
+
+        DownloadsDiskUsageLabel = $"{FormatBytes(totalBytes)} used";
+    }
+
+    // Called from SettingsView's code-behind after the user picks a new folder (the picker itself
+    // needs a TopLevel/StorageProvider, which only the View has - see AddProfileView.axaml.cs for the
+    // same split).
+    public async Task SetDownloadsLocationAsync(string path)
+    {
+        await _downloadManager.SetDownloadsRootAsync(path);
+        DownloadsFolderPath = path;
+        StatusMessage = "New downloads will be saved here from now on - files already downloaded stay where they are.";
+    }
+
+    [RelayCommand]
+    private async Task ClearAllDownloadsAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _downloadManager.ClearAllDownloadsAsync();
+            await RefreshDownloadsDiskUsageAsync();
+            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
+            StatusMessage = "Downloads cleared.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Couldn't clear downloads: {ex.Message}";
+            _logger.LogError(ex, "Failed to clear all downloads");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private async Task LoadThemeAsync()
@@ -267,12 +364,34 @@ public partial class SettingsViewModel : ViewModelBase
 
     private async Task LoadProfilesAsync()
     {
+        // The Downloads profile is a real LocalFolder ProfileSource (see DownloadManager) but isn't
+        // meant to be managed like a user-added one - no Edit/Refresh/Delete buttons for it here, it
+        // gets its own section instead (folder location, disk usage, clear all).
+        var downloadsProfile = await _downloadManager.GetDownloadsProfileIfExistsAsync();
         var profiles = await _profileRepository.GetAllAsync();
         Profiles.Clear();
         foreach (var profile in profiles)
         {
+            if (downloadsProfile is not null && profile.Id == downloadsProfile.Id)
+            {
+                continue;
+            }
+
             Profiles.Add(profile);
         }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double value = bytes;
+        var unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+        return $"{value:0.#} {units[unitIndex]}";
     }
 
     public async Task AddProfileAsync(ProfileSource profile)
@@ -394,6 +513,20 @@ public partial class SettingsViewModel : ViewModelBase
         {
             messages.Add($"movies failed: {ex.Message}");
             _logger.LogError(ex, "Failed to import movies for profile {ProfileName}", profile.Name);
+        }
+
+        try
+        {
+            var clipResult = await _clipImportService.ImportAsync(profile);
+            if (clipResult is not null)
+            {
+                messages.Add($"{clipResult.Clips.Count} clips");
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add($"clips failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to import clips for profile {ProfileName}", profile.Name);
         }
 
         try

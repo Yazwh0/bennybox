@@ -8,7 +8,11 @@ public enum WatchProgressContentType
     // Only ever used by WatchedItem, never WatchProgress (a series itself isn't "played" - there's
     // nothing to resume) - marks a whole series as fully watched once every one of its episodes is.
     // See SeriesViewModel for where that gets computed and kept up to date.
-    Series
+    Series,
+
+    // One-off/uncategorized media (sports broadcasts, specials) - see Clip/IClipSource. Tracked the
+    // same way as Movie (resumable, markable watched), just a separate content type.
+    Clip
 }
 
 // A "continue watching" bookmark. Keyed by (ProfileId, ContentType, ContentKey) rather than a

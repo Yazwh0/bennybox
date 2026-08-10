@@ -37,12 +37,14 @@ public partial class AddProfileViewModel : ViewModelBase
         XtreamPassword = CredentialProtector.Unprotect(profile.XtreamPasswordEncrypted) ?? string.Empty;
         LocalMoviesPath = profile.LocalMoviesPath ?? string.Empty;
         LocalSeriesPath = profile.LocalSeriesPath ?? string.Empty;
+        LocalClipsPath = profile.LocalClipsPath ?? string.Empty;
         SftpHost = profile.SftpHost ?? string.Empty;
         SftpPort = profile.SftpPort?.ToString() ?? "22";
         SftpUsername = profile.SftpUsername ?? string.Empty;
         SftpPassword = CredentialProtector.Unprotect(profile.SftpPasswordEncrypted) ?? string.Empty;
         SftpMoviesRemotePath = profile.SftpMoviesRemotePath ?? string.Empty;
         SftpSeriesRemotePath = profile.SftpSeriesRemotePath ?? string.Empty;
+        SftpClipsRemotePath = profile.SftpClipsRemotePath ?? string.Empty;
     }
 
     [ObservableProperty]
@@ -109,6 +111,9 @@ public partial class AddProfileViewModel : ViewModelBase
     private string _localSeriesPath = string.Empty;
 
     [ObservableProperty]
+    private string _localClipsPath = string.Empty;
+
+    [ObservableProperty]
     private string _sftpHost = string.Empty;
 
     [ObservableProperty]
@@ -125,6 +130,9 @@ public partial class AddProfileViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _sftpSeriesRemotePath = string.Empty;
+
+    [ObservableProperty]
+    private string _sftpClipsRemotePath = string.Empty;
 
     [ObservableProperty]
     private string _name = string.Empty;
@@ -230,9 +238,9 @@ public partial class AddProfileViewModel : ViewModelBase
 
         if (SelectedSourceType == ProfileSourceType.LocalFolder)
         {
-            if (string.IsNullOrWhiteSpace(LocalMoviesPath) && string.IsNullOrWhiteSpace(LocalSeriesPath))
+            if (string.IsNullOrWhiteSpace(LocalMoviesPath) && string.IsNullOrWhiteSpace(LocalSeriesPath) && string.IsNullOrWhiteSpace(LocalClipsPath))
             {
-                ErrorMessage = "Set a Movies folder, a TV Shows folder, or both.";
+                ErrorMessage = "Set a Movies folder, a TV Shows folder, a Clips folder, or some combination.";
                 return false;
             }
 
@@ -248,12 +256,19 @@ public partial class AddProfileViewModel : ViewModelBase
                 return false;
             }
 
+            if (!string.IsNullOrWhiteSpace(LocalClipsPath) && !Directory.Exists(LocalClipsPath))
+            {
+                ErrorMessage = "The Clips folder path doesn't exist.";
+                return false;
+            }
+
             profile = new ProfileSource
             {
                 Name = Name.Trim(),
                 SourceType = ProfileSourceType.LocalFolder,
                 LocalMoviesPath = string.IsNullOrWhiteSpace(LocalMoviesPath) ? null : LocalMoviesPath.Trim(),
-                LocalSeriesPath = string.IsNullOrWhiteSpace(LocalSeriesPath) ? null : LocalSeriesPath.Trim()
+                LocalSeriesPath = string.IsNullOrWhiteSpace(LocalSeriesPath) ? null : LocalSeriesPath.Trim(),
+                LocalClipsPath = string.IsNullOrWhiteSpace(LocalClipsPath) ? null : LocalClipsPath.Trim()
             };
 
             ApplyEditingIdentity(profile);
@@ -269,9 +284,9 @@ public partial class AddProfileViewModel : ViewModelBase
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(SftpMoviesRemotePath) && string.IsNullOrWhiteSpace(SftpSeriesRemotePath))
+            if (string.IsNullOrWhiteSpace(SftpMoviesRemotePath) && string.IsNullOrWhiteSpace(SftpSeriesRemotePath) && string.IsNullOrWhiteSpace(SftpClipsRemotePath))
             {
-                ErrorMessage = "Set a Movies remote path, a TV Shows remote path, or both.";
+                ErrorMessage = "Set a Movies remote path, a TV Shows remote path, a Clips remote path, or some combination.";
                 return false;
             }
 
@@ -290,7 +305,8 @@ public partial class AddProfileViewModel : ViewModelBase
                 SftpUsername = SftpUsername.Trim(),
                 SftpPasswordEncrypted = CredentialProtector.Protect(SftpPassword),
                 SftpMoviesRemotePath = string.IsNullOrWhiteSpace(SftpMoviesRemotePath) ? null : SftpMoviesRemotePath.Trim(),
-                SftpSeriesRemotePath = string.IsNullOrWhiteSpace(SftpSeriesRemotePath) ? null : SftpSeriesRemotePath.Trim()
+                SftpSeriesRemotePath = string.IsNullOrWhiteSpace(SftpSeriesRemotePath) ? null : SftpSeriesRemotePath.Trim(),
+                SftpClipsRemotePath = string.IsNullOrWhiteSpace(SftpClipsRemotePath) ? null : SftpClipsRemotePath.Trim()
             };
 
             ApplyEditingIdentity(profile);

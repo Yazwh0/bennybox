@@ -81,6 +81,12 @@ public partial class App : Application
             _ = Task.Run(() => AppBootstrapper.SeedDevXtreamProfileAsync(host.Services));
 #endif
 
+            // Any download still Queued/Downloading belonged to a copy loop from a previous session
+            // that no longer exists - mark it Failed so it shows up as retryable rather than stuck
+            // "in progress" forever. See DownloadManager.ReconcileInterruptedDownloadsAsync.
+            var downloadManager = host.Services.GetRequiredService<DownloadManager>();
+            await Task.Run(() => downloadManager.ReconcileInterruptedDownloadsAsync());
+
             splash.SetStatus("Almost there...");
 
             var mainWindow = host.Services.GetRequiredService<MainWindow>();

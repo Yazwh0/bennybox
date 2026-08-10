@@ -51,6 +51,8 @@ public sealed class DebugRemoteControlServer : IDisposable
             ["Guide"] = mainWindowViewModel.Guide,
             ["Series"] = mainWindowViewModel.Series,
             ["Movies"] = mainWindowViewModel.Movies,
+            ["Clips"] = mainWindowViewModel.Clips,
+            ["Downloads"] = mainWindowViewModel.Downloads,
             ["Favorites"] = mainWindowViewModel.Favorites,
             ["Settings"] = mainWindowViewModel.Settings,
             ["Player"] = mainWindowViewModel.Player,

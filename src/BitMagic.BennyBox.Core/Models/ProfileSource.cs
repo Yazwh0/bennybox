@@ -22,7 +22,11 @@ public enum EpgSourceType
 public enum MediaKind
 {
     Movies,
-    Series
+    Series,
+
+    // One-off/uncategorized video with no useful season/episode number and no movie-database match
+    // worth attempting - sports broadcasts, TV specials. See IClipSource/FolderClipSource.
+    Clips
 }
 
 public class ProfileSource
@@ -53,17 +57,19 @@ public class ProfileSource
     public DateTime? XtreamExpiryUtc { get; set; }
     public int? XtreamMaxConnections { get; set; }
 
-    // LocalFolder: either or both may be set - a folder tree with both a movies root and a shows
-    // root is common, so this isn't an either/or choice the way SourceType is.
+    // LocalFolder: any subset may be set - a folder tree with a movies root, a shows root, and/or a
+    // clips root is common, so this isn't an either/or choice the way SourceType is.
     public string? LocalMoviesPath { get; set; }
     public string? LocalSeriesPath { get; set; }
+    public string? LocalClipsPath { get; set; }
 
-    // Sftp: one connection (host/credentials), with movies/series each optionally pointing at their
-    // own remote path under that same site - same "either or both" reasoning as LocalFolder.
+    // Sftp: one connection (host/credentials), with movies/series/clips each optionally pointing at
+    // their own remote path under that same site - same "any subset" reasoning as LocalFolder.
     public string? SftpHost { get; set; }
     public int? SftpPort { get; set; }
     public string? SftpUsername { get; set; }
     public string? SftpPasswordEncrypted { get; set; }
     public string? SftpMoviesRemotePath { get; set; }
     public string? SftpSeriesRemotePath { get; set; }
+    public string? SftpClipsRemotePath { get; set; }
 }

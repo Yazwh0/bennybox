@@ -19,8 +19,11 @@ public partial class SearchViewModel : ViewModelBase
     private readonly IEpgRepository _epgRepository;
     private readonly ISeriesRepository _seriesRepository;
     private readonly IMovieRepository _movieRepository;
+    private readonly IClipRepository _clipRepository;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
+    private readonly DownloadManager _downloadManager;
+    private readonly IDownloadRepository _downloadRepository;
     private readonly ILogger<SearchViewModel> _logger;
 
     private static readonly TimeSpan SearchDebounceDelay = TimeSpan.FromMilliseconds(300);
@@ -28,8 +31,13 @@ public partial class SearchViewModel : ViewModelBase
     private List<ChannelListItemViewModel> _allChannels = [];
     private List<SeriesListItemViewModel> _allSeries = [];
     private List<MovieListItemViewModel> _allMovies = [];
+    private List<ClipListItemViewModel> _allClips = [];
     private CancellationTokenSource? _searchCts;
     private int _loadRequestId;
+
+    // Keyed by ProfileSource.Id, shared by movies and clips (Ids are unique across all content) - see
+    // MoviesViewModel._movieProfilesById for the same "download needs the owning profile" rationale.
+    private Dictionary<Guid, ProfileSource> _profilesById = [];
 
     public string Title => "Search";
 
@@ -63,8 +71,11 @@ public partial class SearchViewModel : ViewModelBase
         IEpgRepository epgRepository,
         ISeriesRepository seriesRepository,
         IMovieRepository movieRepository,
+        IClipRepository clipRepository,
         IFavoriteRepository favoriteRepository,
         IWatchedItemRepository watchedItemRepository,
+        DownloadManager downloadManager,
+        IDownloadRepository downloadRepository,
         ILogger<SearchViewModel> logger)
     {
         Player = player;
@@ -73,15 +84,92 @@ public partial class SearchViewModel : ViewModelBase
         _epgRepository = epgRepository;
         _seriesRepository = seriesRepository;
         _movieRepository = movieRepository;
+        _clipRepository = clipRepository;
         _favoriteRepository = favoriteRepository;
         _watchedItemRepository = watchedItemRepository;
+        _downloadManager = downloadManager;
+        _downloadRepository = downloadRepository;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
+        _downloadManager.DownloadChanged += OnDownloadChanged;
 
         _ = LoadAsync();
+    }
+
+    // See MoviesViewModel.OnDownloadChanged - same pattern, just dispatching to whichever of
+    // _allMovies/_allClips the content type matches.
+    private void OnDownloadChanged(object? sender, Download download) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            var state = download.Status switch
+            {
+                DownloadStatus.Queued => DownloadUiState.Queued,
+                DownloadStatus.Downloading => DownloadUiState.Downloading,
+                _ => DownloadUiState.NotDownloaded
+            };
+            var progress = download.TotalBytes is { } total && total > 0 ? (double)download.BytesDownloaded / total : 0;
+
+            if (download.ContentType == WatchProgressContentType.Movie)
+            {
+                var match = _allMovies.FirstOrDefault(m => m.Movie.ProfileId == download.OriginalProfileId && m.Movie.SourceMovieId == download.OriginalSourceId);
+                if (match is not null)
+                {
+                    match.DownloadState = state;
+                    match.DownloadProgress = progress;
+                }
+            }
+            else if (download.ContentType == WatchProgressContentType.Clip)
+            {
+                var match = _allClips.FirstOrDefault(c => c.Clip.ProfileId == download.OriginalProfileId && c.Clip.SourceMovieId == download.OriginalSourceId);
+                if (match is not null)
+                {
+                    match.DownloadState = state;
+                    match.DownloadProgress = progress;
+                }
+            }
+        });
+
+    [RelayCommand]
+    private async Task DownloadMovieAsync(MovieListItemViewModel? item)
+    {
+        if (item is null || !item.CanDownload || !_profilesById.TryGetValue(item.Movie.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        item.DownloadState = DownloadUiState.Queued;
+        try
+        {
+            await _downloadManager.QueueMovieDownloadAsync(profile, item.Movie);
+        }
+        catch (Exception ex)
+        {
+            item.DownloadState = DownloadUiState.NotDownloaded;
+            _logger.LogError(ex, "Failed to queue download for movie {MovieName}", item.Name);
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadClipAsync(ClipListItemViewModel? item)
+    {
+        if (item is null || !item.CanDownload || !_profilesById.TryGetValue(item.Clip.ProfileId, out var profile))
+        {
+            return;
+        }
+
+        item.DownloadState = DownloadUiState.Queued;
+        try
+        {
+            await _downloadManager.QueueClipDownloadAsync(profile, item.Clip);
+        }
+        catch (Exception ex)
+        {
+            item.DownloadState = DownloadUiState.NotDownloaded;
+            _logger.LogError(ex, "Failed to queue download for clip {ClipName}", item.Name);
+        }
     }
 
     [RelayCommand]
@@ -111,6 +199,15 @@ public partial class SearchViewModel : ViewModelBase
         if (item is not null)
         {
             WeakReferenceMessenger.Default.Send(new OpenMovieMessage(item.Movie, item.SourceName));
+        }
+    }
+
+    [RelayCommand]
+    private void SelectClip(ClipListItemViewModel? item)
+    {
+        if (item is not null)
+        {
+            WeakReferenceMessenger.Default.Send(new OpenClipMessage(item.Clip, item.SourceName));
         }
     }
 
@@ -203,11 +300,54 @@ public partial class SearchViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    private async Task ToggleClipFavoriteAsync(ClipListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        if (item.IsFavorite)
+        {
+            await _favoriteRepository.RemoveClipAsync(item.Clip.Id);
+            item.IsFavorite = false;
+        }
+        else
+        {
+            await _favoriteRepository.AddClipAsync(item.Clip.ProfileId, item.Clip.Id);
+            item.IsFavorite = true;
+        }
+
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+    }
+
+    [RelayCommand]
+    private async Task ToggleClipWatchedAsync(ClipListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        if (item.IsWatched)
+        {
+            await _watchedItemRepository.MarkUnwatchedAsync(item.Clip.ProfileId, WatchProgressContentType.Clip, item.Clip.SourceMovieId);
+            item.IsWatched = false;
+        }
+        else
+        {
+            await _watchedItemRepository.MarkWatchedAsync(item.Clip.ProfileId, WatchProgressContentType.Clip, item.Clip.SourceMovieId);
+            item.IsWatched = true;
+        }
+    }
+
     private async Task RefreshFavoriteFlagsAsync()
     {
         var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
         var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
         var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+        var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
 
         foreach (var channel in _allChannels)
         {
@@ -220,6 +360,10 @@ public partial class SearchViewModel : ViewModelBase
         foreach (var movie in _allMovies)
         {
             movie.IsFavorite = favoriteMovieIds.Contains(movie.Movie.Id);
+        }
+        foreach (var clip in _allClips)
+        {
+            clip.IsFavorite = favoriteClipIds.Contains(clip.Clip.Id);
         }
     }
 
@@ -243,6 +387,15 @@ public partial class SearchViewModel : ViewModelBase
         foreach (var movie in _allMovies)
         {
             movie.IsWatched = watchedMovieKeys.Contains((movie.Movie.ProfileId, movie.Movie.SourceMovieId));
+        }
+
+        var watchedClipKeys = watchedItems
+            .Where(w => w.ContentType == WatchProgressContentType.Clip)
+            .Select(w => (w.ProfileId, w.ContentKey))
+            .ToHashSet();
+        foreach (var clip in _allClips)
+        {
+            clip.IsWatched = watchedClipKeys.Contains((clip.Clip.ProfileId, clip.Clip.SourceMovieId));
         }
     }
 
@@ -271,8 +424,9 @@ public partial class SearchViewModel : ViewModelBase
             var channels = _allChannels;
             var series = _allSeries;
             var movies = _allMovies;
+            var clips = _allClips;
             var query = SearchText.Trim();
-            var filtered = await Task.Run(() => Flatten(channels, series, movies, query), cancellationToken);
+            var filtered = await Task.Run(() => Flatten(channels, series, movies, clips, query), cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -301,7 +455,7 @@ public partial class SearchViewModel : ViewModelBase
     {
         var query = SearchText.Trim();
         Rows.Clear();
-        foreach (var row in Flatten(_allChannels, _allSeries, _allMovies, query))
+        foreach (var row in Flatten(_allChannels, _allSeries, _allMovies, _allClips, query))
         {
             Rows.Add(row);
         }
@@ -311,7 +465,8 @@ public partial class SearchViewModel : ViewModelBase
     // An empty query intentionally produces no rows at all - searching implies you've typed
     // something, rather than dumping the entire combined catalog the moment the page opens.
     private static List<object> Flatten(
-        List<ChannelListItemViewModel> channels, List<SeriesListItemViewModel> series, List<MovieListItemViewModel> movies, string query)
+        List<ChannelListItemViewModel> channels, List<SeriesListItemViewModel> series, List<MovieListItemViewModel> movies,
+        List<ClipListItemViewModel> clips, string query)
     {
         var rows = new List<object>();
         if (string.IsNullOrEmpty(query))
@@ -340,6 +495,13 @@ public partial class SearchViewModel : ViewModelBase
             rows.AddRange(matchingMovies);
         }
 
+        var matchingClips = clips.Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matchingClips.Count > 0)
+        {
+            rows.Add(new CategoryHeaderRow("Clips"));
+            rows.AddRange(matchingClips);
+        }
+
         return rows;
     }
 
@@ -353,6 +515,7 @@ public partial class SearchViewModel : ViewModelBase
             var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
             var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
             var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+            var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
             var watchedItems = await _watchedItemRepository.GetAllAsync();
             var watchedSeriesKeys = watchedItems
                 .Where(w => w.ContentType == WatchProgressContentType.Series)
@@ -362,15 +525,34 @@ public partial class SearchViewModel : ViewModelBase
                 .Where(w => w.ContentType == WatchProgressContentType.Movie)
                 .Select(w => (w.ProfileId, w.ContentKey))
                 .ToHashSet();
+            var watchedClipKeys = watchedItems
+                .Where(w => w.ContentType == WatchProgressContentType.Clip)
+                .Select(w => (w.ProfileId, w.ContentKey))
+                .ToHashSet();
             var profiles = await _profileRepository.GetAllAsync();
             var nowUtc = DateTime.UtcNow;
+
+            // See MoviesViewModel.LoadMoviesAsync's equivalent block - same rationale.
+            var downloadsProfile = await _downloadManager.GetDownloadsProfileIfExistsAsync();
+            var activeDownloads = (await _downloadRepository.GetAllAsync())
+                .Where(d => d.Status is DownloadStatus.Queued or DownloadStatus.Downloading)
+                .ToList();
+            var downloadedMovieTitles = downloadsProfile is null
+                ? []
+                : (await _movieRepository.GetMoviesAsync(downloadsProfile.Id)).Select(m => DownloadRowSupport.Normalize(m.Name)).ToHashSet();
+            var downloadedClipTitles = downloadsProfile is null
+                ? []
+                : (await _clipRepository.GetClipsAsync(downloadsProfile.Id)).Select(c => DownloadRowSupport.Normalize(c.Name)).ToHashSet();
 
             var channels = new List<ChannelListItemViewModel>();
             var series = new List<SeriesListItemViewModel>();
             var movies = new List<MovieListItemViewModel>();
+            var clips = new List<ClipListItemViewModel>();
+            var profilesById = new Dictionary<Guid, ProfileSource>();
 
             foreach (var profile in profiles)
             {
+                profilesById[profile.Id] = profile;
                 var profileChannels = await _channelRepository.GetChannelsAsync(profile.Id);
                 if (profileChannels.Count > 0)
                 {
@@ -388,9 +570,27 @@ public partial class SearchViewModel : ViewModelBase
                 series.AddRange(profileSeries.Select(s => new SeriesListItemViewModel(
                     s, profile.Name, favoriteSeriesIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId)))));
 
+                var isFromDownloadsProfile = downloadsProfile is not null && profile.Id == downloadsProfile.Id;
+
                 var profileMovies = await _movieRepository.GetMoviesAsync(profile.Id);
-                movies.AddRange(profileMovies.Select(m => new MovieListItemViewModel(
-                    m, profile.Name, favoriteMovieIds.Contains(m.Id), watchedMovieKeys.Contains((m.ProfileId, m.SourceMovieId)))));
+                movies.AddRange(profileMovies.Select(m =>
+                {
+                    var item = new MovieListItemViewModel(m, profile.Name, favoriteMovieIds.Contains(m.Id), watchedMovieKeys.Contains((m.ProfileId, m.SourceMovieId)), isFromDownloadsProfile);
+                    var (state, progress) = DownloadRowSupport.ComputeState(activeDownloads, downloadedMovieTitles.Contains(DownloadRowSupport.Normalize(m.Name)), m.ProfileId, WatchProgressContentType.Movie, m.SourceMovieId);
+                    item.DownloadState = state;
+                    item.DownloadProgress = progress;
+                    return item;
+                }));
+
+                var profileClips = await _clipRepository.GetClipsAsync(profile.Id);
+                clips.AddRange(profileClips.Select(c =>
+                {
+                    var item = new ClipListItemViewModel(c, profile.Name, favoriteClipIds.Contains(c.Id), watchedClipKeys.Contains((c.ProfileId, c.SourceMovieId)), isFromDownloadsProfile);
+                    var (state, progress) = DownloadRowSupport.ComputeState(activeDownloads, downloadedClipTitles.Contains(DownloadRowSupport.Normalize(c.Name)), c.ProfileId, WatchProgressContentType.Clip, c.SourceMovieId);
+                    item.DownloadState = state;
+                    item.DownloadProgress = progress;
+                    return item;
+                }));
             }
 
             if (requestId != _loadRequestId)
@@ -403,6 +603,8 @@ public partial class SearchViewModel : ViewModelBase
             _allChannels = channels;
             _allSeries = series;
             _allMovies = movies;
+            _allClips = clips;
+            _profilesById = profilesById;
 
             ApplyFilter();
 

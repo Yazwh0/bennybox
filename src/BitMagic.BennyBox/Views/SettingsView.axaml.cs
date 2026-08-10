@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using FluentAvalonia.UI.Controls;
 using BitMagic.BennyBox.ViewModels;
 using BitMagic.BennyBox.Core.Models;
@@ -10,6 +11,34 @@ namespace BitMagic.BennyBox.Views;
 public partial class SettingsView : UserControl
 {
     public SettingsView() => InitializeComponent();
+
+    // See AddProfileView.axaml.cs's folder-picker handlers for the same TopLevel/StorageProvider
+    // rationale - the picker itself needs a View, so this reads the result back into the ViewModel
+    // rather than the ViewModel doing it directly.
+    private async void OnChangeDownloadsLocationClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel viewModel)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select Downloads Folder",
+            AllowMultiple = false
+        });
+
+        if (folders.Count > 0 && (folders[0].TryGetLocalPath() ?? folders[0].Path.LocalPath) is { } path)
+        {
+            await viewModel.SetDownloadsLocationAsync(path);
+        }
+    }
 
     private async void OnAddProfileClick(object? sender, RoutedEventArgs e)
     {

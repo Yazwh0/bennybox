@@ -17,6 +17,7 @@ public partial class FavoritesViewModel : ViewModelBase
     private readonly IEpgRepository _epgRepository;
     private readonly ISeriesRepository _seriesRepository;
     private readonly IMovieRepository _movieRepository;
+    private readonly IClipRepository _clipRepository;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchProgressRepository _watchProgressRepository;
     private readonly ILogger<FavoritesViewModel> _logger;
@@ -47,6 +48,7 @@ public partial class FavoritesViewModel : ViewModelBase
         IEpgRepository epgRepository,
         ISeriesRepository seriesRepository,
         IMovieRepository movieRepository,
+        IClipRepository clipRepository,
         IFavoriteRepository favoriteRepository,
         IWatchProgressRepository watchProgressRepository,
         ILogger<FavoritesViewModel> logger)
@@ -57,6 +59,7 @@ public partial class FavoritesViewModel : ViewModelBase
         _epgRepository = epgRepository;
         _seriesRepository = seriesRepository;
         _movieRepository = movieRepository;
+        _clipRepository = clipRepository;
         _favoriteRepository = favoriteRepository;
         _watchProgressRepository = watchProgressRepository;
         _logger = logger;
@@ -134,6 +137,27 @@ public partial class FavoritesViewModel : ViewModelBase
         }
 
         await _favoriteRepository.RemoveMovieAsync(item.Movie.Id);
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+    }
+
+    [RelayCommand]
+    private void SelectClip(ClipListItemViewModel? item)
+    {
+        if (item is not null)
+        {
+            WeakReferenceMessenger.Default.Send(new OpenClipMessage(item.Clip, item.SourceName));
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveClipFavoriteAsync(ClipListItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        await _favoriteRepository.RemoveClipAsync(item.Clip.Id);
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
@@ -224,12 +248,14 @@ public partial class FavoritesViewModel : ViewModelBase
             var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
             var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
             var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+            var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
             var recentProgress = await _watchProgressRepository.GetRecentAsync();
             var profiles = await _profileRepository.GetAllAsync();
 
             var channelItems = new List<ChannelListItemViewModel>();
             var seriesItems = new List<SeriesListItemViewModel>();
             var movieItems = new List<MovieListItemViewModel>();
+            var clipItems = new List<ClipListItemViewModel>();
 
             foreach (var profile in profiles)
             {
@@ -256,6 +282,11 @@ public partial class FavoritesViewModel : ViewModelBase
                 movieItems.AddRange(movies
                     .Where(m => favoriteMovieIds.Contains(m.Id))
                     .Select(m => new MovieListItemViewModel(m, profile.Name, isFavorite: true)));
+
+                var clips = await _clipRepository.GetClipsAsync(profile.Id);
+                clipItems.AddRange(clips
+                    .Where(c => favoriteClipIds.Contains(c.Id))
+                    .Select(c => new ClipListItemViewModel(c, profile.Name, isFavorite: true)));
             }
 
             Rows.Clear();
@@ -291,8 +322,16 @@ public partial class FavoritesViewModel : ViewModelBase
                     Rows.Add(item);
                 }
             }
+            if (clipItems.Count > 0)
+            {
+                Rows.Add(new CategoryHeaderRow("Clips"));
+                foreach (var item in clipItems.OrderBy(i => i.Name))
+                {
+                    Rows.Add(item);
+                }
+            }
 
-            HasNoFavorites = channelItems.Count == 0 && seriesItems.Count == 0 && movieItems.Count == 0 && recentProgress.Count == 0;
+            HasNoFavorites = channelItems.Count == 0 && seriesItems.Count == 0 && movieItems.Count == 0 && clipItems.Count == 0 && recentProgress.Count == 0;
 
             // The Rows.Add() calls above don't finish re-realizing/rendering synchronously - that
             // layout pass is queued, not immediate. Without this, IsLoading flips back to false -

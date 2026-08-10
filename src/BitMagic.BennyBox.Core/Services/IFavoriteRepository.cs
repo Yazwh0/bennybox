@@ -13,4 +13,8 @@ public interface IFavoriteRepository
     Task<IReadOnlySet<Guid>> GetFavoriteMovieIdsAsync(CancellationToken cancellationToken = default);
     Task AddMovieAsync(Guid profileId, Guid movieId, CancellationToken cancellationToken = default);
     Task RemoveMovieAsync(Guid movieId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlySet<Guid>> GetFavoriteClipIdsAsync(CancellationToken cancellationToken = default);
+    Task AddClipAsync(Guid profileId, Guid clipId, CancellationToken cancellationToken = default);
+    Task RemoveClipAsync(Guid clipId, CancellationToken cancellationToken = default);
 }

@@ -186,5 +186,61 @@ internal static class SqliteSchema
             WatchedUtc TEXT NOT NULL,
             PRIMARY KEY (ProfileId, ContentType, ContentKey)
         );
+
+        -- One-off/uncategorized media (sports broadcasts, TV specials) - see IClipRepository. A
+        -- column-for-column copy of MovieCategories/Movies/MovieFavorites, kept in its own tables
+        -- rather than sharing Movies' so Clips never mixes into the Movies list. Unlike Movies,
+        -- Plot/Genre/ReleaseDate are part of the initial create (no migration needed) since this
+        -- table is new - Clips never gets these from TMDb, only from an NFO sidecar if one exists.
+        CREATE TABLE IF NOT EXISTS ClipCategories (
+            Id TEXT NOT NULL,
+            ProfileId TEXT NOT NULL,
+            Name TEXT NOT NULL,
+            SortOrder INTEGER NOT NULL,
+            PRIMARY KEY (ProfileId, Id)
+        );
+
+        CREATE TABLE IF NOT EXISTS Clips (
+            Id TEXT PRIMARY KEY,
+            ProfileId TEXT NOT NULL,
+            SourceClipId TEXT NOT NULL,
+            CategoryId TEXT,
+            Name TEXT NOT NULL,
+            CoverUrl TEXT,
+            StreamUrl TEXT NOT NULL,
+            Rating REAL,
+            Plot TEXT,
+            Genre TEXT,
+            ReleaseDate TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Clips_ProfileId ON Clips(ProfileId);
+
+        CREATE TABLE IF NOT EXISTS ClipFavorites (
+            ClipId TEXT PRIMARY KEY,
+            ProfileId TEXT NOT NULL,
+            AddedUtc TEXT NOT NULL
+        );
+
+        -- See IDownloadRepository/DownloadManager - tracks a download's lifecycle, keyed by the
+        -- ORIGINAL item's identity (OriginalProfileId/ContentType/OriginalSourceId), not the eventual
+        -- downloaded copy's (there isn't one yet while Status is Queued/Downloading/Failed).
+        CREATE TABLE IF NOT EXISTS Downloads (
+            Id TEXT PRIMARY KEY,
+            OriginalProfileId TEXT NOT NULL,
+            ContentType INTEGER NOT NULL,
+            OriginalSourceId TEXT NOT NULL,
+            Title TEXT NOT NULL,
+            CoverUrl TEXT,
+            Status INTEGER NOT NULL,
+            BytesDownloaded INTEGER NOT NULL,
+            TotalBytes INTEGER,
+            LocalRelativePath TEXT,
+            ErrorMessage TEXT,
+            StartedUtc TEXT NOT NULL,
+            CompletedUtc TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Downloads_Original ON Downloads(OriginalProfileId, ContentType, OriginalSourceId);
         """;
 }

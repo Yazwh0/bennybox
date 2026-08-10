@@ -6,7 +6,7 @@ A Windows desktop IPTV player. Point it at an Xtream Codes or M3U/XMLTV source a
 
 ### Sources
 - **Xtream Codes** or **M3U playlist** (+ optional separate XMLTV EPG URL) profiles, added/edited from Settings.
-- **Local Folder** or **SFTP** profiles for movies/TV shows already organized on disk or on a remote server - each can point at a Movies path, a TV Shows path, or both. Metadata comes from Kodi/Jellyfin-style NFO sidecars when present, filename parsing as a fallback identifier (including grouping season-per-folder scene releases like `Show.Name.S01...`/`...S02...` back into one show), and [themoviedb.org](https://www.themoviedb.org/) automatically fills in whatever synopsis, genre, or poster is still missing.
+- **Local Folder** or **SFTP** profiles for movies/TV shows/one-off clips already organized on disk or on a remote server - each can point at a Movies path, a TV Shows path, a Clips path, or any combination. Metadata comes from Kodi/Jellyfin-style NFO sidecars when present, filename parsing as a fallback identifier (including grouping season-per-folder scene releases like `Show.Name.S01...`/`...S02...` back into one show), and [themoviedb.org](https://www.themoviedb.org/) automatically fills in whatever synopsis, genre, or poster is still missing for Movies/TV - Clips (sports broadcasts, specials, anything that isn't a movie or an episode) deliberately skip this, since a metadata-matching guess is more likely to be wrong than helpful for one-off content.
 - "Test Connection" on Xtream profiles authenticates and shows account status/expiry before saving.
 - **Refresh** re-imports a profile's content. Xtream/M3U use conditional requests (ETag/Last-Modified) to skip the re-download entirely if nothing changed on the server; Local Folder/SFTP profiles cache everything they find - including every show's full episode list - so browsing never touches the source again until the next Refresh.
 - Multiple profiles can be configured at once - Live TV, Guide, Series, and Movies merge content across all of them. When more than one source contributes to the same list, each title shows a small badge naming which profile it came from, and a Source filter can narrow the list down to just one.
@@ -25,8 +25,18 @@ A Windows desktop IPTV player. Point it at an Xtream Codes or M3U/XMLTV source a
 - Favorite and mark watched/unwatched independently of actual playback.
 - Long titles/descriptions are capped with a "Read full description" flyout rather than squeezing episode lists.
 
+### Clips
+- A dedicated section for media that isn't a movie or a TV episode - sports broadcasts, one-off specials, anything with no useful season/episode number. Same category/source browsing as Series & Movies, just without the metadata-lookup step.
+
+### Downloads
+- A download button on any movie, episode, or clip pulls a copy onto this machine for offline/faster playback - once downloaded, the app automatically plays that local copy instead of re-streaming the original, without losing your watch progress.
+- **Download Season** and **Download All** on a series' detail page queue every not-yet-downloaded episode at once (two downloads run at a time; the rest just wait their turn).
+- A dedicated **Downloads** page shows progress for everything in flight and everything already downloaded, with Cancel, Retry, and Delete per item.
+- Downloads resume from where they left off after an interruption (a dropped connection, or the app closing mid-download) for Xtream and Local Folder sources. SFTP downloads restart cleanly instead of resuming - the SFTP library this app uses doesn't yet support reading from a mid-file offset, so a retry re-fetches the whole file rather than continuing it.
+- Settings → **Downloads** shows where files are being saved, lets you change that location, and reports disk usage with a "Clear all downloads" option.
+
 ### Favorites
-- One page aggregating **Continue Watching** (in-progress movies/episodes with a resume-position progress bar), favorited channels, series, and movies.
+- One page aggregating **Continue Watching** (in-progress movies/episodes with a resume-position progress bar), favorited channels, series, movies, and clips.
 
 ### Playback
 - Resumable movies/episodes - progress is saved every 15 seconds and on pause/stop, and auto-clears once a title is finished (95%+ watched or reaches the end).
@@ -47,7 +57,7 @@ A Windows desktop IPTV player. Point it at an Xtream Codes or M3U/XMLTV source a
 ## Getting started
 
 1. Open **Settings** → **Add Profile**, pick Xtream Codes, M3U, Local Folder, or SFTP, and fill in the details.
-2. Once imported, browse Live TV/Guide/Series/Movies from the nav bar.
+2. Once imported, browse Live TV/Guide/Series/Movies/Clips from the nav bar.
 3. To control playback from your phone, open the **Remote** panel and scan the QR code.
 
 ## Building from source

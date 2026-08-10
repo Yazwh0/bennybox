@@ -51,7 +51,31 @@ public partial class MovieListItemViewModel : ObservableObject
     public string WatchedIcon => IsWatched ? "✓" : "";
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
-    public MovieListItemViewModel(Movie movie, string sourceName, bool isFavorite = false, bool isWatched = false)
+    // True for a row that IS ITSELF a Downloads-profile item - downloading a download makes no sense,
+    // so the button is hidden entirely for these rather than shown disabled (see MoviesViewModel).
+    public bool IsFromDownloadsProfile { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DownloadIcon))]
+    [NotifyPropertyChangedFor(nameof(CanDownload))]
+    private DownloadUiState _downloadState = DownloadUiState.NotDownloaded;
+
+    [ObservableProperty]
+    private double _downloadProgress;
+
+    // Clicking is a no-op once Queued/Downloading (avoids double-queuing the same title) - Completed
+    // stays clickable only in the sense that the icon reads as "done", not as an active button.
+    public bool CanDownload => !IsFromDownloadsProfile && DownloadState is DownloadUiState.NotDownloaded;
+
+    public string DownloadIcon => DownloadState switch
+    {
+        DownloadUiState.Queued => "⏳",
+        DownloadUiState.Downloading => "↓",
+        DownloadUiState.Completed => "✓",
+        _ => "⬇"
+    };
+
+    public MovieListItemViewModel(Movie movie, string sourceName, bool isFavorite = false, bool isWatched = false, bool isFromDownloadsProfile = false)
     {
         Movie = movie;
         SourceName = sourceName;
@@ -59,6 +83,7 @@ public partial class MovieListItemViewModel : ObservableObject
         _isWatched = isWatched;
         _plot = movie.Plot;
         _metaLine = BuildMetaLine(movie.Genre, movie.ReleaseDate, movie.Rating);
+        IsFromDownloadsProfile = isFromDownloadsProfile;
     }
 
     public void ApplyDetails(MovieDetails details)

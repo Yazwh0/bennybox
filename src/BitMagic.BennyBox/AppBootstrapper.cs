@@ -58,6 +58,8 @@ internal static class AppBootstrapper
         services.AddTransient<GuideViewModel>();
         services.AddTransient<SeriesViewModel>();
         services.AddTransient<MoviesViewModel>();
+        services.AddTransient<ClipsViewModel>();
+        services.AddTransient<DownloadsViewModel>();
         services.AddTransient<FavoritesViewModel>();
         services.AddTransient<SettingsViewModel>();
 
@@ -67,6 +69,8 @@ internal static class AppBootstrapper
         services.AddSingleton<IEpgRepository, SqliteEpgRepository>();
         services.AddSingleton<ISeriesRepository, SqliteSeriesRepository>();
         services.AddSingleton<IMovieRepository, SqliteMovieRepository>();
+        services.AddSingleton<IClipRepository, SqliteClipRepository>();
+        services.AddSingleton<IDownloadRepository, SqliteDownloadRepository>();
         services.AddSingleton<IEpisodeCacheRepository, SqliteEpisodeCacheRepository>();
         services.AddSingleton<IMetadataEnrichmentCacheRepository, SqliteMetadataEnrichmentCacheRepository>();
         services.AddSingleton<IFavoriteRepository, SqliteFavoriteRepository>();
@@ -79,6 +83,7 @@ internal static class AppBootstrapper
         services.AddSingleton<EpgImportService>();
         services.AddSingleton<SeriesImportService>();
         services.AddSingleton<MovieImportService>();
+        services.AddSingleton<ClipImportService>();
         services.AddSingleton<AccountInfoService>();
 
         // Some IPTV providers block requests with no User-Agent header (HttpClient sends none by default, unlike curl/browsers).
@@ -117,6 +122,33 @@ internal static class AppBootstrapper
         services.AddSingleton<IMovieSource>(sp => new FolderMovieSource(ProfileSourceType.Sftp, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
         services.AddSingleton<ISeriesSource>(sp => new FolderSeriesSource(ProfileSourceType.LocalFolder, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IEpisodeCacheRepository>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
         services.AddSingleton<ISeriesSource>(sp => new FolderSeriesSource(ProfileSourceType.Sftp, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IEpisodeCacheRepository>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
+
+        // No IMetadataEnrichmentService passed - Clips never call TMDb, by design (see
+        // FolderMediaScanner.ScanClipsAsync).
+        services.AddSingleton<IClipSource>(sp => new FolderClipSource(ProfileSourceType.LocalFolder, sp.GetRequiredService<IMediaFileSystemFactory>()));
+        services.AddSingleton<IClipSource>(sp => new FolderClipSource(ProfileSourceType.Sftp, sp.GetRequiredService<IMediaFileSystemFactory>()));
+
+        // DownloadManager needs one long-lived HttpClient (for Xtream-sourced downloads) but must
+        // itself be a genuine singleton - its semaphore/active-download tracking and DownloadChanged
+        // event are shared state every subscriber (DownloadsViewModel, Movie/Episode/Clip row items,
+        // DownloadPlaybackResolver) needs to see the same instance of. AddHttpClient<T>() registers T
+        // itself as transient, which would defeat that, so the HttpClient is fetched via a named
+        // client instead and handed to an explicitly-singleton registration - HttpClient instances are
+        // safe to hold and reuse for the app's whole lifetime (that's IHttpClientFactory's point).
+        services.AddHttpClient("Downloads", client => client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+        services.AddSingleton(sp => new DownloadManager(
+            sp.GetRequiredService<IDownloadRepository>(),
+            sp.GetRequiredService<IProfileRepository>(),
+            sp.GetRequiredService<IMediaFileSystemFactory>(),
+            sp.GetRequiredService<MovieImportService>(),
+            sp.GetRequiredService<SeriesImportService>(),
+            sp.GetRequiredService<ClipImportService>(),
+            sp.GetRequiredService<IMovieRepository>(),
+            sp.GetRequiredService<IClipRepository>(),
+            sp.GetRequiredService<ISeriesRepository>(),
+            sp.GetRequiredService<ISettingsStore>(),
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("Downloads")));
+        services.AddSingleton<DownloadPlaybackResolver>();
 
         services.AddTransient<AddProfileViewModel>();
 

@@ -117,6 +117,57 @@ public class SftpFileSystem : IMediaFileSystem
         return new MemoryStream(bytes);
     }
 
+    // Unlike OpenReadAsync, this genuinely streams - SSH.NET's DownloadFile writes directly to the
+    // output stream as data arrives, never buffering the whole file in memory, which OpenReadAsync's
+    // ReadAllBytes does (fine for a small NFO, not for a multi-GB video - see DownloadManager). Reuses
+    // the same connection every other call on this instance shares (see GetConnectedClientAsync).
+    //
+    // NOT byte-level resumable, unlike LocalFileSystem/DownloadManager's HTTP path - confirmed by
+    // testing directly against a real server: SSH.NET's read-side SftpFileStream (both OpenRead() and
+    // Open(path, FileMode.Open, FileAccess.Read)) reports CanSeek = false and throws
+    // NotSupportedException on Seek/Position, and Open(..., FileAccess.ReadWrite) requires write
+    // permission on the remote file, which a typical read-only media account doesn't have (confirmed
+    // via SftpPermissionDeniedException). There's no public SSH.NET API for an offset-based read. A
+    // leftover partial file from an earlier interrupted attempt is therefore just discarded and
+    // re-fetched from the start - still correct (DownloadManager's retry/row-reuse logic works
+    // regardless of whether the underlying transfer can resume), just not bandwidth-saving for SFTP
+    // specifically.
+    public async Task DownloadToFileAsync(string relativePath, string destinationPath, IProgress<(long BytesTransferred, long? TotalBytes)>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var client = await GetConnectedClientAsync(cancellationToken);
+        var fullPath = $"{_rootPath}/{relativePath}";
+
+        long? totalBytes = null;
+        try
+        {
+            var attributes = await Task.Run(() => client.GetAttributes(fullPath), cancellationToken);
+            totalBytes = attributes.Size;
+        }
+        catch
+        {
+            // Non-fatal - progress just won't have a known total to report against.
+        }
+
+        var destinationDir = Path.GetDirectoryName(destinationPath);
+        if (!string.IsNullOrEmpty(destinationDir))
+        {
+            Directory.CreateDirectory(destinationDir);
+        }
+
+        await Task.Run(() =>
+        {
+            using var output = File.Create(destinationPath);
+            client.DownloadFile(fullPath, output, bytesTransferred =>
+            {
+                // DownloadFile's callback is SSH.NET's only hook into an in-progress transfer - there's
+                // no separate cancellation parameter, so an OperationCanceledException thrown from here
+                // is how a cancellation request actually stops the transfer.
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report(((long)bytesTransferred, totalBytes));
+            });
+        }, cancellationToken);
+    }
+
     // libVLC's bundled sftp access module (confirmed present - see the plan discussion) accepts
     // credentials directly in the MRL. Each path segment is escaped separately so slashes stay
     // literal while spaces/special characters in filenames don't break the URL.

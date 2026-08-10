@@ -32,4 +32,10 @@ public interface IMediaFileSystem : IAsyncDisposable
     // sftp://user:pass@host:port/path for SFTP (libVLC's bundled sftp access module plays this
     // directly, confirmed present in the referenced VideoLAN.LibVLC.Windows package).
     string BuildStreamUrl(string relativePath);
+
+    // Streams a file to a local path on disk (see DownloadManager) - deliberately NOT the same as
+    // OpenReadAsync, whose SFTP implementation buffers the whole file into memory (fine for a small
+    // NFO/poster, unusable for a multi-GB video). progress reports (bytes transferred so far, total
+    // bytes if known) as the copy proceeds. destinationPath's parent directory is created if missing.
+    Task DownloadToFileAsync(string relativePath, string destinationPath, IProgress<(long BytesTransferred, long? TotalBytes)>? progress = null, CancellationToken cancellationToken = default);
 }

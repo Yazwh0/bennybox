@@ -16,13 +16,23 @@ public class MediaFileSystemFactory : IMediaFileSystemFactory
 
     private static LocalFileSystem? CreateLocal(ProfileSource profile, MediaKind kind)
     {
-        var path = kind == MediaKind.Movies ? profile.LocalMoviesPath : profile.LocalSeriesPath;
+        var path = kind switch
+        {
+            MediaKind.Movies => profile.LocalMoviesPath,
+            MediaKind.Series => profile.LocalSeriesPath,
+            _ => profile.LocalClipsPath
+        };
         return string.IsNullOrWhiteSpace(path) ? null : new LocalFileSystem(path);
     }
 
     private static SftpFileSystem? CreateSftp(ProfileSource profile, MediaKind kind)
     {
-        var path = kind == MediaKind.Movies ? profile.SftpMoviesRemotePath : profile.SftpSeriesRemotePath;
+        var path = kind switch
+        {
+            MediaKind.Movies => profile.SftpMoviesRemotePath,
+            MediaKind.Series => profile.SftpSeriesRemotePath,
+            _ => profile.SftpClipsRemotePath
+        };
         if (string.IsNullOrWhiteSpace(path))
         {
             return null;

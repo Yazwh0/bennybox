@@ -48,6 +48,8 @@ public partial class MainWindowViewModel : ViewModelBase
         GuideViewModel => "Guide",
         SeriesViewModel => "Series",
         MoviesViewModel => "Movies",
+        ClipsViewModel => "Clips",
+        DownloadsViewModel => "Downloads",
         FavoritesViewModel => "Favorites",
         SettingsViewModel => "Settings",
         _ => ""
@@ -58,13 +60,15 @@ public partial class MainWindowViewModel : ViewModelBase
     // PropertyChanged forwarding from six separate child view models just to answer "is anything
     // still loading right now?" on demand.
     public bool IsAnyRefreshInProgress =>
-        LiveTv.IsLoading || Guide.IsLoading || Series.IsLoading || Movies.IsLoading || Favorites.IsLoading || Search.IsLoading || Settings.IsBusy;
+        LiveTv.IsLoading || Guide.IsLoading || Series.IsLoading || Movies.IsLoading || Clips.IsLoading || Favorites.IsLoading || Search.IsLoading || Settings.IsBusy;
 
     public SearchViewModel Search { get; }
     public LiveTvViewModel LiveTv { get; }
     public GuideViewModel Guide { get; }
     public SeriesViewModel Series { get; }
     public MoviesViewModel Movies { get; }
+    public ClipsViewModel Clips { get; }
+    public DownloadsViewModel Downloads { get; }
     public FavoritesViewModel Favorites { get; }
     public SettingsViewModel Settings { get; }
     public PlayerViewModel Player { get; }
@@ -76,6 +80,8 @@ public partial class MainWindowViewModel : ViewModelBase
         GuideViewModel guide,
         SeriesViewModel series,
         MoviesViewModel movies,
+        ClipsViewModel clips,
+        DownloadsViewModel downloads,
         FavoritesViewModel favorites,
         SettingsViewModel settings,
         PlayerViewModel player,
@@ -89,6 +95,8 @@ public partial class MainWindowViewModel : ViewModelBase
         Guide = guide;
         Series = series;
         Movies = movies;
+        Clips = clips;
+        Downloads = downloads;
         Favorites = favorites;
         Settings = settings;
         Player = player;
@@ -112,6 +120,12 @@ public partial class MainWindowViewModel : ViewModelBase
             Movies.SelectMovieCommand.Execute(new MovieListItemViewModel(message.Movie, message.SourceName));
         });
 
+        WeakReferenceMessenger.Default.Register<OpenClipMessage>(this, (_, message) =>
+        {
+            CurrentPage = Clips;
+            Clips.SelectClipCommand.Execute(new ClipListItemViewModel(message.Clip, message.SourceName));
+        });
+
         _reminderTimer = new DispatcherTimer { Interval = ReminderPollInterval };
         _reminderTimer.Tick += (_, _) => _ = CheckRemindersAsync();
         _reminderTimer.Start();
@@ -129,6 +143,8 @@ public partial class MainWindowViewModel : ViewModelBase
             "Guide" => Guide,
             "Series" => Series,
             "Movies" => Movies,
+            "Clips" => Clips,
+            "Downloads" => Downloads,
             "Favorites" => Favorites,
             "Settings" => Settings,
             _ => CurrentPage

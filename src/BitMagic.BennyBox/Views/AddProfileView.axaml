@@ -51,7 +51,7 @@
         </StackPanel>
 
         <StackPanel Spacing="12" IsVisible="{Binding IsLocalFolderSelected}">
-            <TextBlock Text="Set a Movies folder, a TV Shows folder, or both - either is optional on its own."
+            <TextBlock Text="Set a Movies folder, a TV Shows folder, a Clips folder, or some combination - each is optional on its own."
                         Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
             <StackPanel Spacing="4">
                 <TextBlock Text="Movies Folder" />
@@ -65,6 +65,13 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBox Grid.Column="0" Text="{Binding LocalSeriesPath}" IsReadOnly="True" PlaceholderText="Not set" />
                     <Button Grid.Column="1" Content="Browse..." Click="OnBrowseSeriesFolderClick" Margin="6,0,0,0" />
+                </Grid>
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Clips Folder" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0" Text="{Binding LocalClipsPath}" IsReadOnly="True" PlaceholderText="Not set" />
+                    <Button Grid.Column="1" Content="Browse..." Click="OnBrowseClipsFolderClick" Margin="6,0,0,0" />
                 </Grid>
             </StackPanel>
         </StackPanel>
@@ -88,7 +95,7 @@
                 <TextBlock Text="Password" />
                 <TextBox Text="{Binding SftpPassword}" PasswordChar="●" />
             </StackPanel>
-            <TextBlock Text="Set a Movies remote path, a TV Shows remote path, or both - either is optional on its own."
+            <TextBlock Text="Set a Movies remote path, a TV Shows remote path, a Clips remote path, or some combination - each is optional on its own."
                         Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
             <StackPanel Spacing="4">
                 <TextBlock Text="Movies Remote Path" />
@@ -97,6 +104,10 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="TV Shows Remote Path" />
                 <TextBox Text="{Binding SftpSeriesRemotePath}" PlaceholderText="/tv (leave blank if none)" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Clips Remote Path" />
+                <TextBox Text="{Binding SftpClipsRemotePath}" PlaceholderText="/clips (leave blank if none)" />
             </StackPanel>
         </StackPanel>
 

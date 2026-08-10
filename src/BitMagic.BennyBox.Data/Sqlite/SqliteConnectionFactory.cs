@@ -114,6 +114,8 @@ public class SqliteConnectionFactory
             TryAddColumn(connection, "Profiles", "SftpPasswordEncrypted", "TEXT");
             TryAddColumn(connection, "Profiles", "SftpMoviesRemotePath", "TEXT");
             TryAddColumn(connection, "Profiles", "SftpSeriesRemotePath", "TEXT");
+            TryAddColumn(connection, "Profiles", "LocalClipsPath", "TEXT");
+            TryAddColumn(connection, "Profiles", "SftpClipsRemotePath", "TEXT");
             // See SqliteMovieRepository.ReplaceMoviesAsync - persisted so a LocalFolder/Sftp movie's
             // NFO-derived metadata (read once during the scan) doesn't get thrown away and re-fetched
             // fresh - over a brand new SFTP connection - every single time the movie is opened.

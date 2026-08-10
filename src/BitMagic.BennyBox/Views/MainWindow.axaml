@@ -77,7 +77,7 @@
                  icon marooned in the middle of a huge empty cell. Everywhere else it stretches to fill
                  the sidebar's actual width, so the buttons resize as the window/sidebar is resized
                  instead of sitting fixed-size with dead space to the right. -->
-            <UniformGrid Grid.Row="1" Columns="8" Margin="8,8,8,4"
+            <UniformGrid Grid.Row="1" Columns="10" Margin="8,8,8,4"
                          MaxWidth="{Binding IsSettingsActive, Converter={StaticResource NavBarMaxWidthConverter}}"
                          HorizontalAlignment="{Binding IsSettingsActive, Converter={StaticResource NavBarHorizontalAlignmentConverter}}">
                 <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Search" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
@@ -104,6 +104,16 @@
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Movies}"
                         ToolTip.Tip="Movies">
                     <ui:FASymbolIcon Symbol="Library" FontSize="16" />
+                </Button>
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Clips" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Clips}"
+                        ToolTip.Tip="Clips">
+                    <ui:FASymbolIcon Symbol="Flag" FontSize="16" />
+                </Button>
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Downloads" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                        Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Downloads}"
+                        ToolTip.Tip="Downloads">
+                    <ui:FASymbolIcon Symbol="Download" FontSize="16" />
                 </Button>
                 <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Favorites" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Favorites}"

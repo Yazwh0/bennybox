@@ -21,9 +21,32 @@ public partial class EpisodeListItemViewModel : ObservableObject
     public string WatchedIcon => IsWatched ? "✓" : "";
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
-    public EpisodeListItemViewModel(Episode episode, bool isWatched = false)
+    // See MovieListItemViewModel.IsFromDownloadsProfile - same rationale (this series is itself a
+    // Downloads-profile item).
+    public bool IsFromDownloadsProfile { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DownloadIcon))]
+    [NotifyPropertyChangedFor(nameof(CanDownload))]
+    private DownloadUiState _downloadState = DownloadUiState.NotDownloaded;
+
+    [ObservableProperty]
+    private double _downloadProgress;
+
+    public bool CanDownload => !IsFromDownloadsProfile && DownloadState is DownloadUiState.NotDownloaded;
+
+    public string DownloadIcon => DownloadState switch
+    {
+        DownloadUiState.Queued => "⏳",
+        DownloadUiState.Downloading => "↓",
+        DownloadUiState.Completed => "✓",
+        _ => "⬇"
+    };
+
+    public EpisodeListItemViewModel(Episode episode, bool isWatched = false, bool isFromDownloadsProfile = false)
     {
         Episode = episode;
         _isWatched = isWatched;
+        IsFromDownloadsProfile = isFromDownloadsProfile;
     }
 }

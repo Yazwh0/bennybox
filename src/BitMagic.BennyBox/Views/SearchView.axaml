@@ -94,7 +94,7 @@
                         </Grid>
                     </DataTemplate>
                     <DataTemplate DataType="vm:MovieListItemViewModel">
-                        <Grid ColumnDefinitions="Auto,Auto,*" Margin="8,1">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="8,1">
                             <Button Classes="glass-nav" Grid.Column="0"
                                     Content="{Binding FavoriteIcon}"
                                     Command="{Binding #RootControl.DataContext.ToggleMovieFavoriteCommand}"
@@ -108,10 +108,56 @@
                                     CommandParameter="{Binding}"
                                     VerticalAlignment="Stretch" MinWidth="28"
                                     Padding="6,0" Margin="0,0,4,0" />
-                            <Button Classes="glass-ctrl" Grid.Column="2"
+                            <Button Classes="glass-nav" Grid.Column="2"
+                                    Content="{Binding DownloadIcon}"
+                                    ToolTip.Tip="Download to this device"
+                                    Command="{Binding #RootControl.DataContext.DownloadMovieCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding CanDownload}"
+                                    IsVisible="{Binding !IsFromDownloadsProfile}"
+                                    VerticalAlignment="Stretch" MinWidth="28"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Classes="glass-ctrl" Grid.Column="3"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectMovieCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
+                                    <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
+                                                                Width="44" Height="44" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ClipListItemViewModel">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="8,1">
+                            <Button Classes="glass-nav" Grid.Column="0"
+                                    Content="{Binding FavoriteIcon}"
+                                    Command="{Binding #RootControl.DataContext.ToggleClipFavoriteCommand}"
+                                    CommandParameter="{Binding}"
+                                    VerticalAlignment="Stretch"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Classes="glass-nav" Grid.Column="1"
+                                    Content="{Binding WatchedIcon}"
+                                    ToolTip.Tip="Toggle watched"
+                                    Command="{Binding #RootControl.DataContext.ToggleClipWatchedCommand}"
+                                    CommandParameter="{Binding}"
+                                    VerticalAlignment="Stretch" MinWidth="28"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Classes="glass-nav" Grid.Column="2"
+                                    Content="{Binding DownloadIcon}"
+                                    ToolTip.Tip="Download to this device"
+                                    Command="{Binding #RootControl.DataContext.DownloadClipCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding CanDownload}"
+                                    IsVisible="{Binding !IsFromDownloadsProfile}"
+                                    VerticalAlignment="Stretch" MinWidth="28"
+                                    Padding="6,0" Margin="0,0,4,0" />
+                            <Button Classes="glass-ctrl" Grid.Column="3"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding #RootControl.DataContext.SelectClipCommand}"
                                     CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
                                     <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
