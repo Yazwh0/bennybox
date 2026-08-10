@@ -18,10 +18,17 @@ public class PlaylistImportService
         _profileRepository = profileRepository;
     }
 
+    // Unlike the original Xtream/M3U-only version of this method, a missing source is not an error -
+    // LocalFolder/Sftp profiles have no channels by design (they're Movies- or Series-only, see
+    // MediaKind), the same "no equivalent source" case SeriesImportService/MovieImportService already
+    // treat as a normal no-op rather than a refresh failure.
     public async Task<ChannelImportResult> ImportAsync(ProfileSource profile, CancellationToken cancellationToken = default)
     {
-        var source = _sources.FirstOrDefault(s => s.SourceType == profile.SourceType)
-            ?? throw new InvalidOperationException($"No channel source registered for '{profile.SourceType}'.");
+        var source = _sources.FirstOrDefault(s => s.SourceType == profile.SourceType);
+        if (source is null)
+        {
+            return new ChannelImportResult([], [], NotModified: true);
+        }
 
         var result = await source.ImportAsync(profile, cancellationToken);
 

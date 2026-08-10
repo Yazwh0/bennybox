@@ -38,6 +38,15 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
     // Truncated=true rather than shipping everything.
     private const int MaxListResults = 200;
 
+    // Session-bound (default) means a fresh token every time the server starts, same as before this
+    // setting existed - old QR codes/bookmarked URLs stop working the moment the app restarts, which
+    // is the safer default for something that grants LAN access to playback control. Fixed persists
+    // one token across restarts, for someone who'd rather bookmark the remote URL once and not
+    // re-scan a QR code every launch, at the cost of that URL staying valid indefinitely (until
+    // manually regenerated).
+    private const string RemoteKeyFixedSettingKey = "RemoteKeyFixed";
+    private const string RemoteKeyFixedTokenSettingKey = "RemoteKeyFixedToken";
+
     private readonly PlayerViewModel _player;
     private readonly IProfileRepository _profileRepository;
     private readonly IChannelRepository _channelRepository;
@@ -50,6 +59,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
     private readonly IReminderRepository _reminderRepository;
     private readonly SeriesImportService _seriesImportService;
     private readonly MovieImportService _movieImportService;
+    private readonly ISettingsStore _settingsStore;
     private readonly ILogger<RemoteControlServer> _logger;
     private WebApplication? _app;
 
@@ -70,6 +80,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         IReminderRepository reminderRepository,
         SeriesImportService seriesImportService,
         MovieImportService movieImportService,
+        ISettingsStore settingsStore,
         ILogger<RemoteControlServer> logger)
     {
         _player = player;
@@ -84,6 +95,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         _reminderRepository = reminderRepository;
         _seriesImportService = seriesImportService;
         _movieImportService = movieImportService;
+        _settingsStore = settingsStore;
         _logger = logger;
     }
 
@@ -94,12 +106,30 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
             return;
         }
 
-        Token = Guid.NewGuid();
+        Token = await IsFixedKeyModeAsync() ? await LoadOrCreateFixedTokenAsync() : Guid.NewGuid();
 
         if (!await TryStartOnPortAsync(PreferredPort))
         {
             await TryStartOnPortAsync(0); // 0 = let the OS pick any free port
         }
+    }
+
+    private async Task<bool> IsFixedKeyModeAsync() =>
+        await _settingsStore.GetAsync(RemoteKeyFixedSettingKey) == "true";
+
+    private async Task<Guid> LoadOrCreateFixedTokenAsync()
+    {
+        var saved = await _settingsStore.GetAsync(RemoteKeyFixedTokenSettingKey);
+        if (saved is not null && Guid.TryParse(saved, out var parsed))
+        {
+            return parsed;
+        }
+
+        // First time fixed mode has actually been used - mint one and persist it so it's the same
+        // token every subsequent start, not just this one.
+        var generated = Guid.NewGuid();
+        await _settingsStore.SetAsync(RemoteKeyFixedTokenSettingKey, generated.ToString());
+        return generated;
     }
 
     private async Task<bool> TryStartOnPortAsync(int port)
@@ -143,7 +173,16 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         MapSearchRoutes(app);
     }
 
-    public void Regenerate() => Token = Guid.NewGuid();
+    public async Task RegenerateAsync()
+    {
+        var newToken = Guid.NewGuid();
+        if (await IsFixedKeyModeAsync())
+        {
+            await _settingsStore.SetAsync(RemoteKeyFixedTokenSettingKey, newToken.ToString());
+        }
+
+        Token = newToken;
+    }
 
     public async Task StopAsync()
     {

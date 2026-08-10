@@ -101,7 +101,7 @@ public partial class SearchViewModel : ViewModelBase
     {
         if (item is not null)
         {
-            WeakReferenceMessenger.Default.Send(new OpenSeriesMessage(item.Series));
+            WeakReferenceMessenger.Default.Send(new OpenSeriesMessage(item.Series, item.SourceName));
         }
     }
 
@@ -110,7 +110,7 @@ public partial class SearchViewModel : ViewModelBase
     {
         if (item is not null)
         {
-            WeakReferenceMessenger.Default.Send(new OpenMovieMessage(item.Movie));
+            WeakReferenceMessenger.Default.Send(new OpenMovieMessage(item.Movie, item.SourceName));
         }
     }
 
@@ -386,11 +386,11 @@ public partial class SearchViewModel : ViewModelBase
 
                 var profileSeries = await _seriesRepository.GetSeriesAsync(profile.Id);
                 series.AddRange(profileSeries.Select(s => new SeriesListItemViewModel(
-                    s, favoriteSeriesIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId)))));
+                    s, profile.Name, favoriteSeriesIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId)))));
 
                 var profileMovies = await _movieRepository.GetMoviesAsync(profile.Id);
                 movies.AddRange(profileMovies.Select(m => new MovieListItemViewModel(
-                    m, favoriteMovieIds.Contains(m.Id), watchedMovieKeys.Contains((m.ProfileId, m.SourceMovieId)))));
+                    m, profile.Name, favoriteMovieIds.Contains(m.Id), watchedMovieKeys.Contains((m.ProfileId, m.SourceMovieId)))));
             }
 
             if (requestId != _loadRequestId)

@@ -14,6 +14,7 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class MoviesViewModel : ViewModelBase
 {
     private const string AllCategoriesLabel = "All Categories";
+    private const string AllSourcesLabel = "All Sources";
     private const string LastRefreshSecondsKey = "Movies.LastRefreshSeconds";
 
     private readonly IProfileRepository _profileRepository;
@@ -50,6 +51,15 @@ public partial class MoviesViewModel : ViewModelBase
     public ObservableCollection<object> Rows { get; } = [];
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
+
+    // Every profile that contributed at least one movie - lets the list be narrowed to a single
+    // source (e.g. one Xtream account, or a local/SFTP folder) when more than one is merged into the
+    // same browsing list. No filter-as-you-type textbox like Categories has - there are realistically
+    // only ever a handful of profiles, unlike categories which a provider can supply hundreds of.
+    public ObservableCollection<string> Sources { get; } = [AllSourcesLabel];
+
+    [ObservableProperty]
+    private string _selectedSource = AllSourcesLabel;
 
     // What the category ComboBox actually shows - narrowed by CategoryFilterText, but always a
     // subset of Categories. Kept separate so typing a filter query never touches SelectedCategory
@@ -337,6 +347,17 @@ public partial class MoviesViewModel : ViewModelBase
 
     partial void OnCategoryFilterTextChanged(string value) => ApplyCategoryFilter();
 
+    // Same rationale as OnSelectedCategoryChanged - a plain filter re-apply, not a full reload.
+    partial void OnSelectedSourceChanged(string value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        DebounceApplyFilter();
+    }
+
     // Narrows the ComboBox's visible options as you type, without touching Categories (the source of
     // truth) or SelectedCategory itself. The current selection is always kept in the list even if it
     // doesn't match the filter, so typing to browse for something else never silently clears - and
@@ -379,7 +400,8 @@ public partial class MoviesViewModel : ViewModelBase
             var snapshot = _allGroups;
             var query = SearchText.Trim();
             var category = SelectedCategory;
-            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query, category)), cancellationToken);
+            var source = SelectedSource;
+            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query, category, source)), cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -407,7 +429,7 @@ public partial class MoviesViewModel : ViewModelBase
     private void ApplyFilter()
     {
         Rows.Clear();
-        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim(), SelectedCategory)))
+        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim(), SelectedCategory, SelectedSource)))
         {
             Rows.Add(row);
         }
@@ -415,7 +437,7 @@ public partial class MoviesViewModel : ViewModelBase
         HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
     }
 
-    private static List<MovieCategoryGroupViewModel> Filter(List<MovieCategoryGroupViewModel> groups, string query, string category)
+    private static List<MovieCategoryGroupViewModel> Filter(List<MovieCategoryGroupViewModel> groups, string query, string category, string source)
     {
         var result = new List<MovieCategoryGroupViewModel>();
         foreach (var group in groups)
@@ -425,9 +447,9 @@ public partial class MoviesViewModel : ViewModelBase
                 continue;
             }
 
-            var matching = string.IsNullOrEmpty(query)
-                ? group.Movies
-                : group.Movies.Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matching = group.Movies.Where(m =>
+                (source == AllSourcesLabel || m.SourceName == source) &&
+                (string.IsNullOrEmpty(query) || m.Name.Contains(query, StringComparison.OrdinalIgnoreCase))).ToList();
 
             if (matching.Count == 0)
             {
@@ -466,10 +488,10 @@ public partial class MoviesViewModel : ViewModelBase
                 .ToHashSet();
             var profiles = await _profileRepository.GetAllAsync();
 
-            // Movies is Xtream-specific (no equivalent structured API for M3U) - every Xtream profile
-            // with any imported movies contributes to the browsing list, same as Live TV merges
-            // channels across all profiles.
-            var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Movie> MovieList)>();
+            // Movies can come from an Xtream profile, or a LocalFolder/Sftp profile's Movies path -
+            // every profile with any imported movies contributes to the browsing list, same as Live TV
+            // merges channels across all profiles.
+            var profileData = new List<(ProfileSource Profile, IReadOnlyList<Category> Categories, IReadOnlyList<Movie> MovieList)>();
             var movieProfilesById = new Dictionary<Guid, ProfileSource>();
             foreach (var profile in profiles)
             {
@@ -480,7 +502,7 @@ public partial class MoviesViewModel : ViewModelBase
                     continue;
                 }
 
-                profileData.Add((categories, movieList));
+                profileData.Add((profile, categories, movieList));
                 movieProfilesById[profile.Id] = profile;
             }
             _movieProfilesById = movieProfilesById;
@@ -490,13 +512,13 @@ public partial class MoviesViewModel : ViewModelBase
             _allGroups = await Task.Run(() =>
             {
                 var groups = new List<MovieCategoryGroupViewModel>();
-                foreach (var (categories, movieList) in profileData)
+                foreach (var (profile, categories, movieList) in profileData)
                 {
                     var moviesByCategory = movieList.ToLookup(m => m.CategoryId);
                     foreach (var category in categories)
                     {
                         var categoryMovies = moviesByCategory[category.Id]
-                            .Select(m => new MovieListItemViewModel(m, favoriteIds.Contains(m.Id), watchedKeys.Contains((m.ProfileId, m.SourceMovieId))))
+                            .Select(m => new MovieListItemViewModel(m, profile.Name, favoriteIds.Contains(m.Id), watchedKeys.Contains((m.ProfileId, m.SourceMovieId))))
                             .ToList();
                         if (categoryMovies.Count == 0)
                         {
@@ -532,6 +554,20 @@ public partial class MoviesViewModel : ViewModelBase
             }
             SelectedCategory = selectedCategory;
             ApplyCategoryFilter();
+
+            var selectedSource = SelectedSource;
+            Sources.Clear();
+            Sources.Add(AllSourcesLabel);
+            foreach (var profileName in profileData.Select(p => p.Profile.Name).Distinct().OrderBy(n => n))
+            {
+                Sources.Add(profileName);
+            }
+
+            if (!Sources.Contains(selectedSource))
+            {
+                selectedSource = AllSourcesLabel;
+            }
+            SelectedSource = selectedSource;
 
             ApplyFilter();
 

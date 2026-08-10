@@ -60,7 +60,45 @@ public class ChannelLogoCache : IChannelLogoCache
         return _memoryCache.GetOrAdd(logoUrl, LoadAsync);
     }
 
-    private async Task<Bitmap?> LoadAsync(string url)
+    private Task<Bitmap?> LoadAsync(string url) =>
+        TryGetLocalPath(url, out var localPath) ? LoadLocalAsync(localPath) : LoadHttpAsync(url);
+
+    // LocalFolder/Sftp-sourced posters (see FolderMediaScanner) come through as file:// URIs, not
+    // http(s) - straight disk read, no download/placeholder-detection/disk-cache machinery needed
+    // since the source is already local.
+    private async Task<Bitmap?> LoadLocalAsync(string localPath)
+    {
+        try
+        {
+            if (!File.Exists(localPath))
+            {
+                return null;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(localPath);
+            using var stream = new MemoryStream(bytes);
+            return Bitmap.DecodeToWidth(stream, LogoDecodeWidth);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to load local channel logo from {Path}", localPath);
+            return null;
+        }
+    }
+
+    private static bool TryGetLocalPath(string url, out string localPath)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.IsFile)
+        {
+            localPath = uri.LocalPath;
+            return true;
+        }
+
+        localPath = string.Empty;
+        return false;
+    }
+
+    private async Task<Bitmap?> LoadHttpAsync(string url)
     {
         var cachePath = GetCachePath(url);
 

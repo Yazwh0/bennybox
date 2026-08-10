@@ -9,10 +9,16 @@
             <TextBox Text="{Binding Name}" PlaceholderText="My IPTV Playlist" />
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" Spacing="16">
-            <RadioButton Content="M3U Playlist" GroupName="SourceType" IsChecked="{Binding IsM3uSelected}" />
-            <RadioButton Content="Xtream Codes" GroupName="SourceType" IsChecked="{Binding IsXtreamSelected}" />
-        </StackPanel>
+        <!-- WrapPanel, not a horizontal StackPanel - four options no longer fit on one line within
+             this dialog's fixed 400px width (the fourth one used to render past the dialog's right
+             edge, off the visible window, rather than wrapping). WrapPanel has no built-in spacing
+             property like StackPanel, so each RadioButton carries its own margin instead. -->
+        <WrapPanel>
+            <RadioButton Content="M3U Playlist" GroupName="SourceType" IsChecked="{Binding IsM3uSelected}" Margin="0,0,16,8" />
+            <RadioButton Content="Xtream Codes" GroupName="SourceType" IsChecked="{Binding IsXtreamSelected}" Margin="0,0,16,8" />
+            <RadioButton Content="Local Folder" GroupName="SourceType" IsChecked="{Binding IsLocalFolderSelected}" Margin="0,0,16,8" />
+            <RadioButton Content="SFTP Site" GroupName="SourceType" IsChecked="{Binding IsSftpSelected}" Margin="0,0,16,8" />
+        </WrapPanel>
 
         <StackPanel Spacing="12" IsVisible="{Binding IsM3uSelected}">
             <StackPanel Spacing="4">
@@ -42,6 +48,56 @@
             <TextBlock Text="{Binding TestResultMessage}"
                         TextWrapping="Wrap"
                         IsVisible="{Binding HasTestResult}" />
+        </StackPanel>
+
+        <StackPanel Spacing="12" IsVisible="{Binding IsLocalFolderSelected}">
+            <TextBlock Text="Set a Movies folder, a TV Shows folder, or both - either is optional on its own."
+                        Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+            <StackPanel Spacing="4">
+                <TextBlock Text="Movies Folder" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0" Text="{Binding LocalMoviesPath}" IsReadOnly="True" PlaceholderText="Not set" />
+                    <Button Grid.Column="1" Content="Browse..." Click="OnBrowseMoviesFolderClick" Margin="6,0,0,0" />
+                </Grid>
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="TV Shows Folder" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0" Text="{Binding LocalSeriesPath}" IsReadOnly="True" PlaceholderText="Not set" />
+                    <Button Grid.Column="1" Content="Browse..." Click="OnBrowseSeriesFolderClick" Margin="6,0,0,0" />
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="12" IsVisible="{Binding IsSftpSelected}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <TextBlock Text="Host" />
+                    <TextBox Text="{Binding SftpHost}" PlaceholderText="example.com" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4" Width="70">
+                    <TextBlock Text="Port" />
+                    <TextBox Text="{Binding SftpPort}" />
+                </StackPanel>
+            </Grid>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Username" />
+                <TextBox Text="{Binding SftpUsername}" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Password" />
+                <TextBox Text="{Binding SftpPassword}" PasswordChar="●" />
+            </StackPanel>
+            <TextBlock Text="Set a Movies remote path, a TV Shows remote path, or both - either is optional on its own."
+                        Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+            <StackPanel Spacing="4">
+                <TextBlock Text="Movies Remote Path" />
+                <TextBox Text="{Binding SftpMoviesRemotePath}" PlaceholderText="/movies (leave blank if none)" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="TV Shows Remote Path" />
+                <TextBox Text="{Binding SftpSeriesRemotePath}" PlaceholderText="/tv (leave blank if none)" />
+            </StackPanel>
         </StackPanel>
 
         <TextBlock Text="{Binding ErrorMessage}"

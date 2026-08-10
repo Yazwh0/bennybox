@@ -5,7 +5,9 @@ using BitMagic.BennyBox.Views;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
 using BitMagic.BennyBox.Data.Sqlite;
+using BitMagic.BennyBox.Sources.Folder;
 using BitMagic.BennyBox.Sources.M3u;
+using BitMagic.BennyBox.Sources.Tmdb;
 using BitMagic.BennyBox.Sources.Xmltv;
 using BitMagic.BennyBox.Sources.Xtream;
 using LibVLCSharp.Shared;
@@ -65,6 +67,8 @@ internal static class AppBootstrapper
         services.AddSingleton<IEpgRepository, SqliteEpgRepository>();
         services.AddSingleton<ISeriesRepository, SqliteSeriesRepository>();
         services.AddSingleton<IMovieRepository, SqliteMovieRepository>();
+        services.AddSingleton<IEpisodeCacheRepository, SqliteEpisodeCacheRepository>();
+        services.AddSingleton<IMetadataEnrichmentCacheRepository, SqliteMetadataEnrichmentCacheRepository>();
         services.AddSingleton<IFavoriteRepository, SqliteFavoriteRepository>();
         services.AddSingleton<IWatchProgressRepository, SqliteWatchProgressRepository>();
         services.AddSingleton<TimeshiftUrlService>();
@@ -94,6 +98,26 @@ internal static class AppBootstrapper
         services.AddSingleton<IMovieSource>(sp => sp.GetRequiredService<XtreamMovieSource>());
         services.AddSingleton<XtreamAccountInfoSource>();
         services.AddSingleton<IAccountInfoSource>(sp => sp.GetRequiredService<XtreamAccountInfoSource>());
+
+        // LocalFolder and Sftp are two registrations apiece of the same FolderMovieSource/
+        // FolderSeriesSource class, each fixed to its own SourceType - see FolderMovieSource's
+        // comment for why (matches the "one registered instance per SourceType" pattern the import
+        // services already dispatch on).
+        services.AddSingleton<IMediaFileSystemFactory, MediaFileSystemFactory>();
+
+        // TMDb fills in Plot/Genre/ReleaseDate/poster for LocalFolder/Sftp titles with no local NFO/
+        // poster (see IMetadataEnrichmentService) - CachingMetadataEnrichmentService sits in front so a
+        // title is only ever sent to TMDb once, including "nothing found" results.
+        services.AddHttpClient<TmdbMetadataEnrichmentService>(client => client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+        services.AddSingleton<IMetadataEnrichmentService>(sp => new CachingMetadataEnrichmentService(
+            sp.GetRequiredService<TmdbMetadataEnrichmentService>(),
+            sp.GetRequiredService<IMetadataEnrichmentCacheRepository>()));
+
+        services.AddSingleton<IMovieSource>(sp => new FolderMovieSource(ProfileSourceType.LocalFolder, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
+        services.AddSingleton<IMovieSource>(sp => new FolderMovieSource(ProfileSourceType.Sftp, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
+        services.AddSingleton<ISeriesSource>(sp => new FolderSeriesSource(ProfileSourceType.LocalFolder, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IEpisodeCacheRepository>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
+        services.AddSingleton<ISeriesSource>(sp => new FolderSeriesSource(ProfileSourceType.Sftp, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IEpisodeCacheRepository>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
+
         services.AddTransient<AddProfileViewModel>();
 
         services.AddHttpClient<XmltvEpgSource>(client =>

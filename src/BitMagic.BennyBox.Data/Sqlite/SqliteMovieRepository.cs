@@ -37,12 +37,18 @@ public class SqliteMovieRepository : IMovieRepository
 
             if (movies.Count > 0)
             {
-                // Plot/Genre/ReleaseDate/Duration aren't persisted - see Movie.cs, they're fetched
-                // on demand per-title and only ever held in memory.
+                // Duration still isn't persisted (no source populates it up front) - fetched on demand
+                // per-title like before. Plot/Genre/ReleaseDate ARE persisted, unlike the old comment
+                // here used to say - Xtream's bulk VOD listing genuinely doesn't have them (so they're
+                // still null here for Xtream movies, refetched live on open, unchanged), but
+                // LocalFolder/Sftp movies already read their NFO once during the scan itself - without
+                // persisting that here, GetDetailsAsync silently discarded it and re-read the same NFO
+                // over a fresh connection every single time the movie was opened, which is real,
+                // avoidable latency over SFTP specifically.
                 connection.Execute(
                     """
-                    INSERT INTO Movies (Id, ProfileId, SourceMovieId, CategoryId, Name, CoverUrl, StreamUrl, Rating)
-                    VALUES (@Id, @ProfileId, @SourceMovieId, @CategoryId, @Name, @CoverUrl, @StreamUrl, @Rating)
+                    INSERT INTO Movies (Id, ProfileId, SourceMovieId, CategoryId, Name, CoverUrl, StreamUrl, Rating, Plot, Genre, ReleaseDate)
+                    VALUES (@Id, @ProfileId, @SourceMovieId, @CategoryId, @Name, @CoverUrl, @StreamUrl, @Rating, @Plot, @Genre, @ReleaseDate)
                     """,
                     movies, transaction);
             }

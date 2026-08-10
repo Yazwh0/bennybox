@@ -160,7 +160,13 @@
             </GridSplitter.IsVisible>
         </GridSplitter>
 
-        <Grid Grid.Column="2" RowDefinitions="*,Auto">
+        <!-- ClipToBounds is required here, not cosmetic: this column collapses to a literal
+             GridLength(0) while Settings is active (see VideoColumnWidthConverter), but Grid/Panel
+             doesn't clip its children to their arranged bounds by default. Without this, the idle
+             logo and transport bar (centered StackPanels wider than 0px) still render at their full
+             natural size, arranged around a zero-width slot pinned to the window's right edge - the
+             left half of each bleeds out over whatever page (e.g. Settings) is showing. -->
+        <Grid Grid.Column="2" RowDefinitions="*,Auto" ClipToBounds="True">
             <!-- No Grid.RowSpan: LibVLC's video surface always paints above Avalonia content
                  regardless of z-order, so it must not share a row with the transport bar below.
                  Also gated on NowPlayingChannelName (null until something's actually selected, and

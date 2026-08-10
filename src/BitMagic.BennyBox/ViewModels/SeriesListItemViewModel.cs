@@ -11,6 +11,9 @@ public partial class SeriesListItemViewModel : ObservableObject
     public string? Plot => Series.Plot;
     public bool HasPlot => !string.IsNullOrWhiteSpace(Plot);
 
+    // See MovieListItemViewModel.SourceName for why this exists.
+    public string SourceName { get; }
+
     // Genre/year/rating condensed into a single "Genre  •  Year  •  ★ Rating" line for the detail
     // header - null (and hidden) if the provider gave us none of these.
     public string? MetaLine { get; }
@@ -32,9 +35,10 @@ public partial class SeriesListItemViewModel : ObservableObject
 
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
-    public SeriesListItemViewModel(Series series, bool isFavorite = false, bool isWatched = false)
+    public SeriesListItemViewModel(Series series, string sourceName, bool isFavorite = false, bool isWatched = false)
     {
         Series = series;
+        SourceName = sourceName;
         MetaLine = BuildMetaLine(series);
         _isFavorite = isFavorite;
         _isWatched = isWatched;

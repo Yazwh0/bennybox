@@ -8,9 +8,11 @@ namespace BitMagic.BennyBox.Messages;
 public sealed class OpenMovieMessage
 {
     public Movie Movie { get; }
+    public string SourceName { get; }
 
-    public OpenMovieMessage(Movie movie)
+    public OpenMovieMessage(Movie movie, string sourceName)
     {
         Movie = movie;
+        SourceName = sourceName;
     }
 }

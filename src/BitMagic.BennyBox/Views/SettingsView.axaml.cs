@@ -28,20 +28,29 @@ public partial class SettingsView : UserControl
             DefaultButton = FAContentDialogButton.Primary
         };
 
-        while (true)
+        // PrimaryButtonClick + Cancel, not a ShowAsync-in-a-loop retry - closing and immediately
+        // re-showing the same FAContentDialog instance on validation failure left its TextBoxes
+        // displaying correctly but no longer accepting input (e.g. the Name field became stuck after
+        // one failed Add attempt). Setting Cancel=true here keeps the dialog genuinely open instead
+        // of closing and reopening it, which sidesteps that entirely - ShowAsync is now called
+        // exactly once per dialog instance.
+        ProfileSource? builtProfile = null;
+        dialog.PrimaryButtonClick += (_, args) =>
         {
-            var result = await dialog.ShowAsync();
-            if (result != FAContentDialogResult.Primary)
-            {
-                return;
-            }
-
             if (addProfileViewModel.TryBuildProfile(out var profile) && profile is not null)
             {
-                await viewModel.AddProfileAsync(profile);
-                return;
+                builtProfile = profile;
             }
-            // Validation failed - the error is shown in the dialog content; loop to let the user fix it.
+            else
+            {
+                args.Cancel = true;
+            }
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == FAContentDialogResult.Primary && builtProfile is not null)
+        {
+            await viewModel.AddProfileAsync(builtProfile);
         }
     }
 
@@ -65,19 +74,24 @@ public partial class SettingsView : UserControl
             DefaultButton = FAContentDialogButton.Primary
         };
 
-        while (true)
+        // See OnAddProfileClick's comment - same fix, same reason.
+        ProfileSource? updatedProfile = null;
+        dialog.PrimaryButtonClick += (_, args) =>
         {
-            var result = await dialog.ShowAsync();
-            if (result != FAContentDialogResult.Primary)
+            if (editProfileViewModel.TryBuildProfile(out var profile) && profile is not null)
             {
-                return;
+                updatedProfile = profile;
             }
+            else
+            {
+                args.Cancel = true;
+            }
+        };
 
-            if (editProfileViewModel.TryBuildProfile(out var updatedProfile) && updatedProfile is not null)
-            {
-                await viewModel.EditProfileAsync(updatedProfile);
-                return;
-            }
+        var result = await dialog.ShowAsync();
+        if (result == FAContentDialogResult.Primary && updatedProfile is not null)
+        {
+            await viewModel.EditProfileAsync(updatedProfile);
         }
     }
 }

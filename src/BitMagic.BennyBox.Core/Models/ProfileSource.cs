@@ -3,7 +3,9 @@ namespace BitMagic.BennyBox.Core.Models;
 public enum ProfileSourceType
 {
     M3u,
-    XtreamCodes
+    XtreamCodes,
+    LocalFolder,
+    Sftp
 }
 
 public enum EpgSourceType
@@ -11,6 +13,16 @@ public enum EpgSourceType
     None,
     XmltvUrl,
     XtreamEmbedded
+}
+
+// Which kind of content a given LocalFolder/Sftp root holds - a single profile can set a path for
+// either or both (see ProfileSource.Local*Path/Sftp*RemotePath), since one site/folder tree commonly
+// hosts both movies and TV shows under separate subtrees. Used as a parameter (which root to resolve)
+// rather than a ProfileSource property, since a profile isn't tied to just one anymore.
+public enum MediaKind
+{
+    Movies,
+    Series
 }
 
 public class ProfileSource
@@ -40,4 +52,18 @@ public class ProfileSource
     public string? XtreamStatus { get; set; }
     public DateTime? XtreamExpiryUtc { get; set; }
     public int? XtreamMaxConnections { get; set; }
+
+    // LocalFolder: either or both may be set - a folder tree with both a movies root and a shows
+    // root is common, so this isn't an either/or choice the way SourceType is.
+    public string? LocalMoviesPath { get; set; }
+    public string? LocalSeriesPath { get; set; }
+
+    // Sftp: one connection (host/credentials), with movies/series each optionally pointing at their
+    // own remote path under that same site - same "either or both" reasoning as LocalFolder.
+    public string? SftpHost { get; set; }
+    public int? SftpPort { get; set; }
+    public string? SftpUsername { get; set; }
+    public string? SftpPasswordEncrypted { get; set; }
+    public string? SftpMoviesRemotePath { get; set; }
+    public string? SftpSeriesRemotePath { get; set; }
 }

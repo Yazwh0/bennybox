@@ -12,7 +12,7 @@
 
         <Border Classes="glass-card" Padding="16">
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Theme" VerticalAlignment="Center" Width="80" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="Theme" VerticalAlignment="Center" Width="160" Foreground="{StaticResource GlassTextBrush}" />
                 <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" Width="160" />
             </StackPanel>
         </Border>
@@ -67,6 +67,35 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="Preferred subtitles" VerticalAlignment="Center" Width="160" Foreground="{StaticResource GlassTextBrush}" />
                     <ComboBox ItemsSource="{Binding CommonLanguages}" SelectedItem="{Binding PreferredSubtitleLanguage}" Width="200" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="glass-card" Padding="16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Remote control" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="Whether the phone remote's pairing code changes every time it's started, or stays the same across restarts."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <RadioButton Content="Session-bound (new code each time)" GroupName="RemoteKeyMode" IsChecked="{Binding IsRemoteKeySessionBound}" />
+                    <RadioButton Content="Fixed (same code every time)" GroupName="RemoteKeyMode" IsChecked="{Binding IsRemoteKeyFixed}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="glass-card" Padding="16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Metadata enrichment" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="Fills in a synopsis, genre, and poster for Local Folder/SFTP movies and shows that have no local NFO/poster of their own, using themoviedb.org. Local metadata always wins when it's present. This build already has a bundled key, so it works out of the box - only set your own below if you'd rather override it (e.g. the shared key gets rate-limited, or you just prefer your own)."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap"
+                           IsVisible="{Binding HasEmbeddedTmdbKey}" />
+                <TextBlock Text="Fills in a synopsis, genre, and poster for Local Folder/SFTP movies and shows that have no local NFO/poster of their own, using themoviedb.org. Leave blank to skip this entirely - local metadata always wins when it's present either way. Get a free API key at themoviedb.org (Settings &#8594; API)."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap"
+                           IsVisible="{Binding !HasEmbeddedTmdbKey}" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="TMDb API Key" Foreground="{StaticResource GlassTextBrush}" />
+                    <TextBox Classes="glass" Text="{Binding TmdbApiKey}"
+                             PlaceholderText="{Binding HasEmbeddedTmdbKey, Converter={StaticResource HasEmbeddedTmdbKeyToPlaceholderConverter}}" />
                 </StackPanel>
             </StackPanel>
         </Border>

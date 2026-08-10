@@ -106,6 +106,20 @@ public class SqliteConnectionFactory
             TryAddColumn(connection, "Profiles", "XtreamMaxConnections", "INTEGER");
             TryAddColumn(connection, "Channels", "HasCatchup", "INTEGER NOT NULL DEFAULT 0");
             TryAddColumn(connection, "Channels", "CatchupDays", "INTEGER NOT NULL DEFAULT 0");
+            TryAddColumn(connection, "Profiles", "LocalMoviesPath", "TEXT");
+            TryAddColumn(connection, "Profiles", "LocalSeriesPath", "TEXT");
+            TryAddColumn(connection, "Profiles", "SftpHost", "TEXT");
+            TryAddColumn(connection, "Profiles", "SftpPort", "INTEGER");
+            TryAddColumn(connection, "Profiles", "SftpUsername", "TEXT");
+            TryAddColumn(connection, "Profiles", "SftpPasswordEncrypted", "TEXT");
+            TryAddColumn(connection, "Profiles", "SftpMoviesRemotePath", "TEXT");
+            TryAddColumn(connection, "Profiles", "SftpSeriesRemotePath", "TEXT");
+            // See SqliteMovieRepository.ReplaceMoviesAsync - persisted so a LocalFolder/Sftp movie's
+            // NFO-derived metadata (read once during the scan) doesn't get thrown away and re-fetched
+            // fresh - over a brand new SFTP connection - every single time the movie is opened.
+            TryAddColumn(connection, "Movies", "Plot", "TEXT");
+            TryAddColumn(connection, "Movies", "Genre", "TEXT");
+            TryAddColumn(connection, "Movies", "ReleaseDate", "TEXT");
 
             _migrationsApplied = true;
         }

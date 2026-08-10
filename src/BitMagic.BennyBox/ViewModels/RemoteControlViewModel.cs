@@ -73,14 +73,14 @@ public partial class RemoteControlViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void RegenerateCode()
+    private async Task RegenerateCodeAsync()
     {
         if (!IsActive)
         {
             return;
         }
 
-        _server.Regenerate();
+        await _server.RegenerateAsync();
         var lanAddress = GetLanIpAddress();
         if (lanAddress is not null)
         {

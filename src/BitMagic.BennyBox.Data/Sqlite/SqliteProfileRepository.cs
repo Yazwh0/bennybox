@@ -36,8 +36,8 @@ public class SqliteProfileRepository : IProfileRepository
             using var connection = _connectionFactory.CreateConnection();
             connection.Execute(
                 """
-                INSERT INTO Profiles (Id, Name, SourceType, M3uUrl, XtreamServerUrl, XtreamUsername, XtreamPasswordEncrypted, EpgSourceType, EpgUrl, LastRefreshedUtc, SortOrder, PlaylistETag, PlaylistLastModified, EpgETag, EpgLastModified, XtreamStatus, XtreamExpiryUtc, XtreamMaxConnections)
-                VALUES (@Id, @Name, @SourceType, @M3uUrl, @XtreamServerUrl, @XtreamUsername, @XtreamPasswordEncrypted, @EpgSourceType, @EpgUrl, @LastRefreshedUtc, @SortOrder, @PlaylistETag, @PlaylistLastModified, @EpgETag, @EpgLastModified, @XtreamStatus, @XtreamExpiryUtc, @XtreamMaxConnections)
+                INSERT INTO Profiles (Id, Name, SourceType, M3uUrl, XtreamServerUrl, XtreamUsername, XtreamPasswordEncrypted, EpgSourceType, EpgUrl, LastRefreshedUtc, SortOrder, PlaylistETag, PlaylistLastModified, EpgETag, EpgLastModified, XtreamStatus, XtreamExpiryUtc, XtreamMaxConnections, LocalMoviesPath, LocalSeriesPath, SftpHost, SftpPort, SftpUsername, SftpPasswordEncrypted, SftpMoviesRemotePath, SftpSeriesRemotePath)
+                VALUES (@Id, @Name, @SourceType, @M3uUrl, @XtreamServerUrl, @XtreamUsername, @XtreamPasswordEncrypted, @EpgSourceType, @EpgUrl, @LastRefreshedUtc, @SortOrder, @PlaylistETag, @PlaylistLastModified, @EpgETag, @EpgLastModified, @XtreamStatus, @XtreamExpiryUtc, @XtreamMaxConnections, @LocalMoviesPath, @LocalSeriesPath, @SftpHost, @SftpPort, @SftpUsername, @SftpPasswordEncrypted, @SftpMoviesRemotePath, @SftpSeriesRemotePath)
                 """, profile);
         }, cancellationToken);
 
@@ -52,7 +52,10 @@ public class SqliteProfileRepository : IProfileRepository
                     XtreamServerUrl = @XtreamServerUrl, XtreamUsername = @XtreamUsername, XtreamPasswordEncrypted = @XtreamPasswordEncrypted,
                     EpgSourceType = @EpgSourceType, EpgUrl = @EpgUrl, LastRefreshedUtc = @LastRefreshedUtc, SortOrder = @SortOrder,
                     PlaylistETag = @PlaylistETag, PlaylistLastModified = @PlaylistLastModified, EpgETag = @EpgETag, EpgLastModified = @EpgLastModified,
-                    XtreamStatus = @XtreamStatus, XtreamExpiryUtc = @XtreamExpiryUtc, XtreamMaxConnections = @XtreamMaxConnections
+                    XtreamStatus = @XtreamStatus, XtreamExpiryUtc = @XtreamExpiryUtc, XtreamMaxConnections = @XtreamMaxConnections,
+                    LocalMoviesPath = @LocalMoviesPath, LocalSeriesPath = @LocalSeriesPath, SftpHost = @SftpHost, SftpPort = @SftpPort,
+                    SftpUsername = @SftpUsername, SftpPasswordEncrypted = @SftpPasswordEncrypted,
+                    SftpMoviesRemotePath = @SftpMoviesRemotePath, SftpSeriesRemotePath = @SftpSeriesRemotePath
                 WHERE Id = @Id
                 """, profile);
         }, cancellationToken);
@@ -70,6 +73,7 @@ public class SqliteProfileRepository : IProfileRepository
             connection.Execute("DELETE FROM WatchProgress WHERE ProfileId = @id", new { id });
             connection.Execute("DELETE FROM Reminders WHERE ProfileId = @id", new { id });
             connection.Execute("DELETE FROM WatchedItems WHERE ProfileId = @id", new { id });
+            connection.Execute("DELETE FROM CachedEpisodes WHERE ProfileId = @id", new { id });
             connection.Execute("DELETE FROM Profiles WHERE Id = @id", new { id });
         }, cancellationToken);
 }

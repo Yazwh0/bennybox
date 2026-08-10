@@ -103,13 +103,13 @@ public partial class MainWindowViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Register<OpenSeriesMessage>(this, (_, message) =>
         {
             CurrentPage = Series;
-            Series.SelectSeriesCommand.Execute(new SeriesListItemViewModel(message.Series));
+            Series.SelectSeriesCommand.Execute(new SeriesListItemViewModel(message.Series, message.SourceName));
         });
 
         WeakReferenceMessenger.Default.Register<OpenMovieMessage>(this, (_, message) =>
         {
             CurrentPage = Movies;
-            Movies.SelectMovieCommand.Execute(new MovieListItemViewModel(message.Movie));
+            Movies.SelectMovieCommand.Execute(new MovieListItemViewModel(message.Movie, message.SourceName));
         });
 
         _reminderTimer = new DispatcherTimer { Interval = ReminderPollInterval };

@@ -10,9 +10,16 @@ public partial class MovieListItemViewModel : ObservableObject
     public string Name => Movie.Name;
     public string? CoverUrl => Movie.CoverUrl;
 
-    // Xtream's bulk VOD listing only gives us Rating up front - Plot/Genre/ReleaseDate/Duration are
-    // null until LoadDetailsAsync fetches them (see MoviesViewModel.SelectMovieAsync), same on-demand
-    // rationale as Series episodes.
+    // The owning profile's name (e.g. "Seedhost", "My IPTV Playlist") - shown as a small badge so a
+    // library merged from more than one profile (Xtream + a local/SFTP folder, or two Xtream accounts)
+    // still shows which one any given movie actually came from.
+    public string SourceName { get; }
+
+    // Xtream's bulk VOD listing only gives us Rating up front - Plot/Genre/ReleaseDate/Duration stay
+    // null until LoadDetailsAsync fetches them (see MoviesViewModel.SelectMovieAsync). LocalFolder/Sftp
+    // movies are different: their NFO is read once during the scan and persisted (see
+    // SqliteMovieRepository.ReplaceMoviesAsync), so Movie.Plot/Genre/ReleaseDate already have real
+    // values here and HasPlot is already true - SelectMovieAsync's live-fetch is skipped entirely.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasPlot))]
     private string? _plot;
@@ -44,12 +51,14 @@ public partial class MovieListItemViewModel : ObservableObject
     public string WatchedIcon => IsWatched ? "✓" : "";
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
-    public MovieListItemViewModel(Movie movie, bool isFavorite = false, bool isWatched = false)
+    public MovieListItemViewModel(Movie movie, string sourceName, bool isFavorite = false, bool isWatched = false)
     {
         Movie = movie;
+        SourceName = sourceName;
         _isFavorite = isFavorite;
         _isWatched = isWatched;
-        _metaLine = BuildMetaLine(genre: null, movie.ReleaseDate, movie.Rating);
+        _plot = movie.Plot;
+        _metaLine = BuildMetaLine(movie.Genre, movie.ReleaseDate, movie.Rating);
     }
 
     public void ApplyDetails(MovieDetails details)

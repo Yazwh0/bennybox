@@ -5,8 +5,11 @@ namespace BitMagic.BennyBox.Core.Tests;
 
 public class PlaylistImportServiceTests
 {
+    // LocalFolder/Sftp profiles have no IChannelSource at all (they only ever produce movies/series) -
+    // a missing source is a normal no-op here, not an error, matching SeriesImportService/
+    // MovieImportService's own "missing source" handling.
     [Fact]
-    public async Task ImportAsync_NoMatchingSource_Throws()
+    public async Task ImportAsync_NoMatchingSource_ReturnsNotModifiedNoOp()
     {
         var service = new PlaylistImportService(
             sources: [],
@@ -15,7 +18,11 @@ public class PlaylistImportServiceTests
 
         var profile = new ProfileSource { Name = "Test", SourceType = ProfileSourceType.M3u };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ImportAsync(profile));
+        var result = await service.ImportAsync(profile);
+
+        Assert.True(result.NotModified);
+        Assert.Empty(result.Channels);
+        Assert.Empty(result.Categories);
     }
 
     [Fact]

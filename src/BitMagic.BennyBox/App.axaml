@@ -22,6 +22,7 @@
         <converters:NavBarHorizontalAlignmentConverter x:Key="NavBarHorizontalAlignmentConverter" />
         <converters:PausedToPlaySymbolConverter x:Key="PausedToPlaySymbolConverter" />
         <converters:MutedToSymbolConverter x:Key="MutedToSymbolConverter" />
+        <converters:HasEmbeddedTmdbKeyToPlaceholderConverter x:Key="HasEmbeddedTmdbKeyToPlaceholderConverter" />
 
         <!-- "Smoked Glass" palette - warm, dim, minimal amber-on-near-black, chosen from three
              mockup directions compared as an HTML artifact. Centralized here so every view pulls
@@ -140,6 +141,22 @@
             <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <!-- Small pill showing which profile a movie/series row came from (see MovieListItemViewModel/
+             SeriesListItemViewModel.SourceName) - only meaningfully informative once a library merges
+             more than one profile, but shown unconditionally since it's small enough not to be noise
+             on a single-profile setup either. -->
+        <Style Selector="Border.source-badge">
+            <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="5,1" />
+        </Style>
+        <Style Selector="TextBlock.source-badge-text">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{StaticResource GlassTextDimBrush}" />
         </Style>
     </Application.Styles>
 </Application>

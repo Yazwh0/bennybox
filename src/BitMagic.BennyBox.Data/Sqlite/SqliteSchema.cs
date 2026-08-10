@@ -108,6 +108,39 @@ internal static class SqliteSchema
 
         CREATE INDEX IF NOT EXISTS IX_Movies_ProfileId ON Movies(ProfileId);
 
+        -- See IEpisodeCacheRepository - persists a LocalFolder/Sftp show's episode scan so opening it
+        -- again (even after an app restart) doesn't repeat a full directory walk plus a fresh NFO read
+        -- per episode. SeriesId is Series.SourceSeriesId (a normalized show title for folder sources,
+        -- not a row id - see FolderMediaScanner.ScanSeriesAsync), not a foreign key to Series.Id.
+        CREATE TABLE IF NOT EXISTS CachedEpisodes (
+            ProfileId TEXT NOT NULL,
+            SeriesId TEXT NOT NULL,
+            SourceEpisodeId TEXT NOT NULL,
+            Title TEXT NOT NULL,
+            Season INTEGER NOT NULL,
+            EpisodeNumber INTEGER NOT NULL,
+            PlotSummary TEXT,
+            StreamUrl TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_CachedEpisodes_Profile_Series ON CachedEpisodes(ProfileId, SeriesId);
+
+        -- See IMetadataEnrichmentCacheRepository - persists TMDb lookup results (both real matches and
+        -- confirmed misses) keyed by a normalized title, not by profile/item - the same title from two
+        -- different libraries shares one lookup rather than paying for it twice. Not scoped to a
+        -- profile at all, so it's never cleared by a profile refresh or deletion.
+        CREATE TABLE IF NOT EXISTS MetadataEnrichmentCache (
+            MediaType TEXT NOT NULL,
+            LookupKey TEXT NOT NULL,
+            Found INTEGER NOT NULL,
+            Plot TEXT,
+            Genre TEXT,
+            ReleaseDate TEXT,
+            PosterUrl TEXT,
+            Rating REAL,
+            PRIMARY KEY (MediaType, LookupKey)
+        );
+
         CREATE TABLE IF NOT EXISTS MovieFavorites (
             MovieId TEXT PRIMARY KEY,
             ProfileId TEXT NOT NULL,

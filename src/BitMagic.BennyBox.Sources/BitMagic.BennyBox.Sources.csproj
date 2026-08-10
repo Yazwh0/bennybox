@@ -4,10 +4,28 @@
     <ProjectReference Include="..\BitMagic.BennyBox.Core\BitMagic.BennyBox.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="SSH.NET" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <!-- See BitMagic.BennyBox.Sources/Tmdb/EmbeddedTmdbApiKey.cs - MSBuild automatically exposes
+       environment variables as properties, so this only activates when TMDB_API_KEY_ENCODED is
+       actually set in the build environment (the GitHub Actions release workflow, from a repo
+       secret). A local dev build has no such variable, so this ItemGroup is simply skipped - no
+       AssemblyMetadataAttribute is emitted, and EmbeddedTmdbApiKey.Get() returns null. The value
+       itself must already be obfuscated (EmbeddedKeyObfuscator.Obfuscate) before it ever reaches
+       this variable - never pass a raw API key here. -->
+  <ItemGroup Condition="'$(TMDB_API_KEY_ENCODED)' != ''">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>EmbeddedTmdbApiKeyEncoded</_Parameter1>
+      <_Parameter2>$(TMDB_API_KEY_ENCODED)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 
 </Project>

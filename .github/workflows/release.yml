@@ -49,6 +49,14 @@ jobs:
         run: dotnet test --configuration Release
 
       - name: Publish self-contained win-x64
+        # TMDB_API_KEY_ENCODED must already be obfuscated (EmbeddedKeyObfuscator.Obfuscate, see
+        # BitMagic.BennyBox.Sources/Tmdb) before it's stored as a repo secret - never store a raw
+        # TMDb API key here. Absent/empty on any build that doesn't have this secret configured
+        # (e.g. a fork), which is fine - see BitMagic.BennyBox.Sources.csproj and
+        # EmbeddedTmdbApiKey.cs for what happens then (falls back to Settings-only, same as a local
+        # dev build).
+        env:
+          TMDB_API_KEY_ENCODED: ${{ secrets.TMDB_API_KEY_ENCODED }}
         run: >
           dotnet publish src/BitMagic.BennyBox/BitMagic.BennyBox.csproj
           --configuration Release

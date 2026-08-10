@@ -8,9 +8,11 @@ namespace BitMagic.BennyBox.Messages;
 public sealed class OpenSeriesMessage
 {
     public Series Series { get; }
+    public string SourceName { get; }
 
-    public OpenSeriesMessage(Series series)
+    public OpenSeriesMessage(Series series, string sourceName)
     {
         Series = series;
+        SourceName = sourceName;
     }
 }

@@ -21,11 +21,14 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly MovieImportService _movieImportService;
     private readonly AccountInfoService _accountInfoService;
     private readonly ISettingsStore _settingsStore;
+    private readonly IMetadataEnrichmentService _metadataEnrichmentService;
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
     private bool _isApplyingSavedPlaybackTiming;
     private bool _isApplyingSavedTrackPreferences;
+    private bool _isApplyingSavedRemoteKeyMode;
+    private bool _isApplyingSavedTmdbApiKey;
 
     public string Title => "Settings";
 
@@ -77,6 +80,32 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private string _preferredSubtitleLanguage = "";
 
+    // Mirrors RemoteControlServer's RemoteKeyFixedSettingKey - kept as a plain bool here (rather than
+    // reading the server's own state) since the server only exists while the remote is actually
+    // running, but this setting needs to be readable/settable from Settings regardless.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRemoteKeySessionBound))]
+    private bool _isRemoteKeyFixed;
+
+    public bool IsRemoteKeySessionBound
+    {
+        get => !IsRemoteKeyFixed;
+        set => IsRemoteKeyFixed = !value;
+    }
+
+    // Read by TmdbMetadataEnrichmentService (see BitMagic.BennyBox.Sources.Tmdb) via the same
+    // ISettingsStore key ("TmdbApiKey") - fills in Plot/Genre/ReleaseDate/poster for LocalFolder/Sftp
+    // movies and shows with no local NFO/poster. Overrides the build's bundled key (see
+    // HasEmbeddedTmdbKey) when set; on a build with no bundled key, blank here means enrichment is
+    // skipped entirely instead.
+    [ObservableProperty]
+    private string _tmdbApiKey = "";
+
+    // Whether THIS build has a bundled TMDb key at all (see EmbeddedTmdbApiKey) - independent of
+    // whatever's typed into TmdbApiKey above. Drives the Settings page's placeholder/description text
+    // so it doesn't claim "leave blank to skip" on a build where a blank field still works.
+    public bool HasEmbeddedTmdbKey => _metadataEnrichmentService.HasEmbeddedFallback;
+
     [ObservableProperty]
     private bool _isBusy;
 
@@ -94,6 +123,7 @@ public partial class SettingsViewModel : ViewModelBase
         MovieImportService movieImportService,
         AccountInfoService accountInfoService,
         ISettingsStore settingsStore,
+        IMetadataEnrichmentService metadataEnrichmentService,
         ILogger<SettingsViewModel> logger)
     {
         _profileRepository = profileRepository;
@@ -103,12 +133,15 @@ public partial class SettingsViewModel : ViewModelBase
         _movieImportService = movieImportService;
         _accountInfoService = accountInfoService;
         _settingsStore = settingsStore;
+        _metadataEnrichmentService = metadataEnrichmentService;
         _logger = logger;
 
         _ = LoadProfilesAsync();
         _ = LoadThemeAsync();
         _ = LoadPlaybackTimingSettingsAsync();
         _ = LoadTrackPreferencesAsync();
+        _ = LoadRemoteKeyModeAsync();
+        _ = LoadTmdbApiKeyAsync();
     }
 
     private async Task LoadThemeAsync()
@@ -195,6 +228,43 @@ public partial class SettingsViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Send(new PlaybackTrackPreferencesChangedMessage());
     }
 
+    private async Task LoadRemoteKeyModeAsync()
+    {
+        _isApplyingSavedRemoteKeyMode = true;
+        IsRemoteKeyFixed = await _settingsStore.GetAsync("RemoteKeyFixed") == "true";
+        _isApplyingSavedRemoteKeyMode = false;
+    }
+
+    // No message to send here, unlike playback timing/track preferences - RemoteControlServer reads
+    // this setting fresh every time it starts or regenerates a code rather than caching it, so
+    // there's no running instance's state to keep in sync.
+    partial void OnIsRemoteKeyFixedChanged(bool value)
+    {
+        if (_isApplyingSavedRemoteKeyMode)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("RemoteKeyFixed", value ? "true" : "false");
+    }
+
+    private async Task LoadTmdbApiKeyAsync()
+    {
+        _isApplyingSavedTmdbApiKey = true;
+        TmdbApiKey = await _settingsStore.GetAsync("TmdbApiKey") ?? "";
+        _isApplyingSavedTmdbApiKey = false;
+    }
+
+    partial void OnTmdbApiKeyChanged(string value)
+    {
+        if (_isApplyingSavedTmdbApiKey)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("TmdbApiKey", value.Trim());
+    }
+
     private async Task LoadProfilesAsync()
     {
         var profiles = await _profileRepository.GetAllAsync();
@@ -218,40 +288,21 @@ public partial class SettingsViewModel : ViewModelBase
         {
             profile.SortOrder = Profiles.Count;
             await _profileRepository.AddAsync(profile);
-
-            var result = await _importService.ImportAsync(profile);
-            StatusMessage = $"Imported {result.Channels.Count} channels in {result.Categories.Count} categories.";
-
-            if (profile.EpgSourceType != EpgSourceType.None)
-            {
-                StatusMessage += " Importing EPG...";
-                await _epgImportService.ImportAsync(profile);
-                StatusMessage = $"Imported {result.Channels.Count} channels, {result.Categories.Count} categories, and EPG data.";
-            }
-
-            var seriesResult = await _seriesImportService.ImportAsync(profile);
-            if (seriesResult is not null)
-            {
-                StatusMessage += $" Imported {seriesResult.SeriesList.Count} series.";
-            }
-
-            var movieResult = await _movieImportService.ImportAsync(profile);
-            if (movieResult is not null)
-            {
-                StatusMessage += $" Imported {movieResult.Movies.Count} movies.";
-            }
-
-            await RefreshAccountInfoAsync(profile);
-            await LoadProfilesAsync();
-            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
+            StatusMessage = $"Added '{profile.Name}': {await ImportProfileContentAsync(profile)}.";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Import failed: {ex.Message}";
-            _logger.LogError(ex, "Failed to import profile {ProfileName}", profile.Name);
+            // The profile itself may already be in the database (AddAsync ran before whatever threw) -
+            // still reload the list below so it shows up and can be edited/retried, even though import
+            // failed. Without this, a save-then-throw here used to leave the profile in the DB but
+            // invisible in the UI, with no way to reach it again.
+            StatusMessage = $"Failed to add '{profile.Name}': {ex.Message}";
+            _logger.LogError(ex, "Failed to add profile {ProfileName}", profile.Name);
         }
         finally
         {
+            await LoadProfilesAsync();
+            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
             IsBusy = false;
         }
     }
@@ -272,10 +323,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             await _profileRepository.UpdateAsync(profile);
             await RefreshAccountInfoAsync(profile);
-
             StatusMessage = $"Updated '{profile.Name}'. Refresh to re-import with the new settings.";
-            await LoadProfilesAsync();
-            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
         }
         catch (Exception ex)
         {
@@ -284,8 +332,81 @@ public partial class SettingsViewModel : ViewModelBase
         }
         finally
         {
+            await LoadProfilesAsync();
+            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
             IsBusy = false;
         }
+    }
+
+    // Runs every import step (channels/EPG, series, movies, account info) independently so a failure
+    // in one - e.g. an SFTP permission error while listing a movies path - doesn't stop the others from
+    // running or prevent the caller's profile-list reload. Used by both AddProfileAsync (first import)
+    // and RefreshProfileAsync (re-import).
+    private async Task<string> ImportProfileContentAsync(ProfileSource profile)
+    {
+        var messages = new List<string>();
+
+        try
+        {
+            var result = await _importService.ImportAsync(profile);
+            messages.Add(result.NotModified
+                ? "channels up to date"
+                : $"{result.Channels.Count} channels in {result.Categories.Count} categories");
+
+            if (profile.EpgSourceType != EpgSourceType.None)
+            {
+                await _epgImportService.ImportAsync(profile);
+                if (!result.NotModified)
+                {
+                    messages.Add("EPG updated");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add($"channels/EPG failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to import channels/EPG for profile {ProfileName}", profile.Name);
+        }
+
+        try
+        {
+            var seriesResult = await _seriesImportService.ImportAsync(profile);
+            if (seriesResult is not null)
+            {
+                messages.Add($"{seriesResult.SeriesList.Count} series");
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add($"series failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to import series for profile {ProfileName}", profile.Name);
+        }
+
+        try
+        {
+            var movieResult = await _movieImportService.ImportAsync(profile);
+            if (movieResult is not null)
+            {
+                messages.Add($"{movieResult.Movies.Count} movies");
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add($"movies failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to import movies for profile {ProfileName}", profile.Name);
+        }
+
+        try
+        {
+            await RefreshAccountInfoAsync(profile);
+        }
+        catch (Exception ex)
+        {
+            messages.Add($"account info failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to refresh account info for profile {ProfileName}", profile.Name);
+        }
+
+        return string.Join(", ", messages);
     }
 
     // No-op for profile types with no account info to report (e.g. M3U) - see AccountInfoService.
@@ -315,42 +436,12 @@ public partial class SettingsViewModel : ViewModelBase
         StatusMessage = $"Refreshing '{profile.Name}'...";
         try
         {
-            var result = await _importService.ImportAsync(profile);
-            StatusMessage = result.NotModified
-                ? "Already up to date - no changes on the server."
-                : $"Refreshed: {result.Channels.Count} channels in {result.Categories.Count} categories.";
-
-            if (profile.EpgSourceType != EpgSourceType.None)
-            {
-                await _epgImportService.ImportAsync(profile);
-                if (!result.NotModified)
-                {
-                    StatusMessage += " EPG refreshed.";
-                }
-            }
-
-            var seriesResult = await _seriesImportService.ImportAsync(profile);
-            if (seriesResult is not null && !result.NotModified)
-            {
-                StatusMessage += $" {seriesResult.SeriesList.Count} series refreshed.";
-            }
-
-            var movieResult = await _movieImportService.ImportAsync(profile);
-            if (movieResult is not null && !result.NotModified)
-            {
-                StatusMessage += $" {movieResult.Movies.Count} movies refreshed.";
-            }
-
-            await RefreshAccountInfoAsync(profile);
-            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Refresh failed: {ex.Message}";
-            _logger.LogError(ex, "Failed to refresh profile {ProfileName}", profile.Name);
+            StatusMessage = $"Refreshed '{profile.Name}': {await ImportProfileContentAsync(profile)}.";
         }
         finally
         {
+            await LoadProfilesAsync();
+            WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
             IsBusy = false;
         }
     }

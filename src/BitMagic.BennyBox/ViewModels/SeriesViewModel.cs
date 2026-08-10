@@ -14,6 +14,7 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class SeriesViewModel : ViewModelBase
 {
     private const string AllCategoriesLabel = "All Categories";
+    private const string AllSourcesLabel = "All Sources";
     private const string LastRefreshSecondsKey = "Series.LastRefreshSeconds";
 
     private readonly IProfileRepository _profileRepository;
@@ -55,6 +56,12 @@ public partial class SeriesViewModel : ViewModelBase
     public ObservableCollection<object> Episodes { get; } = [];
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
+
+    // See MoviesViewModel.Sources for why this exists.
+    public ObservableCollection<string> Sources { get; } = [AllSourcesLabel];
+
+    [ObservableProperty]
+    private string _selectedSource = AllSourcesLabel;
 
     // What the category ComboBox actually shows - narrowed by CategoryFilterText, but always a
     // subset of Categories. Kept separate so typing a filter query never touches SelectedCategory
@@ -416,6 +423,17 @@ public partial class SeriesViewModel : ViewModelBase
 
     partial void OnCategoryFilterTextChanged(string value) => ApplyCategoryFilter();
 
+    // Same rationale as OnSelectedCategoryChanged - a plain filter re-apply, not a full reload.
+    partial void OnSelectedSourceChanged(string value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        DebounceApplyFilter();
+    }
+
     // Narrows the ComboBox's visible options as you type, without touching Categories (the source of
     // truth) or SelectedCategory itself. The current selection is always kept in the list even if it
     // doesn't match the filter, so typing to browse for something else never silently clears - and
@@ -458,7 +476,8 @@ public partial class SeriesViewModel : ViewModelBase
             var snapshot = _allGroups;
             var query = SearchText.Trim();
             var category = SelectedCategory;
-            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query, category)), cancellationToken);
+            var source = SelectedSource;
+            var filtered = await Task.Run(() => Flatten(Filter(snapshot, query, category, source)), cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -486,7 +505,7 @@ public partial class SeriesViewModel : ViewModelBase
     private void ApplyFilter()
     {
         Rows.Clear();
-        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim(), SelectedCategory)))
+        foreach (var row in Flatten(Filter(_allGroups, SearchText.Trim(), SelectedCategory, SelectedSource)))
         {
             Rows.Add(row);
         }
@@ -494,7 +513,7 @@ public partial class SeriesViewModel : ViewModelBase
         HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
     }
 
-    private static List<SeriesCategoryGroupViewModel> Filter(List<SeriesCategoryGroupViewModel> groups, string query, string category)
+    private static List<SeriesCategoryGroupViewModel> Filter(List<SeriesCategoryGroupViewModel> groups, string query, string category, string source)
     {
         var result = new List<SeriesCategoryGroupViewModel>();
         foreach (var group in groups)
@@ -504,9 +523,9 @@ public partial class SeriesViewModel : ViewModelBase
                 continue;
             }
 
-            var matching = string.IsNullOrEmpty(query)
-                ? group.Series
-                : group.Series.Where(s => s.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matching = group.Series.Where(s =>
+                (source == AllSourcesLabel || s.SourceName == source) &&
+                (string.IsNullOrEmpty(query) || s.Name.Contains(query, StringComparison.OrdinalIgnoreCase))).ToList();
 
             if (matching.Count == 0)
             {
@@ -569,13 +588,13 @@ public partial class SeriesViewModel : ViewModelBase
             _allGroups = await Task.Run(() =>
             {
                 var groups = new List<SeriesCategoryGroupViewModel>();
-                foreach (var (_, categories, seriesList) in profileData)
+                foreach (var (profile, categories, seriesList) in profileData)
                 {
                     var seriesByCategory = seriesList.ToLookup(s => s.CategoryId);
                     foreach (var category in categories)
                     {
                         var categorySeries = seriesByCategory[category.Id]
-                            .Select(s => new SeriesListItemViewModel(s, favoriteIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId))))
+                            .Select(s => new SeriesListItemViewModel(s, profile.Name, favoriteIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId))))
                             .ToList();
                         if (categorySeries.Count == 0)
                         {
@@ -611,6 +630,20 @@ public partial class SeriesViewModel : ViewModelBase
             }
             SelectedCategory = selectedCategory;
             ApplyCategoryFilter();
+
+            var selectedSource = SelectedSource;
+            Sources.Clear();
+            Sources.Add(AllSourcesLabel);
+            foreach (var profileName in profileData.Select(p => p.Profile.Name).Distinct().OrderBy(n => n))
+            {
+                Sources.Add(profileName);
+            }
+
+            if (!Sources.Contains(selectedSource))
+            {
+                selectedSource = AllSourcesLabel;
+            }
+            SelectedSource = selectedSource;
 
             ApplyFilter();
 

@@ -100,7 +100,7 @@ public partial class FavoritesViewModel : ViewModelBase
     {
         if (item is not null)
         {
-            WeakReferenceMessenger.Default.Send(new OpenSeriesMessage(item.Series));
+            WeakReferenceMessenger.Default.Send(new OpenSeriesMessage(item.Series, item.SourceName));
         }
     }
 
@@ -121,7 +121,7 @@ public partial class FavoritesViewModel : ViewModelBase
     {
         if (item is not null)
         {
-            WeakReferenceMessenger.Default.Send(new OpenMovieMessage(item.Movie));
+            WeakReferenceMessenger.Default.Send(new OpenMovieMessage(item.Movie, item.SourceName));
         }
     }
 
@@ -250,12 +250,12 @@ public partial class FavoritesViewModel : ViewModelBase
                 var series = await _seriesRepository.GetSeriesAsync(profile.Id);
                 seriesItems.AddRange(series
                     .Where(s => favoriteSeriesIds.Contains(s.Id))
-                    .Select(s => new SeriesListItemViewModel(s, isFavorite: true)));
+                    .Select(s => new SeriesListItemViewModel(s, profile.Name, isFavorite: true)));
 
                 var movies = await _movieRepository.GetMoviesAsync(profile.Id);
                 movieItems.AddRange(movies
                     .Where(m => favoriteMovieIds.Contains(m.Id))
-                    .Select(m => new MovieListItemViewModel(m, isFavorite: true)));
+                    .Select(m => new MovieListItemViewModel(m, profile.Name, isFavorite: true)));
             }
 
             Rows.Clear();
