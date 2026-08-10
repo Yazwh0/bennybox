@@ -38,6 +38,24 @@ public partial class MainWindow : Window
         // Thumb gets a chance to mark it handled; handledEventsToo is a belt-and-braces fallback.
         SeekSlider.AddHandler(PointerPressedEvent, OnSeekSliderPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         SeekSlider.AddHandler(PointerReleasedEvent, OnSeekSliderPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        SidebarContentGrid.SizeChanged += (_, _) => UpdateNavColumns();
+    }
+
+    // Two states only - one row of all 10 buttons, or two even rows of 5 - never a lopsided split
+    // like 8+2. SidebarContentGrid.Bounds.Width (the nav row's actual container, not NavBar itself)
+    // is what's checked: it reflects the sidebar's real allocated width regardless of whether NavBar
+    // is currently stretching to fill it or, while Settings is active, capped/left-aligned instead -
+    // binding this decision to NavBar's own width would be circular in that second case, since its
+    // width would then depend on the very Columns value being decided.
+    private const int NavBarButtonCount = 10;
+    private const double NavBarMinComfortableColumnWidth = 50;
+    private const double NavBarHorizontalMargin = 16; // NavBar's own Margin="8,8,8,4"
+
+    private void UpdateNavColumns()
+    {
+        var available = SidebarContentGrid.Bounds.Width - NavBarHorizontalMargin;
+        NavBar.Columns = available >= NavBarButtonCount * NavBarMinComfortableColumnWidth ? NavBarButtonCount : 5;
     }
 
     // GridSplitter resizes RootGrid's sidebar column directly via SetCurrentValue, which cooperates

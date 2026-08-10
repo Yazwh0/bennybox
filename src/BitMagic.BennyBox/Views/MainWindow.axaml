@@ -49,7 +49,7 @@
             <ColumnDefinition Width="{Binding IsSettingsActive, Converter={StaticResource VideoColumnWidthConverter}}" />
         </Grid.ColumnDefinitions>
 
-        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*" IsVisible="{Binding !Player.IsFullscreen}">
+        <Grid Grid.Column="0" x:Name="SidebarContentGrid" RowDefinitions="Auto,Auto,*" IsVisible="{Binding !Player.IsFullscreen}">
             <!-- App-wide "X is starting now" banner for in-app EPG reminders (see GuideView's per-
                  programme reminder toggle) - lives above the nav row so it's visible from any page,
                  not just Guide. -->
@@ -73,54 +73,61 @@
                  visible text. -->
             <!-- MaxWidth+Left alignment only kick in while Settings is active, where this sidebar
                  column widens to the full window (see IsSettingsActive/ContentArea*Converter) - without
-                 that cap, UniformGrid would stretch all 8 cells across that whole width, leaving each
+                 that cap, UniformGrid would stretch all cells across that whole width, leaving each
                  icon marooned in the middle of a huge empty cell. Everywhere else it stretches to fill
                  the sidebar's actual width, so the buttons resize as the window/sidebar is resized
                  instead of sitting fixed-size with dead space to the right. -->
-            <UniformGrid Grid.Row="1" Columns="10" Margin="8,8,8,4"
+            <!-- Columns is set from code-behind (see UpdateNavColumns in MainWindow.axaml.cs), not
+                 fixed in markup - it's always either 10 (one row, when SidebarContentGrid is wide
+                 enough for every button to get a comfortable width) or 5 (two even rows), never
+                 something lopsided like 8+2. A plain WrapPanel was tried first, but it wraps greedily
+                 based on however many buttons happen to fit per line, which produces exactly that kind
+                 of uneven split - UniformGrid always gives evenly-sized rows for whichever column count
+                 it's told to use, so the two-value toggle lives outside it instead. -->
+            <UniformGrid Grid.Row="1" x:Name="NavBar" Columns="5" Margin="8,8,8,4"
                          MaxWidth="{Binding IsSettingsActive, Converter={StaticResource NavBarMaxWidthConverter}}"
                          HorizontalAlignment="{Binding IsSettingsActive, Converter={StaticResource NavBarHorizontalAlignmentConverter}}">
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Search" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Search" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Search}"
                         ToolTip.Tip="Search">
                     <ui:FASymbolIcon Symbol="Find" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=LiveTv}"
                         ToolTip.Tip="Live TV">
                     <ui:FASymbolIcon Symbol="Video" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Guide" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Guide" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Guide}"
                         ToolTip.Tip="Guide">
                     <ui:FASymbolIcon Symbol="CalendarDay" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Series" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Series" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Series}"
                         ToolTip.Tip="Series">
                     <ui:FASymbolIcon Symbol="List" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Movies" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Movies" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Movies}"
                         ToolTip.Tip="Movies">
                     <ui:FASymbolIcon Symbol="Library" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Clips" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Clips" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Clips}"
                         ToolTip.Tip="Clips">
                     <ui:FASymbolIcon Symbol="Flag" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Downloads" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Downloads" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Downloads}"
                         ToolTip.Tip="Downloads">
                     <ui:FASymbolIcon Symbol="Download" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Favorites" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Favorites" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Favorites}"
                         ToolTip.Tip="Favorites">
                     <ui:FASymbolIcon Symbol="Star" FontSize="16" />
                 </Button>
-                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Settings" Padding="7,6" Margin="1" HorizontalContentAlignment="Center"
+                <Button Classes="glass-nav" Command="{Binding NavigateCommand}" CommandParameter="Settings" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Background="{Binding CurrentPageTag, Converter={StaticResource ActiveTagToBackgroundConverter}, ConverterParameter=Settings}"
                         ToolTip.Tip="Settings">
                     <ui:FASymbolIcon Symbol="Settings" FontSize="16" />
@@ -128,7 +135,7 @@
                 <!-- Clicking this both runs StartCommand (no-ops if already active) and, via the
                      attached Flyout, opens the QR panel - Avalonia shows a Button's Flyout on click
                      automatically, independent of whatever its own Command does. -->
-                <Button Classes="glass-nav" Command="{Binding RemoteControl.StartCommand}" Background="{StaticResource GlassPanelBrush}" Padding="7,6" Margin="1" HorizontalContentAlignment="Center" ToolTip.Tip="Remote control">
+                <Button Classes="glass-nav" Command="{Binding RemoteControl.StartCommand}" Background="{StaticResource GlassPanelBrush}" Padding="7,6" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Remote control">
                     <ui:FASymbolIcon Symbol="Remote" FontSize="16" />
                     <Button.Flyout>
                         <Flyout Placement="Bottom">
