@@ -80,30 +80,34 @@
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,8,8,4" Foreground="{StaticResource GlassTextBrush}" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:SeriesListItemViewModel">
-                        <Grid ColumnDefinitions="Auto,*" Margin="8,1">
-                            <Button Classes="glass-nav" Grid.Column="0"
-                                    Content="{Binding FavoriteIcon}"
-                                    Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
-                                    CommandParameter="{Binding}"
-                                    VerticalAlignment="Stretch"
-                                    Padding="6,0" Margin="0,0,4,0" />
-                            <Button Classes="glass-ctrl" Grid.Column="1"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Command="{Binding #RootControl.DataContext.SelectSeriesCommand}"
-                                    CommandParameter="{Binding}">
-                                <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
-                                    <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
-                                                                Width="44" Height="44" VerticalAlignment="Center" />
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
-                                        <Border Classes="source-badge" HorizontalAlignment="Left">
-                                            <TextBlock Classes="source-badge-text" Text="{Binding SourceName}" />
-                                        </Border>
+                        <Border Classes="glass-card" Margin="8,4" Padding="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Button Classes="glass-ctrl flat" Grid.Column="0"
+                                        Padding="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Command="{Binding #RootControl.DataContext.SelectSeriesCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
+                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
+                                                                    Width="44" Height="44" VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                                            <Border Classes="source-badge" HorizontalAlignment="Left">
+                                                <TextBlock Classes="source-badge-text" Text="{Binding SourceName}" />
+                                            </Border>
+                                        </StackPanel>
                                     </StackPanel>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
+                                </Button>
+                                <Button Classes="glass-nav flat" Grid.Column="1"
+                                        Content="{Binding FavoriteIcon}"
+                                        Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
+                                        CommandParameter="{Binding}"
+                                        VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Width="34" Height="34" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                        Margin="4,0,0,0" />
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
@@ -172,34 +176,39 @@
                             </Grid>
                         </DataTemplate>
                         <DataTemplate DataType="vm:EpisodeListItemViewModel">
-                            <Grid ColumnDefinitions="Auto,Auto,*" Margin="8,1">
-                                <Button Classes="glass-nav" Grid.Column="0"
-                                        Content="{Binding WatchedIcon}"
-                                        ToolTip.Tip="Toggle watched"
-                                        Command="{Binding #RootControl.DataContext.ToggleEpisodeWatchedCommand}"
-                                        CommandParameter="{Binding}"
-                                        VerticalAlignment="Stretch" MinWidth="28"
-                                        Padding="6,0" Margin="0,0,4,0" />
-                                <Button Classes="glass-nav" Grid.Column="1"
-                                        Content="{Binding DownloadIcon}"
-                                        ToolTip.Tip="Download to this device"
-                                        Command="{Binding #RootControl.DataContext.DownloadEpisodeCommand}"
-                                        CommandParameter="{Binding}"
-                                        IsEnabled="{Binding CanDownload}"
-                                        IsVisible="{Binding !IsFromDownloadsProfile}"
-                                        VerticalAlignment="Stretch" MinWidth="28"
-                                        Padding="6,0" Margin="0,0,4,0" />
-                                <Button Classes="glass-ctrl" Grid.Column="2"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.PlayEpisodeCommand}"
-                                        CommandParameter="{Binding}">
-                                    <StackPanel Opacity="{Binding ContentOpacity}">
-                                        <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="11" Foreground="{StaticResource GlassTextDimBrush}" />
-                                        <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
-                                    </StackPanel>
-                                </Button>
-                            </Grid>
+                            <Border Classes="glass-card" Margin="8,4" Padding="10">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <Button Classes="glass-ctrl flat" Grid.Column="0"
+                                        Padding="0"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Left"
+                                            Command="{Binding #RootControl.DataContext.PlayEpisodeCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Opacity="{Binding ContentOpacity}">
+                                            <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="11" Foreground="{StaticResource GlassTextDimBrush}" />
+                                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="glass-nav flat" Grid.Column="1"
+                                            Content="{Binding WatchedIcon}"
+                                            ToolTip.Tip="Toggle watched"
+                                            Command="{Binding #RootControl.DataContext.ToggleEpisodeWatchedCommand}"
+                                            CommandParameter="{Binding}"
+                                            VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Width="34" Height="34" Padding="0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            Margin="4,0,0,0" />
+                                    <Button Classes="glass-nav flat" Grid.Column="2"
+                                            Content="{Binding DownloadIcon}"
+                                            ToolTip.Tip="Download to this device"
+                                            Command="{Binding #RootControl.DataContext.DownloadEpisodeCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding CanDownload}"
+                                            IsVisible="{Binding !IsFromDownloadsProfile}"
+                                            VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Width="34" Height="34" Padding="0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            Margin="4,0,0,0" />
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.DataTemplates>
                 </ItemsControl>

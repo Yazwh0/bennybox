@@ -119,6 +119,33 @@
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
         </Style>
 
+        <!-- Fully-inert variant for any glass-nav/glass-ctrl button living inside its own
+             Border.glass-card (the row/tile chrome) - the select/title button, and the favorite/
+             watched/download icon buttons beside it. A second nested highlight on any one of those,
+             on top of the card's own hover highlight below, is what read as "flashing": every
+             pointer move in/out of a button-sized sub-region re-triggered its own separate box.
+             These buttons now render no differently on hover/pressed than at idle - Background and
+             BorderBrush are pinned to Transparent in all three states, INCLUDING pointerover/pressed
+             explicitly (not just left unset) - FluentAvaloniaTheme's own built-in hover/pressed
+             visual states recolor the templated ContentPresenter with its own grey palette
+             regardless of what the base style sets, the same flash the /template/ ContentPresenter
+             override technique on plain glass-nav/glass-ctrl exists to cancel (see that comment
+             above) - omitting the setter here would let that grey flash straight back through.
+             Hover feedback for the whole row now lives solely on Border.glass-card:pointerover. -->
+        <Style Selector="Button.glass-nav.flat, Button.glass-ctrl.flat">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.glass-nav.flat:pointerover /template/ ContentPresenter, Button.glass-ctrl.flat:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.glass-nav.flat:pressed /template/ ContentPresenter, Button.glass-ctrl.flat:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+
         <!-- Search/category inputs - opt-in via Classes="glass" so this never touches Settings'
              NumericUpDown (which has its own internal TextBox part) or the remote-control flyout's
              read-only URL box. -->
@@ -135,12 +162,20 @@
             <Setter Property="Foreground" Value="{StaticResource GlassTextBrush}" />
         </Style>
 
-        <!-- List rows / grid cards (channels, series, movies, guide rows, favorites). -->
+        <!-- List rows / grid cards (channels, series, movies, guide rows, favorites). Border isn't a
+             templated control, so :pointerover can recolor its own BorderBrush directly - no
+             /template/ ContentPresenter indirection needed. IsPointerOver bubbles up from any
+             descendant, so hovering the title text or any of the flat icon buttons inside (see
+             Button.glass-nav.flat/glass-ctrl.flat above) lights up the whole card's border as one
+             highlight, rather than each nested button flashing its own separate box. -->
         <Style Selector="Border.glass-card">
             <Setter Property="Background" Value="{StaticResource GlassPanelBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Border.glass-card:pointerover">
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
         </Style>
 
         <!-- Small pill showing which profile a movie/series row came from (see MovieListItemViewModel/

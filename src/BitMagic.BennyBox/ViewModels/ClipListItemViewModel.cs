@@ -27,13 +27,12 @@ public partial class ClipListItemViewModel : ObservableObject
 
     public string FavoriteIcon => IsFavorite ? "★" : "☆";
 
-    // See MovieListItemViewModel.IsWatched - same fade-not-icon rationale.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WatchedIcon))]
     [NotifyPropertyChangedFor(nameof(ContentOpacity))]
     private bool _isWatched;
 
-    public string WatchedIcon => IsWatched ? "✓" : "";
+    public string WatchedIcon => IsWatched ? "✓" : "👁";
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
     // See MovieListItemViewModel.IsFromDownloadsProfile - same rationale.

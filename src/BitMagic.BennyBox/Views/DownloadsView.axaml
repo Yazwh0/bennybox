@@ -55,10 +55,10 @@
                                     <Button Classes="glass-nav" Content="&#8635;" ToolTip.Tip="Retry"
                                             Command="{Binding #RootControl.DataContext.RetryCommand}" CommandParameter="{Binding}"
                                             IsVisible="{Binding IsFailedOrCanceled}"
-                                            MinWidth="28" Padding="6,0" />
+                                            MinWidth="32" />
                                     <Button Classes="glass-nav" Content="&#10007;" ToolTip.Tip="Delete"
                                             Command="{Binding #RootControl.DataContext.DeleteCommand}" CommandParameter="{Binding}"
-                                            MinWidth="28" Padding="6,0" />
+                                            MinWidth="32" />
                                 </StackPanel>
                             </Grid>
                         </Border>

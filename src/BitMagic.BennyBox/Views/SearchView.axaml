@@ -106,8 +106,9 @@
                                     ToolTip.Tip="Toggle watched"
                                     Command="{Binding #RootControl.DataContext.ToggleMovieWatchedCommand}"
                                     CommandParameter="{Binding}"
-                                    VerticalAlignment="Stretch" MinWidth="28"
-                                    Padding="6,0" Margin="0,0,4,0" />
+                                    VerticalAlignment="Stretch" Width="34" Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    Margin="0,0,4,0" />
                             <Button Classes="glass-nav" Grid.Column="2"
                                     Content="{Binding DownloadIcon}"
                                     ToolTip.Tip="Download to this device"
@@ -143,8 +144,9 @@
                                     ToolTip.Tip="Toggle watched"
                                     Command="{Binding #RootControl.DataContext.ToggleClipWatchedCommand}"
                                     CommandParameter="{Binding}"
-                                    VerticalAlignment="Stretch" MinWidth="28"
-                                    Padding="6,0" Margin="0,0,4,0" />
+                                    VerticalAlignment="Stretch" Width="34" Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    Margin="0,0,4,0" />
                             <Button Classes="glass-nav" Grid.Column="2"
                                     Content="{Binding DownloadIcon}"
                                     ToolTip.Tip="Download to this device"

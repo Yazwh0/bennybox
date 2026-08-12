@@ -41,14 +41,12 @@ public partial class MovieListItemViewModel : ObservableObject
 
     public string FavoriteIcon => IsFavorite ? "★" : "☆";
 
-    // Watched is shown as a fade rather than a second icon competing with the favorite star - only a
-    // checkmark appears once watched, nothing is drawn for the unwatched state.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WatchedIcon))]
     [NotifyPropertyChangedFor(nameof(ContentOpacity))]
     private bool _isWatched;
 
-    public string WatchedIcon => IsWatched ? "✓" : "";
+    public string WatchedIcon => IsWatched ? "✓" : "👁";
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
     // True for a row that IS ITSELF a Downloads-profile item - downloading a download makes no sense,
