@@ -49,8 +49,7 @@ public partial class RemoteControlViewModel : ViewModelBase
             return;
         }
 
-        var lanAddress = GetLanIpAddress();
-        if (lanAddress is null)
+        if (!NetworkInterface.GetIsNetworkAvailable())
         {
             StatusMessage = "No network connection found - connect to WiFi/Ethernet first.";
             return;
@@ -67,7 +66,7 @@ public partial class RemoteControlViewModel : ViewModelBase
             return;
         }
 
-        RenderCurrentCode(lanAddress);
+        RenderCurrentCode();
         IsActive = true;
         StatusMessage = null;
     }
@@ -81,11 +80,7 @@ public partial class RemoteControlViewModel : ViewModelBase
         }
 
         await _server.RegenerateAsync();
-        var lanAddress = GetLanIpAddress();
-        if (lanAddress is not null)
-        {
-            RenderCurrentCode(lanAddress);
-        }
+        RenderCurrentCode();
     }
 
     [RelayCommand]
@@ -97,9 +92,9 @@ public partial class RemoteControlViewModel : ViewModelBase
         ConnectUrl = null;
     }
 
-    private void RenderCurrentCode(string lanAddress)
+    private void RenderCurrentCode()
     {
-        var url = $"http://{lanAddress}:{_server.Port}/?token={_server.Token}";
+        var url = $"http://{GetPreferredHost()}:{_server.Port}/?token={_server.Token}";
         ConnectUrl = url;
 
         using var generator = new QRCodeGenerator();
@@ -109,24 +104,38 @@ public partial class RemoteControlViewModel : ViewModelBase
         QrCodeImage = new Bitmap(stream);
     }
 
-    // Picks the first "real" (non-loopback, non-virtual-adapter-ish) IPv4 address on an interface
-    // that's actually up - good enough for a home network where there's usually exactly one relevant
-    // adapter; if there are several (e.g. WiFi + a virtual VPN/Hyper-V adapter), this may not always
-    // guess the one a phone can actually reach, but it's a reasonable default with the fallback text
-    // URL there for the user to double check.
+    // A raw IP needs no name resolution at all on the phone's end, so it sidesteps mDNS/.local
+    // working on the phone's network entirely (client-isolated guest WiFi, Google Wifi mesh points
+    // not reflecting mDNS between each other, Android not resolving .local from a plain browser
+    // request, etc) - it just has to be the *right* IP. Falls back to a hostname only if no adapter
+    // has a gateway at all (unusual - e.g. a machine that's genuinely offline).
+    private static string GetPreferredHost() => GetLanIpAddress() ?? GetHostNameFallback();
+
+    // Prefers the adapter with an actual default gateway configured - on a typical dev machine, VPN
+    // tunnel adapters (NordLynx/TAP-NordVPN/OpenVPN), Hyper-V/WSL virtual switches, and Bluetooth PAN
+    // interfaces are all "Up" with a real unicast IPv4 address but no gateway, while the one adapter
+    // actually carrying LAN traffic always has one - a far more reliable signal than "first Up,
+    // non-loopback interface" (which used to return whichever VPN/virtual adapter happened to
+    // enumerate first, e.g. a NordVPN tunnel IP that's naturally unreachable from a phone on the
+    // same LAN). Also excludes link-local (169.254.0.0/16) addresses - an adapter that hasn't
+    // actually picked up a DHCP lease yet (e.g. WiFi sitting idle while Ethernet is the active
+    // connection) still shows up as "Up" with one of these, but it's not a usable address.
     private static string? GetLanIpAddress()
     {
         foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
         {
             if (networkInterface.OperationalStatus != OperationalStatus.Up ||
-                networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                networkInterface.GetIPProperties().GatewayAddresses.Count == 0)
             {
                 continue;
             }
 
             foreach (var address in networkInterface.GetIPProperties().UnicastAddresses)
             {
-                if (address.Address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(address.Address))
+                if (address.Address.AddressFamily == AddressFamily.InterNetwork &&
+                    !IPAddress.IsLoopback(address.Address) &&
+                    !IsLinkLocal(address.Address))
                 {
                     return address.Address.ToString();
                 }
@@ -134,5 +143,20 @@ public partial class RemoteControlViewModel : ViewModelBase
         }
 
         return null;
+    }
+
+    private static bool IsLinkLocal(IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+        return bytes[0] == 169 && bytes[1] == 254;
+    }
+
+    // Domain FQDN wins when this machine is actually domain-joined - resolvable via the domain's own
+    // DNS for a phone on the same managed network. Otherwise "<hostname>.local" relies on mDNS.
+    private static string GetHostNameFallback()
+    {
+        var hostName = Dns.GetHostName();
+        var domainName = IPGlobalProperties.GetIPGlobalProperties().DomainName;
+        return string.IsNullOrEmpty(domainName) ? $"{hostName}.local" : $"{hostName}.{domainName}";
     }
 }
