@@ -25,6 +25,31 @@ public class ChannelLogoImage : Image
         set => SetValue(LogoUrlProperty, value);
     }
 
+    // Tried only if LogoUrl is missing or fails to load (e.g. a dead link) - see
+    // ChannelLogoFallbackSupport for where this typically comes from (a same-named Series' cover).
+    public static readonly StyledProperty<string?> FallbackLogoUrlProperty =
+        AvaloniaProperty.Register<ChannelLogoImage, string?>(nameof(FallbackLogoUrl));
+
+    public string? FallbackLogoUrl
+    {
+        get => GetValue(FallbackLogoUrlProperty);
+        set => SetValue(FallbackLogoUrlProperty, value);
+    }
+
+    // Tried last, only if both LogoUrl and FallbackLogoUrl are missing/dead - a TMDb TV search for
+    // this title (see ChannelLogoCache.GetTmdbPosterUrlAsync). Bind the channel's own display name
+    // here (always available, no DB/network cost to bind it) - the cache handles gating on whether
+    // TMDb is even configured, throttling, and permanently caching the result so this never repeats
+    // the same search twice.
+    public static readonly StyledProperty<string?> TmdbFallbackTitleProperty =
+        AvaloniaProperty.Register<ChannelLogoImage, string?>(nameof(TmdbFallbackTitle));
+
+    public string? TmdbFallbackTitle
+    {
+        get => GetValue(TmdbFallbackTitleProperty);
+        set => SetValue(TmdbFallbackTitleProperty, value);
+    }
+
     // Resolved once from the app's DI container and reused - IChannelLogoCache is registered as a
     // singleton, so there's exactly one instance app-wide regardless of how many rows resolve it.
     private static IChannelLogoCache? _cache;
@@ -38,17 +63,18 @@ public class ChannelLogoImage : Image
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == LogoUrlProperty)
+        if (change.Property == LogoUrlProperty || change.Property == FallbackLogoUrlProperty
+            || change.Property == TmdbFallbackTitleProperty)
         {
-            OnLogoUrlChanged(change.GetNewValue<string?>());
+            OnLogoUrlChanged(LogoUrl, FallbackLogoUrl, TmdbFallbackTitle);
         }
     }
 
-    private void OnLogoUrlChanged(string? url)
+    private void OnLogoUrlChanged(string? url, string? fallbackUrl, string? tmdbFallbackTitle)
     {
         var version = ++_requestVersion;
 
-        if (string.IsNullOrEmpty(url))
+        if (string.IsNullOrEmpty(url) && string.IsNullOrEmpty(fallbackUrl) && string.IsNullOrEmpty(tmdbFallbackTitle))
         {
             Source = null;
             return;
@@ -68,7 +94,7 @@ public class ChannelLogoImage : Image
         // meant every refresh flickered every visible logo to blank for a frame. Setting it inline
         // for an already-resolved task avoids that entirely; only a genuine cache miss (a real fetch
         // in flight) still needs the null-while-loading + deferred-set path below.
-        var pending = cache.GetLogoAsync(url);
+        var pending = cache.GetLogoAsync(url, fallbackUrl, tmdbFallbackTitle);
         if (pending.IsCompletedSuccessfully)
         {
             Source = pending.Result;

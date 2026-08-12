@@ -18,6 +18,9 @@ public partial class GuideRowViewModel : ObservableObject
     public string ChannelName => Channel.Name;
     public bool HasProgrammes => Programmes.Count > 0;
 
+    // See ChannelListItemViewModel.FallbackLogoUrl - same rationale.
+    public string? FallbackLogoUrl { get; }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FavoriteIcon))]
     private bool _isFavorite;
@@ -31,7 +34,8 @@ public partial class GuideRowViewModel : ObservableObject
         DateTime windowEnd,
         DateTime nowUtc,
         double pixelsPerMinute,
-        bool isFavorite = false)
+        bool isFavorite = false,
+        string? fallbackLogoUrl = null)
     {
         Channel = channel;
         Programmes = programmes;
@@ -40,5 +44,6 @@ public partial class GuideRowViewModel : ObservableObject
         NowUtc = nowUtc;
         PixelsPerMinute = pixelsPerMinute;
         _isFavorite = isFavorite;
+        FallbackLogoUrl = fallbackLogoUrl;
     }
 }

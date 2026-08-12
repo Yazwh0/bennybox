@@ -86,6 +86,8 @@
                                                 CommandParameter="{Binding}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
+                                                                            FallbackLogoUrl="{Binding FallbackLogoUrl}"
+                                                                            TmdbFallbackTitle="{Binding ChannelName}"
                                                                             Width="28" Height="28" VerticalAlignment="Center" />
                                                 <TextBlock Text="{Binding ChannelName}" VerticalAlignment="Center"
                                                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="12"

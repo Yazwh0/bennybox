@@ -20,6 +20,7 @@ public partial class LiveTvViewModel : ViewModelBase
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly ISeriesRepository _seriesRepository;
     private readonly PlaylistImportService _playlistImportService;
     private readonly EpgImportService _epgImportService;
     private readonly ISettingsStore _settingsStore;
@@ -87,6 +88,7 @@ public partial class LiveTvViewModel : ViewModelBase
         IChannelRepository channelRepository,
         IEpgRepository epgRepository,
         IFavoriteRepository favoriteRepository,
+        ISeriesRepository seriesRepository,
         PlaylistImportService playlistImportService,
         EpgImportService epgImportService,
         ISettingsStore settingsStore,
@@ -97,6 +99,7 @@ public partial class LiveTvViewModel : ViewModelBase
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
         _favoriteRepository = favoriteRepository;
+        _seriesRepository = seriesRepository;
         _playlistImportService = playlistImportService;
         _epgImportService = epgImportService;
         _settingsStore = settingsStore;
@@ -382,13 +385,19 @@ public partial class LiveTvViewModel : ViewModelBase
             var nowUtc = DateTime.UtcNow;
 
             var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Channel> Channels, IReadOnlyDictionary<string, EpgNowNext> NowNext)>();
+            var allSeriesForLogoFallback = new List<Series>();
             foreach (var profile in profiles)
             {
                 var categories = await _channelRepository.GetCategoriesAsync(profile.Id);
                 var channels = await _channelRepository.GetChannelsAsync(profile.Id);
                 var nowNext = await _epgRepository.GetNowNextAsync(profile.Id, nowUtc);
                 profileData.Add((categories, channels, nowNext));
+                allSeriesForLogoFallback.AddRange(await _seriesRepository.GetSeriesAsync(profile.Id));
             }
+
+            // See ChannelLogoFallbackSupport - not scoped per-profile, a channel and the show it
+            // loops aren't guaranteed to share one.
+            var logoFallbackIndex = ChannelLogoFallbackSupport.BuildSeriesCoverIndex(allSeriesForLogoFallback);
 
             // Grouping/sorting/object-construction over tens of thousands of channels is real CPU
             // work - keep it off the UI thread so it can't hitch typing, scrolling, or playback.
@@ -401,7 +410,8 @@ public partial class LiveTvViewModel : ViewModelBase
                     foreach (var category in categories)
                     {
                         var categoryChannels = channelsByCategory[category.Id]
-                            .Select(c => new ChannelListItemViewModel(c, GetNowTitle(c, nowNext), favoriteIds.Contains(c.Id)))
+                            .Select(c => new ChannelListItemViewModel(c, GetNowTitle(c, nowNext), favoriteIds.Contains(c.Id),
+                                ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, c.Name)))
                             .ToList();
                         if (categoryChannels.Count == 0)
                         {

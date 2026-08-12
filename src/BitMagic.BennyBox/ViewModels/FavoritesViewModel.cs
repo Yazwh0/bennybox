@@ -252,6 +252,15 @@ public partial class FavoritesViewModel : ViewModelBase
             var recentProgress = await _watchProgressRepository.GetRecentAsync();
             var profiles = await _profileRepository.GetAllAsync();
 
+            // See ChannelLogoFallbackSupport - built up front (not scoped per-profile) so it's
+            // complete before any ChannelListItemViewModel below needs it.
+            var allSeriesForLogoFallback = new List<Series>();
+            foreach (var profile in profiles)
+            {
+                allSeriesForLogoFallback.AddRange(await _seriesRepository.GetSeriesAsync(profile.Id));
+            }
+            var logoFallbackIndex = ChannelLogoFallbackSupport.BuildSeriesCoverIndex(allSeriesForLogoFallback);
+
             var channelItems = new List<ChannelListItemViewModel>();
             var seriesItems = new List<SeriesListItemViewModel>();
             var movieItems = new List<MovieListItemViewModel>();
@@ -269,7 +278,8 @@ public partial class FavoritesViewModel : ViewModelBase
                         var nowTitle = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry)
                             ? entry.Now?.Title
                             : null;
-                        channelItems.Add(new ChannelListItemViewModel(channel, nowTitle, isFavorite: true));
+                        channelItems.Add(new ChannelListItemViewModel(channel, nowTitle, isFavorite: true,
+                            fallbackLogoUrl: ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name)));
                     }
                 }
 

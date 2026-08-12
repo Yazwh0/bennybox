@@ -550,6 +550,15 @@ public partial class SearchViewModel : ViewModelBase
             var clips = new List<ClipListItemViewModel>();
             var profilesById = new Dictionary<Guid, ProfileSource>();
 
+            // See ChannelLogoFallbackSupport - built up front (not scoped per-profile) so it's
+            // complete before any ChannelListItemViewModel below needs it.
+            var allSeriesForLogoFallback = new List<Series>();
+            foreach (var profile in profiles)
+            {
+                allSeriesForLogoFallback.AddRange(await _seriesRepository.GetSeriesAsync(profile.Id));
+            }
+            var logoFallbackIndex = ChannelLogoFallbackSupport.BuildSeriesCoverIndex(allSeriesForLogoFallback);
+
             foreach (var profile in profiles)
             {
                 profilesById[profile.Id] = profile;
@@ -562,7 +571,8 @@ public partial class SearchViewModel : ViewModelBase
                         var nowTitle = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry)
                             ? entry.Now?.Title
                             : null;
-                        channels.Add(new ChannelListItemViewModel(channel, nowTitle, favoriteChannelIds.Contains(channel.Id)));
+                        channels.Add(new ChannelListItemViewModel(channel, nowTitle, favoriteChannelIds.Contains(channel.Id),
+                            ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name)));
                     }
                 }
 

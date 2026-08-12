@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Media.Imaging;
+using BitMagic.BennyBox.Core.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.Services;
@@ -18,6 +19,10 @@ public class ChannelLogoCache : IChannelLogoCache
     private const int LogoDecodeWidth = 220;
     private const int MaxConcurrentDownloads = 6;
 
+    // Same concurrency cap FolderMediaScanner.EnrichSeriesAsync uses for the identical TMDb TV
+    // search call - a courteous rate against TMDb's API, not a technical limit of this cache.
+    private const int MaxConcurrentTmdbSearches = 4;
+
     // Content hashes (SHA-256, over the raw downloaded bytes) of known "this isn't really a logo"
     // placeholder images, so a broken/blocked link doesn't get shown - or cached - as if it were the
     // real channel logo. Currently seeded with Imgur's generic "image removed/unavailable" graphic
@@ -31,9 +36,11 @@ public class ChannelLogoCache : IChannelLogoCache
     };
 
     private readonly HttpClient _httpClient;
+    private readonly IMetadataEnrichmentService _enrichmentService;
     private readonly ILogger<ChannelLogoCache> _logger;
     private readonly string _cacheDirectory;
     private readonly SemaphoreSlim _downloadThrottle = new(MaxConcurrentDownloads);
+    private readonly SemaphoreSlim _tmdbThrottle = new(MaxConcurrentTmdbSearches);
 
     // Keyed by URL so concurrent requests for the same logo (very common - the same channel can
     // appear in Live TV, Guide, and Favorites at once) share a single download+decode rather than
@@ -41,24 +48,87 @@ public class ChannelLogoCache : IChannelLogoCache
     // losing task's work is just wasted, not incorrect, so that's an acceptable simplification here.
     private readonly ConcurrentDictionary<string, Task<Bitmap?>> _memoryCache = new();
 
-    public ChannelLogoCache(HttpClient httpClient, ILogger<ChannelLogoCache> logger)
+    public ChannelLogoCache(HttpClient httpClient, IMetadataEnrichmentService enrichmentService, ILogger<ChannelLogoCache> logger)
     {
         _httpClient = httpClient;
+        _enrichmentService = enrichmentService;
         _logger = logger;
         _cacheDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "BennyBox", "logos");
     }
 
-    public Task<Bitmap?> GetLogoAsync(string? logoUrl)
+    public Task<Bitmap?> GetLogoAsync(string? logoUrl, string? fallbackLogoUrl = null, string? tmdbFallbackTitle = null)
     {
-        if (string.IsNullOrWhiteSpace(logoUrl))
+        var primary = string.IsNullOrWhiteSpace(logoUrl) ? null : logoUrl;
+        var fallback = string.IsNullOrWhiteSpace(fallbackLogoUrl) ? null : fallbackLogoUrl;
+        var tmdbTitle = string.IsNullOrWhiteSpace(tmdbFallbackTitle) ? null : tmdbFallbackTitle;
+
+        return primary is null && fallback is null && tmdbTitle is null
+            ? Task.FromResult<Bitmap?>(null)
+            : GetWithFallbacksAsync(primary, fallback, tmdbTitle);
+    }
+
+    // Each URL is still memoized/disk-cached independently under its own key (see _memoryCache/
+    // GetCachePath) - chaining fallbacks here just tries a second/third already-deduplicated lookup,
+    // none of them need their own caching layer. The TMDb tier is deliberately last and lazy - it
+    // only ever runs for a row that's actually on screen with no working logo of its own AND no
+    // local Series match, same "only what's visible, virtualization stays cheap" reasoning as the
+    // image loads themselves, rather than a batch pass over the whole (tens-of-thousands-strong)
+    // channel list up front. GetTmdbPosterUrlAsync's result is never itself cached by URL here since
+    // it isn't a URL - CachingMetadataEnrichmentService (see IMetadataEnrichmentService) already
+    // persists the resolved poster URL (or a permanent "TMDb had nothing") per title, so a repeat
+    // lookup for the same channel name - this launch or a future one - never re-hits the network.
+    private async Task<Bitmap?> GetWithFallbacksAsync(string? logoUrl, string? fallbackLogoUrl, string? tmdbFallbackTitle)
+    {
+        if (logoUrl is not null && await GetSingleAsync(logoUrl) is { } primaryBitmap)
         {
-            return Task.FromResult<Bitmap?>(null);
+            return primaryBitmap;
         }
 
-        return _memoryCache.GetOrAdd(logoUrl, LoadAsync);
+        if (fallbackLogoUrl is not null && await GetSingleAsync(fallbackLogoUrl) is { } fallbackBitmap)
+        {
+            return fallbackBitmap;
+        }
+
+        if (tmdbFallbackTitle is null)
+        {
+            return null;
+        }
+
+        var posterUrl = await GetTmdbPosterUrlAsync(tmdbFallbackTitle);
+        return posterUrl is null ? null : await GetSingleAsync(posterUrl);
     }
+
+    private async Task<string?> GetTmdbPosterUrlAsync(string title)
+    {
+        if (!await _enrichmentService.IsAvailableAsync())
+        {
+            // No TMDb key configured (see IMetadataEnrichmentService.IsAvailableAsync) - skip
+            // entirely rather than calling SearchTvShowAsync, which would otherwise permanently
+            // cache a "not found" for every title while no key is set (see
+            // CachingMetadataEnrichmentService's own warning about this).
+            return null;
+        }
+
+        await _tmdbThrottle.WaitAsync();
+        try
+        {
+            var enriched = await _enrichmentService.SearchTvShowAsync(title);
+            return enriched?.PosterUrl;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "TMDb TV search failed for {Title}", title);
+            return null;
+        }
+        finally
+        {
+            _tmdbThrottle.Release();
+        }
+    }
+
+    private Task<Bitmap?> GetSingleAsync(string url) => _memoryCache.GetOrAdd(url, LoadAsync);
 
     private Task<Bitmap?> LoadAsync(string url) =>
         TryGetLocalPath(url, out var localPath) ? LoadLocalAsync(localPath) : LoadHttpAsync(url);

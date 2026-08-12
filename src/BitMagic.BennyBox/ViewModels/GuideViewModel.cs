@@ -22,6 +22,7 @@ public partial class GuideViewModel : ViewModelBase
     private readonly IChannelRepository _channelRepository;
     private readonly IEpgRepository _epgRepository;
     private readonly IFavoriteRepository _favoriteRepository;
+    private readonly ISeriesRepository _seriesRepository;
     private readonly TimeshiftUrlService _timeshiftUrlService;
     private readonly IReminderRepository _reminderRepository;
     private readonly EpgImportService _epgImportService;
@@ -127,6 +128,7 @@ public partial class GuideViewModel : ViewModelBase
         IChannelRepository channelRepository,
         IEpgRepository epgRepository,
         IFavoriteRepository favoriteRepository,
+        ISeriesRepository seriesRepository,
         TimeshiftUrlService timeshiftUrlService,
         IReminderRepository reminderRepository,
         EpgImportService epgImportService,
@@ -138,6 +140,7 @@ public partial class GuideViewModel : ViewModelBase
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
         _favoriteRepository = favoriteRepository;
+        _seriesRepository = seriesRepository;
         _timeshiftUrlService = timeshiftUrlService;
         _reminderRepository = reminderRepository;
         _epgImportService = epgImportService;
@@ -486,13 +489,18 @@ public partial class GuideViewModel : ViewModelBase
             var profiles = await _profileRepository.GetAllAsync();
 
             var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Channel> Channels, IReadOnlyList<EpgProgramme> Programmes)>();
+            var allSeriesForLogoFallback = new List<Series>();
             foreach (var profile in profiles)
             {
                 var categories = await _channelRepository.GetCategoriesAsync(profile.Id);
                 var channels = await _channelRepository.GetChannelsAsync(profile.Id);
                 var programmes = await _epgRepository.GetProgrammesInRangeAsync(profile.Id, windowStart, windowEnd);
                 profileData.Add((categories, channels, programmes));
+                allSeriesForLogoFallback.AddRange(await _seriesRepository.GetSeriesAsync(profile.Id));
             }
+
+            // See ChannelLogoFallbackSupport - not scoped per-profile.
+            var logoFallbackIndex = ChannelLogoFallbackSupport.BuildSeriesCoverIndex(allSeriesForLogoFallback);
 
             var selectedCategoryAtLoad = SelectedCategory;
 
@@ -535,7 +543,8 @@ public partial class GuideViewModel : ViewModelBase
                             .Select(p => new ProgrammeViewModel(p, reminderKeys.Contains((channel.ProfileId, channel.TvgId!, p.StartUtc))))
                             .ToList();
 
-                        builtRows.Add(new GuideRowViewModel(channel, channelProgrammes, windowStart, windowEnd, nowUtc, PixelsPerMinute, favoriteIds.Contains(channel.Id))
+                        builtRows.Add(new GuideRowViewModel(channel, channelProgrammes, windowStart, windowEnd, nowUtc, PixelsPerMinute, favoriteIds.Contains(channel.Id),
+                            ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name))
                         {
                             TuneRequested = TuneChannel,
                             CatchupRequested = RequestCatchup,
