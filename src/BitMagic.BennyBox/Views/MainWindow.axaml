@@ -9,7 +9,7 @@
         Icon="avares://BitMagic.BennyBox/Assets/icon.ico"
         Title="Benny Box"
         TransparencyLevelHint="AcrylicBlur"
-        Background="{StaticResource SmokedBgTranslucentBrush}"
+        Background="{Binding Settings.WindowBackgroundOpacityPercent, Converter={StaticResource WindowBackgroundOpacityToBrushConverter}}"
         Width="1280" Height="800">
     <Window.Styles>
         <Style Selector="GridSplitter:pointerover">

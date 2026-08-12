@@ -27,6 +27,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
+    private bool _isApplyingSavedWindowOpacity;
     private bool _isApplyingSavedPlaybackTiming;
     private bool _isApplyingSavedTrackPreferences;
     private bool _isApplyingSavedRemoteKeyMode;
@@ -51,6 +52,13 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _selectedTheme = "System";
+
+    // Drives MainWindow's Background via WindowBackgroundOpacityToBrushConverter - 100 is fully
+    // opaque (no see-through at all), lower values let more of the OS's AcrylicBlur show through.
+    // Default (55) matches the "Smoked Glass" look's original hardcoded SmokedBgTranslucentBrush
+    // Opacity before this was made adjustable.
+    [ObservableProperty]
+    private int _windowBackgroundOpacityPercent = 55;
 
     // Defaults mirror PlayerViewModel's DefaultSkipInterval/DefaultLoadTimeout/DefaultStallThreshold/
     // DefaultPauseReconnectThreshold - kept in sync manually since there's no shared constants class
@@ -153,6 +161,7 @@ public partial class SettingsViewModel : ViewModelBase
 
         _ = LoadProfilesAsync();
         _ = LoadThemeAsync();
+        _ = LoadWindowOpacityAsync();
         _ = LoadPlaybackTimingSettingsAsync();
         _ = LoadTrackPreferencesAsync();
         _ = LoadRemoteKeyModeAsync();
@@ -267,6 +276,23 @@ public partial class SettingsViewModel : ViewModelBase
         {
             _ = _settingsStore.SetAsync("Theme", value);
         }
+    }
+
+    private async Task LoadWindowOpacityAsync()
+    {
+        _isApplyingSavedWindowOpacity = true;
+        WindowBackgroundOpacityPercent = await GetSavedIntAsync("WindowBackgroundOpacityPercent", WindowBackgroundOpacityPercent);
+        _isApplyingSavedWindowOpacity = false;
+    }
+
+    partial void OnWindowBackgroundOpacityPercentChanged(int value)
+    {
+        if (_isApplyingSavedWindowOpacity)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("WindowBackgroundOpacityPercent", value.ToString(CultureInfo.InvariantCulture));
     }
 
     private async Task LoadPlaybackTimingSettingsAsync()

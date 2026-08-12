@@ -22,6 +22,7 @@
         <converters:NavBarHorizontalAlignmentConverter x:Key="NavBarHorizontalAlignmentConverter" />
         <converters:PausedToPlaySymbolConverter x:Key="PausedToPlaySymbolConverter" />
         <converters:MutedToSymbolConverter x:Key="MutedToSymbolConverter" />
+        <converters:WindowBackgroundOpacityToBrushConverter x:Key="WindowBackgroundOpacityToBrushConverter" />
 
         <!-- "Smoked Glass" palette - warm, dim, minimal amber-on-near-black, chosen from three
              mockup directions compared as an HTML artifact. Centralized here so every view pulls
@@ -35,11 +36,6 @@
         <Color x:Key="SmokedTextDimColor">#978771</Color>
 
         <SolidColorBrush x:Key="SmokedBgBrush" Color="{StaticResource SmokedBgColor}" />
-        <!-- For Window.Background specifically, paired with TransparencyLevelHint="AcrylicBlur" -
-             alpha lets the OS blur-behind show through everywhere the window doesn't paint its own
-             opaque content, the actual "Windows Terminal" look. Kept separate from SmokedBgBrush
-             (fully opaque) since that one's still used as a plain solid fill elsewhere. -->
-        <SolidColorBrush x:Key="SmokedBgTranslucentBrush" Color="{StaticResource SmokedBgColor}" Opacity="0.55" />
         <!-- Transport bar background - a plain translucent fill instead of ExperimentalAcrylicBorder's
              Digger material. Digger composites within Avalonia's own render pass, before the OS-level
              AcrylicBlur compositing that makes the rest of the window see-through even applies, so it

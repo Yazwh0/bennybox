@@ -11,9 +11,19 @@
         <TextBlock Text="Settings" FontSize="24" Foreground="{StaticResource GlassTextBrush}" />
 
         <Border Classes="glass-card" Padding="16">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Theme" VerticalAlignment="Center" Width="160" Foreground="{StaticResource GlassTextBrush}" />
-                <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" Width="160" />
+            <StackPanel Spacing="12">
+                <TextBlock Text="Appearance" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Theme" VerticalAlignment="Center" Width="160" Foreground="{StaticResource GlassTextBrush}" />
+                    <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" Width="160" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Background opacity" VerticalAlignment="Center" Width="160" Foreground="{StaticResource GlassTextBrush}" />
+                    <Slider Minimum="10" Maximum="100" Value="{Binding WindowBackgroundOpacityPercent}" Width="200" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding WindowBackgroundOpacityPercent, StringFormat='{}{0}%'}" VerticalAlignment="Center" Width="40" Foreground="{StaticResource GlassTextDimBrush}" />
+                </StackPanel>
+                <TextBlock Text="How much of the desktop shows through behind the app - lower is more see-through."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
