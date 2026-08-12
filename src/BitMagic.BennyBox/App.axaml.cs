@@ -98,7 +98,7 @@ public partial class App : Application
             splash.Close();
 
 #if DEBUG
-            _debugRemoteControlServer = new DebugRemoteControlServer(mainWindowViewModel, host.Services.GetRequiredService<ILogger<DebugRemoteControlServer>>());
+            _debugRemoteControlServer = new DebugRemoteControlServer(mainWindowViewModel, mainWindow, host.Services.GetRequiredService<ILogger<DebugRemoteControlServer>>());
             _debugRemoteControlServer.Start();
 #endif
         }

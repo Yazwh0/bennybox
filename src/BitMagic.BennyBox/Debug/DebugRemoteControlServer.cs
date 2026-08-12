@@ -11,6 +11,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using BitMagic.BennyBox.ViewModels;
 using Microsoft.Extensions.Logging;
@@ -27,20 +30,27 @@ namespace BitMagic.BennyBox.Debug;
 //   GET  /                    - lists available view model names and routes
 //   GET  /state                - every view model's public property values
 //   GET  /state/{vm}            - one view model's public property values
+//   GET  /screenshot            - PNG of the main window, rendered off-screen in-process
 //   POST /navigate              body {"page":"Settings"}                    - MainWindowViewModel.NavigateCommand
 //   POST /vm/{vm}/set            body {"property":"X","value":"Y"}          - set a public writable property
 //   POST /vm/{vm}/invoke          body {"command":"X","parameter":"Y"?}     - execute an ICommand property
+//                                 or   {"command":"X","parameterFromCollection":{"property":"Rows","match":"Name","equals":"Y"}}
+//                                      - same, but the parameter is looked up from another collection
+//                                        property on this vm (first item whose named property equals
+//                                        the given string) - for commands wanting a row ViewModel
 public sealed class DebugRemoteControlServer : IDisposable
 {
     private readonly HttpListener _listener = new();
     private readonly Dictionary<string, object> _viewModels;
+    private readonly Window _mainWindow;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _cts = new();
 
     public int Port { get; }
 
-    public DebugRemoteControlServer(MainWindowViewModel mainWindowViewModel, ILogger logger, int port = 47811)
+    public DebugRemoteControlServer(MainWindowViewModel mainWindowViewModel, Window mainWindow, ILogger logger, int port = 47811)
     {
+        _mainWindow = mainWindow;
         _logger = logger;
         Port = port;
         _viewModels = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -97,6 +107,13 @@ public sealed class DebugRemoteControlServer : IDisposable
 
     private async Task HandleAsync(HttpListenerContext ctx)
     {
+        var path = ctx.Request.Url?.AbsolutePath.Trim('/') ?? "";
+        if (ctx.Request.HttpMethod == "GET" && path.Equals("screenshot", StringComparison.OrdinalIgnoreCase))
+        {
+            await HandleScreenshotAsync(ctx);
+            return;
+        }
+
         (int status, string body) result;
         try
         {
@@ -123,6 +140,59 @@ public sealed class DebugRemoteControlServer : IDisposable
         }
     }
 
+    // Renders the live window off-screen via Avalonia's own compositor, not a Win32
+    // BitBlt/CopyFromScreen - so it works regardless of whether the window is actually visible,
+    // focused, minimized, occluded, or on another monitor/virtual desktop. That matters here: a
+    // physical screen-capture tool has to first bring the real window to the foreground (which can
+    // silently fail - Windows restricts SetForegroundWindow from background processes) and then
+    // trusts whatever pixels are actually on screen at those coordinates, which can end up being a
+    // completely unrelated window if focus didn't actually change. This has no such failure mode.
+    private async Task HandleScreenshotAsync(HttpListenerContext ctx)
+    {
+        try
+        {
+            var bytes = await RunOnUiThreadAsync(RenderWindowToPng);
+            ctx.Response.StatusCode = 200;
+            ctx.Response.ContentType = "image/png";
+            ctx.Response.ContentLength64 = bytes.Length;
+            await ctx.Response.OutputStream.WriteAsync(bytes);
+            ctx.Response.Close();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Debug remote control screenshot failed");
+            try
+            {
+                ctx.Response.StatusCode = 500;
+                var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { error = ex.Message }));
+                ctx.Response.ContentType = "application/json";
+                ctx.Response.ContentLength64 = bytes.Length;
+                await ctx.Response.OutputStream.WriteAsync(bytes);
+                ctx.Response.Close();
+            }
+            catch
+            {
+                // Best-effort - the client just gets a dropped connection if even this fails.
+            }
+        }
+    }
+
+    private byte[] RenderWindowToPng()
+    {
+        var scaling = _mainWindow.RenderScaling;
+        var pixelSize = new PixelSize(
+            Math.Max(1, (int)(_mainWindow.Bounds.Width * scaling)),
+            Math.Max(1, (int)(_mainWindow.Bounds.Height * scaling)));
+        var dpi = new Vector(96 * scaling, 96 * scaling);
+
+        using var bitmap = new RenderTargetBitmap(pixelSize, dpi);
+        bitmap.Render(_mainWindow);
+
+        using var stream = new MemoryStream();
+        bitmap.Save(stream);
+        return stream.ToArray();
+    }
+
     private async Task<(int status, string body)> RouteAsync(HttpListenerRequest request)
     {
         var path = request.Url?.AbsolutePath.Trim('/') ?? "";
@@ -137,9 +207,10 @@ public sealed class DebugRemoteControlServer : IDisposable
                 routes = new[]
                 {
                     "GET /state", "GET /state/{vm}",
+                    "GET /screenshot",
                     "POST /navigate {page}",
                     "POST /vm/{vm}/set {property,value}",
-                    "POST /vm/{vm}/invoke {command,parameter?}"
+                    "POST /vm/{vm}/invoke {command,parameter?|parameterFromCollection?}"
                 }
             }));
         }
@@ -209,9 +280,38 @@ public sealed class DebugRemoteControlServer : IDisposable
                 return (400, Error($"Command '{commandName}' not found on '{segments[1]}'"));
             }
 
-            object? parameter = doc.TryGetProperty("parameter", out var paramEl) && paramEl.ValueKind != JsonValueKind.Null
-                ? paramEl.GetString()
-                : null;
+            // Most ICommand parameters in this app are row ViewModels (e.g. SelectSeriesCommand
+            // wants a SeriesListItemViewModel), not primitives - "parameter" alone can't reach those.
+            // "parameterFromCollection" finds one: read another public collection property on this
+            // same vm (e.g. Rows), and pick the first item whose named property stringifies to the
+            // given value - letting a caller drive into a specific row (open a series, select a
+            // channel, etc.) without needing object references across the HTTP boundary.
+            object? parameter;
+            if (doc.TryGetProperty("parameterFromCollection", out var pfc))
+            {
+                var collectionPropName = pfc.GetProperty("property").GetString()!;
+                var matchPropName = pfc.GetProperty("match").GetString()!;
+                var equalsValue = pfc.GetProperty("equals").GetString()!;
+
+                var collectionProp = vm.GetType().GetProperty(collectionPropName, BindingFlags.Public | BindingFlags.Instance);
+                if (collectionProp?.GetValue(vm) is not IEnumerable items)
+                {
+                    return (400, Error($"Collection property '{collectionPropName}' not found on '{segments[1]}'"));
+                }
+
+                parameter = await RunOnUiThreadAsync(() => FindMatchingItem(items, matchPropName, equalsValue));
+                if (parameter is null)
+                {
+                    return (404, Error($"No item in '{collectionPropName}' with {matchPropName} == '{equalsValue}'"));
+                }
+            }
+            else
+            {
+                parameter = doc.TryGetProperty("parameter", out var paramEl) && paramEl.ValueKind != JsonValueKind.Null
+                    ? paramEl.GetString()
+                    : null;
+            }
+
             await RunOnUiThreadAsync(() => command.Execute(parameter));
             return (200, Ok());
         }
@@ -221,6 +321,25 @@ public sealed class DebugRemoteControlServer : IDisposable
 
     private bool TryGetViewModel(string name, out object viewModel) =>
         _viewModels.TryGetValue(name, out viewModel!);
+
+    private static object? FindMatchingItem(IEnumerable items, string matchPropName, string equalsValue)
+    {
+        foreach (var item in items)
+        {
+            if (item is null)
+            {
+                continue;
+            }
+
+            var itemProp = item.GetType().GetProperty(matchPropName, BindingFlags.Public | BindingFlags.Instance);
+            if (itemProp?.GetValue(item)?.ToString() == equalsValue)
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
 
     // Best-effort shallow dump: primitives/strings/enums/dates serialize as their value, ICommand
     // properties as a marker so callers know what's invokable, collections as a count (not their

@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.Messages;
 using Microsoft.Extensions.Logging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -56,6 +58,38 @@ public partial class DownloadsViewModel : ViewModelBase
             }
             RebuildRows();
         });
+
+    // Jumps to wherever this completed download's playable copy actually lives (Movies/Series/Clips,
+    // whichever applies) via the same Open*Message pattern Favorites/Search already use to open an
+    // item from elsewhere in the app - reuses DownloadManager's own title-based match against the
+    // Downloads profile rather than this ViewModel guessing at it directly.
+    [RelayCommand]
+    private async Task OpenAsync(DownloadItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var resolved = await _downloadManager.ResolveLibraryLocationAsync(item.Download);
+        if (resolved is not { } location)
+        {
+            return;
+        }
+
+        switch (location.Item)
+        {
+            case Movie movie when item.Download.ContentType == WatchProgressContentType.Clip:
+                WeakReferenceMessenger.Default.Send(new OpenClipMessage(movie, location.SourceName));
+                break;
+            case Movie movie:
+                WeakReferenceMessenger.Default.Send(new OpenMovieMessage(movie, location.SourceName));
+                break;
+            case Series series:
+                WeakReferenceMessenger.Default.Send(new OpenSeriesMessage(series, location.SourceName));
+                break;
+        }
+    }
 
     [RelayCommand]
     private void Cancel(DownloadItemViewModel? item)

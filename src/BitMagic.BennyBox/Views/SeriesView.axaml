@@ -183,10 +183,14 @@
                                             HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Left"
                                             Command="{Binding #RootControl.DataContext.PlayEpisodeCommand}"
-                                            CommandParameter="{Binding}">
+                                            CommandParameter="{Binding}"
+                                            ToolTip.Tip="{Binding LocalFilePath}">
                                         <StackPanel Opacity="{Binding ContentOpacity}">
                                             <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="11" Foreground="{StaticResource GlassTextDimBrush}" />
                                             <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                                            <Border Classes="source-badge" HorizontalAlignment="Left">
+                                                <TextBlock Classes="source-badge-text" Text="{Binding SourceName}" />
+                                            </Border>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="glass-nav flat" Grid.Column="1"

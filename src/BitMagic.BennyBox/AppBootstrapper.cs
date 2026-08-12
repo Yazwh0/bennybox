@@ -135,7 +135,15 @@ internal static class AppBootstrapper
         // itself as transient, which would defeat that, so the HttpClient is fetched via a named
         // client instead and handed to an explicitly-singleton registration - HttpClient instances are
         // safe to hold and reuse for the app's whole lifetime (that's IHttpClientFactory's point).
-        services.AddHttpClient("Downloads", client => client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent));
+        // Movie/episode files can take well over the default 100s HttpClient timeout to pull down
+        // (that timeout covers the whole response body being read, not just headers - see
+        // DownloadManager.DownloadHttpAsync) - unbounded here since a genuine stall/user cancel is
+        // already handled per-download via DownloadManager's own CancellationTokenSource.
+        services.AddHttpClient("Downloads", client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        });
         services.AddSingleton(sp => new DownloadManager(
             sp.GetRequiredService<IDownloadRepository>(),
             sp.GetRequiredService<IProfileRepository>(),

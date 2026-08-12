@@ -14,6 +14,7 @@ A Windows desktop IPTV player. Point it at an Xtream Codes or M3U/XMLTV source a
 ### Live TV
 - Category-grouped, searchable channel list (matches channel name or the current programme title).
 - Favorite any channel; shows what's currently playing per channel when EPG data is available.
+- Missing/broken channel logos fall back automatically: first to a same-named Series' poster if one's in your library, then to a live [themoviedb.org](https://www.themoviedb.org/) search - resolved once per channel name and cached permanently, so it's instant on every later view or launch.
 
 ### Guide
 - Full EPG timeline grid - channels down the side, scrolling programme blocks across, with Today/Previous/Next day navigation.
@@ -31,8 +32,9 @@ A Windows desktop IPTV player. Point it at an Xtream Codes or M3U/XMLTV source a
 ### Downloads
 - A download button on any movie, episode, or clip pulls a copy onto this machine for offline/faster playback - once downloaded, the app automatically plays that local copy instead of re-streaming the original, without losing your watch progress.
 - **Download Season** and **Download All** on a series' detail page queue every not-yet-downloaded episode at once (two downloads run at a time; the rest just wait their turn).
-- A dedicated **Downloads** page shows progress for everything in flight and everything already downloaded, with Cancel, Retry, and Delete per item.
+- A dedicated **Downloads** page shows progress for everything in flight and everything already downloaded, with Cancel, Retry, and Delete per item - clicking a completed download jumps straight to it in Movies/Series/Clips, ready to play.
 - Downloads resume from where they left off after an interruption (a dropped connection, or the app closing mid-download) for Xtream and Local Folder sources. SFTP downloads restart cleanly instead of resuming - the SFTP library this app uses doesn't yet support reading from a mid-file offset, so a retry re-fetches the whole file rather than continuing it.
+- An episode's row shows which profile is actually serving it right now - the streaming source, or "Downloads" once a local copy exists - with the file's location available on hover.
 - Settings → **Downloads** shows where files are being saved, lets you change that location, and reports disk usage with a "Clear all downloads" option.
 
 ### Favorites

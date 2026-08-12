@@ -261,6 +261,66 @@ public class DownloadManager
         _ = Task.Run(() => RunDownloadAsync(download, sourceProfile, r.Kind, r.StreamUrl, r.BuildDestinationPath, cts.Token), cts.Token);
     }
 
+    // Resolves where a completed download's playable copy now lives in this app's own library
+    // (always the Downloads profile - that's where RunDownloadAsync/RescanDownloadsProfileAsync put
+    // it) - for "open it" navigation from the Downloads panel (see DownloadsViewModel.OpenAsync).
+    // Matches by normalized title, the same technique DownloadPlaybackResolver uses for playback
+    // fallback. For an episode, matched via the ORIGINAL series' true (unsanitized) name rather than
+    // trying to recover it from the sanitized folder name in LocalRelativePath - the original
+    // profile/series row may itself be gone by now, in which case this simply returns null rather
+    // than falling back to a fuzzier match. Returns (item, sourceName): item is a Movie for
+    // Movie/Clip content, or a Series for Episode content - the caller already knows which from
+    // download.ContentType.
+    public async Task<(object Item, string SourceName)?> ResolveLibraryLocationAsync(Download download, CancellationToken cancellationToken = default)
+    {
+        if (download.Status != DownloadStatus.Completed)
+        {
+            return null;
+        }
+
+        var downloadsProfile = await GetDownloadsProfileIfExistsAsync(cancellationToken);
+        if (downloadsProfile is null)
+        {
+            return null;
+        }
+
+        switch (download.ContentType)
+        {
+            case WatchProgressContentType.Movie:
+            {
+                var movies = await _movieRepository.GetMoviesAsync(downloadsProfile.Id, cancellationToken);
+                var match = movies.FirstOrDefault(m => Normalize(m.Name) == Normalize(download.Title));
+                return match is null ? null : (match, downloadsProfile.Name);
+            }
+            case WatchProgressContentType.Clip:
+            {
+                var clips = await _clipRepository.GetClipsAsync(downloadsProfile.Id, cancellationToken);
+                var match = clips.FirstOrDefault(c => Normalize(c.Name) == Normalize(download.Title));
+                return match is null ? null : (match, downloadsProfile.Name);
+            }
+            case WatchProgressContentType.Episode:
+            {
+                var seriesSourceId = ExtractEpisodeSeriesId(download.OriginalSourceId);
+                var originalSeries = seriesSourceId is null
+                    ? null
+                    : (await _seriesRepository.GetSeriesAsync(download.OriginalProfileId, cancellationToken))
+                        .FirstOrDefault(s => s.SourceSeriesId == seriesSourceId);
+                if (originalSeries is null)
+                {
+                    return null;
+                }
+
+                var downloadsSeriesList = await _seriesRepository.GetSeriesAsync(downloadsProfile.Id, cancellationToken);
+                var matchedSeries = downloadsSeriesList.FirstOrDefault(s => Normalize(s.Name) == Normalize(originalSeries.Name));
+                return matchedSeries is null ? null : (matchedSeries, downloadsProfile.Name);
+            }
+            default:
+                return null;
+        }
+    }
+
+    private static string Normalize(string value) => value.Trim().ToLowerInvariant();
+
     private async Task<(string StreamUrl, MediaKind Kind, Func<ProfileSource, string> BuildDestinationPath)?> ResolveMovieAsync(
         ProfileSource sourceProfile, string sourceMovieId, CancellationToken cancellationToken)
     {
@@ -598,13 +658,7 @@ public class DownloadManager
 
         var startingBytes = File.Exists(destinationPath) ? new FileInfo(destinationPath).Length : 0;
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        if (startingBytes > 0)
-        {
-            request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(startingBytes, null);
-        }
-
-        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var response = await SendFollowingRedirectsAsync(url, startingBytes, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var isResuming = startingBytes > 0 && response.StatusCode == System.Net.HttpStatusCode.PartialContent;
@@ -629,6 +683,47 @@ public class DownloadManager
             await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             bytesTransferred += read;
             progress.Report((bytesTransferred, totalBytes));
+        }
+    }
+
+    // .NET's HttpClient auto-follows redirects EXCEPT when the redirect would downgrade the scheme
+    // from https to http - a security default that silently leaves the 302 itself as the "response"
+    // instead of throwing, so it only surfaces later as an opaque EnsureSuccessStatusCode failure.
+    // Xtream panels commonly front an https:// URL that 302s straight to the actual media server over
+    // plain http, so that default blocks every Xtream download outright. Following redirects manually
+    // here (scheme changes included) is the fix; each hop re-sends the Range header since a
+    // HttpRequestMessage can't be reused after being sent.
+    private async Task<HttpResponseMessage> SendFollowingRedirectsAsync(string url, long startingBytes, CancellationToken cancellationToken)
+    {
+        const int maxRedirects = 5;
+        var currentUrl = url;
+
+        for (var attempt = 0; ; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, currentUrl);
+            if (startingBytes > 0)
+            {
+                request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(startingBytes, null);
+            }
+
+            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            var isRedirect = response.StatusCode is System.Net.HttpStatusCode.MovedPermanently or System.Net.HttpStatusCode.Found
+                or System.Net.HttpStatusCode.SeeOther or System.Net.HttpStatusCode.TemporaryRedirect or System.Net.HttpStatusCode.PermanentRedirect;
+            if (!isRedirect || response.Headers.Location is null)
+            {
+                return response;
+            }
+
+            if (attempt >= maxRedirects)
+            {
+                return response;
+            }
+
+            currentUrl = response.Headers.Location.IsAbsoluteUri
+                ? response.Headers.Location.ToString()
+                : new Uri(new Uri(currentUrl), response.Headers.Location).ToString();
+            response.Dispose();
         }
     }
 

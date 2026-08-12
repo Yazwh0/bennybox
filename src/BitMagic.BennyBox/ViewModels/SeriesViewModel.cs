@@ -247,8 +247,10 @@ public partial class SeriesViewModel : ViewModelBase
 
     // See DownloadRowSupport - unlike Movies/Clips, an episode is "already downloaded" by season+
     // episode number match within the same-named show, not by its own title (episode titles are often
-    // too generic - "Episode 4" - to be a reliable match key on their own).
-    private async Task<HashSet<(int Season, int EpisodeNumber)>> GetDownloadedEpisodeKeysAsync(ProfileSource downloadsProfile, string seriesName)
+    // too generic - "Episode 4" - to be a reliable match key on their own). Keyed to the matched
+    // Downloads-profile episode's own StreamUrl (a file:// URI - see LocalFileSystem.BuildStreamUrl)
+    // so callers can show where the file actually landed, not just that it exists.
+    private async Task<Dictionary<(int Season, int EpisodeNumber), string>> GetDownloadedEpisodeKeysAsync(ProfileSource downloadsProfile, string seriesName)
     {
         var downloadsSeriesList = await _seriesRepository.GetSeriesAsync(downloadsProfile.Id);
         var matched = downloadsSeriesList.FirstOrDefault(s => DownloadRowSupport.Normalize(s.Name) == DownloadRowSupport.Normalize(seriesName));
@@ -258,8 +260,11 @@ public partial class SeriesViewModel : ViewModelBase
         }
 
         var episodes = await _seriesImportService.GetEpisodesAsync(downloadsProfile, matched);
-        return episodes.Select(e => (e.Season, e.EpisodeNumber)).ToHashSet();
+        return episodes.ToDictionary(e => (e.Season, e.EpisodeNumber), e => StreamUrlToLocalPath(e.StreamUrl));
     }
+
+    private static string StreamUrlToLocalPath(string streamUrl) =>
+        Uri.TryCreate(streamUrl, UriKind.Absolute, out var uri) && uri.IsFile ? uri.LocalPath : streamUrl;
 
     private async Task LoadLastRefreshSecondsAsync()
     {
@@ -452,11 +457,14 @@ public partial class SeriesViewModel : ViewModelBase
                 {
                     var item = new EpisodeListItemViewModel(
                         e, watchedKeys.Contains(ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId)), isFromDownloadsProfile);
+                    var downloadedPath = downloadedEpisodeKeys.GetValueOrDefault((e.Season, e.EpisodeNumber));
                     var (state, progress) = DownloadRowSupport.ComputeState(
-                        activeDownloads, downloadedEpisodeKeys.Contains((e.Season, e.EpisodeNumber)),
+                        activeDownloads, downloadedPath is not null,
                         profile.Id, WatchProgressContentType.Episode, ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId));
                     item.DownloadState = state;
                     item.DownloadProgress = progress;
+                    item.LocalFilePath = isFromDownloadsProfile ? StreamUrlToLocalPath(e.StreamUrl) : downloadedPath;
+                    item.SourceName = !isFromDownloadsProfile && downloadedPath is not null ? downloadsProfile!.Name : series.SourceName;
                     return item;
                 }));
             }
