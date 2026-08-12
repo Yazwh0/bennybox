@@ -83,19 +83,17 @@
             </StackPanel>
         </Border>
 
-        <Border Classes="glass-card" Padding="16">
+        <!-- Nothing to configure at all once a bundled key is already doing the job - the whole
+             card disappears rather than showing an empty "works out of the box" notice with no
+             control underneath it. -->
+        <Border Classes="glass-card" Padding="16" IsVisible="{Binding !HasEmbeddedTmdbKey}">
             <StackPanel Spacing="12">
                 <TextBlock Text="Metadata enrichment" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
-                <TextBlock Text="Fills in a synopsis, genre, and poster for Local Folder/SFTP movies and shows that have no local NFO/poster of their own, using themoviedb.org. Local metadata always wins when it's present. This build already has a bundled key, so it works out of the box - only set your own below if you'd rather override it (e.g. the shared key gets rate-limited, or you just prefer your own)."
-                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap"
-                           IsVisible="{Binding HasEmbeddedTmdbKey}" />
                 <TextBlock Text="Fills in a synopsis, genre, and poster for Local Folder/SFTP movies and shows that have no local NFO/poster of their own, using themoviedb.org. Leave blank to skip this entirely - local metadata always wins when it's present either way. Get a free API key at themoviedb.org (Settings &#8594; API)."
-                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap"
-                           IsVisible="{Binding !HasEmbeddedTmdbKey}" />
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
                 <StackPanel Spacing="4">
                     <TextBlock Text="TMDb API Key" Foreground="{StaticResource GlassTextBrush}" />
-                    <TextBox Classes="glass" Text="{Binding TmdbApiKey}"
-                             PlaceholderText="{Binding HasEmbeddedTmdbKey, Converter={StaticResource HasEmbeddedTmdbKeyToPlaceholderConverter}}" />
+                    <TextBox Classes="glass" Text="{Binding TmdbApiKey}" PlaceholderText="Not set" />
                 </StackPanel>
             </StackPanel>
         </Border>

@@ -22,7 +22,6 @@
         <converters:NavBarHorizontalAlignmentConverter x:Key="NavBarHorizontalAlignmentConverter" />
         <converters:PausedToPlaySymbolConverter x:Key="PausedToPlaySymbolConverter" />
         <converters:MutedToSymbolConverter x:Key="MutedToSymbolConverter" />
-        <converters:HasEmbeddedTmdbKeyToPlaceholderConverter x:Key="HasEmbeddedTmdbKeyToPlaceholderConverter" />
 
         <!-- "Smoked Glass" palette - warm, dim, minimal amber-on-near-black, chosen from three
              mockup directions compared as an HTML artifact. Centralized here so every view pulls
