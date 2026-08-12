@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Globalization;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -146,8 +147,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        // "width|height|state" (older saves, before position was tracked) or
+        // "width|height|state|x|y" - accepting both means an existing install doesn't lose its
+        // saved size/state on the first launch after this X/Y addition.
         var parts = saved.Split('|');
-        if (parts.Length == 3 &&
+        if (parts.Length >= 3 &&
             double.TryParse(parts[0], out var width) && width > 0 &&
             double.TryParse(parts[1], out var height) && height > 0 &&
             Enum.TryParse<WindowState>(parts[2], out var state))
@@ -155,6 +159,18 @@ public partial class MainWindow : Window
             Width = width;
             Height = height;
             WindowState = state == WindowState.Minimized ? WindowState.Normal : state;
+
+            // Only trust a saved position if some currently-connected screen actually contains that
+            // point - e.g. the window was last on a second monitor that's since been unplugged.
+            // Leaving Position untouched otherwise falls back to Avalonia's own default placement,
+            // exactly as if no position had ever been saved.
+            if (parts.Length == 5 &&
+                int.TryParse(parts[3], out var x) &&
+                int.TryParse(parts[4], out var y) &&
+                Screens.All.Any(screen => screen.Bounds.Contains(new PixelPoint(x, y))))
+            {
+                Position = new PixelPoint(x, y);
+            }
         }
     }
 
@@ -165,7 +181,7 @@ public partial class MainWindow : Window
         var state = effectiveState == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
         var width = state == WindowState.Maximized ? Width : Bounds.Width;
         var height = state == WindowState.Maximized ? Height : Bounds.Height;
-        _ = _settingsStore.SetAsync("WindowState", $"{width}|{height}|{state}");
+        _ = _settingsStore.SetAsync("WindowState", $"{width}|{height}|{state}|{Position.X}|{Position.Y}");
 
         // _forceClosing lets the "Force Exit" branch below re-invoke Close() without looping back
         // into this same warning - the second pass falls straight through instead of re-cancelling.
