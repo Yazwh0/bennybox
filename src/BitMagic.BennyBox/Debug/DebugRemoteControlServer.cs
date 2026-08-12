@@ -189,7 +189,7 @@ public sealed class DebugRemoteControlServer : IDisposable
         bitmap.Render(_mainWindow);
 
         using var stream = new MemoryStream();
-        bitmap.Save(stream);
+        bitmap.Save(stream, new PngBitmapEncoderOptions());
         return stream.ToArray();
     }
 

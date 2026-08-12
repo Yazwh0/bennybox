@@ -267,13 +267,17 @@
                         <ui:FASymbolIcon Symbol="StopFilled" FontSize="16" />
                     </Button>
                     <Button Classes="glass-ctrl" Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}" Padding="10,6">
-                        <ui:FASymbolIcon Symbol="PreviousFilled" FontSize="16" />
+                        <!-- Plain double-triangle, not FASymbolIcon's PreviousFilled/NextFilled - those
+                             render with a vertical bar (⏮/⏭), which reads as "previous/next track"
+                             rather than "skip back/forward N seconds". Matches the glyphs the phone
+                             remote (RemoteControlPage.cs) already uses for the same buttons. -->
+                        <TextBlock Text="⏪" FontSize="16" />
                     </Button>
                     <Button Classes="glass-ctrl accent" Command="{Binding Player.TogglePauseCommand}" IsVisible="{Binding Player.CanPause}" Padding="10,6">
                         <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={StaticResource PausedToPlaySymbolConverter}}" FontSize="16" />
                     </Button>
                     <Button Classes="glass-ctrl" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}" Padding="10,6">
-                        <ui:FASymbolIcon Symbol="NextFilled" FontSize="16" />
+                        <TextBlock Text="⏩" FontSize="16" />
                     </Button>
                     <Button Classes="glass-ctrl" Command="{Binding Player.ToggleFullscreenCommand}" Padding="10,6">
                         <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="16" />

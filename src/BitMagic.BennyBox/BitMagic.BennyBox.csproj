@@ -10,6 +10,12 @@
     <Company>BitMagic</Company>
     <PackageId>BitMagic.BennyBox</PackageId>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <!-- AVLN3001: MainWindow has no public parameterless constructor by design - it's only ever
+         constructed via DI (see App.axaml.cs), and adding one just to satisfy Avalonia's XAML
+         previewer/hot-reload tooling would be a footgun (a stray `new MainWindow()` compiling but
+         producing a half-wired window). The app's own XAML loading goes through the generated
+         InitializeComponent(), not this reflection-based path, so it's unaffected at runtime. -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,9 +43,10 @@
     <PackageReference Include="LibVLCSharp" />
     <PackageReference Include="LibVLCSharp.Avalonia" />
     <PackageReference Include="QRCoder" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- Microsoft.Extensions.Hosting/Http/Configuration.UserSecrets are deliberately NOT referenced
+         here - they're already part of the Microsoft.AspNetCore.App shared framework this project
+         references above (for Kestrel/RemoteControlServer), so an explicit PackageReference is
+         redundant and the SDK's package-pruning advisory (NU1510) flags it as such. -->
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" />
