@@ -47,12 +47,12 @@ A Windows desktop IPTV player. Point it at an Xtream Codes or M3U/XMLTV source a
 
 ### Remote control
 - Settings → **Remote** shows a QR code (and fallback URL) for a small mobile web page, gated by a random per-session code so it can't be guessed.
-- From a phone on the same network: play/pause, stop, skip forward/back, and adjust volume, with the page staying in sync with what the app is actually doing.
+- From a phone on the same network: browse and play Live TV, Guide, Series, Movies, Clips, and Favorites (including Continue Watching), plus play/pause, stop, skip forward/back, and adjust volume for whatever's currently playing - the page stays in sync with what the app is actually doing.
 - Only listens once you open the Remote panel, and the code can be regenerated at any time to invalidate the old one.
 
 ### Other
-- Light/Dark/System theme.
-- The app reopens on whichever page you last had open.
+- Light/Dark/System theme, plus an adjustable background opacity slider for how see-through the app is against the desktop behind it.
+- The app reopens on whichever page you last had open, at the same window position and size.
 
 ## Getting started
 

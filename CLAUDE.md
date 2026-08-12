@@ -33,7 +33,13 @@ Settings, Player, RemoteControl.
 
 Reserve real screen automation (Win32 `SetForegroundWindow`/mouse events + `CopyFromScreen`) for
 the final visual confirmation once the app is already in the right state via the bridge, not for
-navigating there.
+navigating there. If the thing you actually need to verify is backend/ViewModel state (a computed
+string, a persisted setting, a command's effect) and the bridge already confirms it, that's the
+verification - don't also reach for a mouse-driven screenshot "for completeness." Save real screen
+automation for when the visual rendering itself is what's in question (layout, colors, clipping),
+or for the rare state that's only reachable by an actual click (e.g. a `Button.Flyout`, which opens
+on the click event itself, not on its bound `Command` - invoking the command via the bridge will
+not open it).
 
 ## XAML/Avalonia styling conventions
 
