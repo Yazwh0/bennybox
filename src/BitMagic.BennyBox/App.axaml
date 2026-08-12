@@ -173,6 +173,17 @@
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
         </Style>
 
+        <!-- Flyout chrome (e.g. the Remote control QR panel, "Read full description") - otherwise
+             FluentAvaloniaTheme's own default light popup background, which clashes hard against
+             every other surface in the app. One style covers every Flyout in the app, not just a
+             specific one, since they'd all have the same mismatch. -->
+        <Style Selector="FlyoutPresenter">
+            <Setter Property="Background" Value="{StaticResource GlassPanelStrongBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+
         <!-- Small pill showing which profile a movie/series row came from (see MovieListItemViewModel/
              SeriesListItemViewModel.SourceName) - only meaningfully informative once a library merges
              more than one profile, but shown unconditionally since it's small enough not to be noise

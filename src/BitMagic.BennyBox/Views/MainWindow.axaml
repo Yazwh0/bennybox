@@ -141,18 +141,21 @@
                         <Flyout Placement="Bottom">
                             <StackPanel Spacing="10" Width="260" Margin="4">
                                 <TextBlock Text="Scan with your phone to control playback"
-                                           TextWrapping="Wrap" FontSize="13" Opacity="0.8" />
-                                <Image Source="{Binding RemoteControl.QrCodeImage}" Width="220" Height="220" />
+                                           Foreground="{StaticResource GlassTextDimBrush}"
+                                           TextWrapping="Wrap" FontSize="13" />
+                                <Border Background="White" CornerRadius="6" Padding="8" HorizontalAlignment="Center">
+                                    <Image Source="{Binding RemoteControl.QrCodeImage}" Width="204" Height="204" />
+                                </Border>
                                 <TextBlock Text="{Binding RemoteControl.StatusMessage}"
                                            IsVisible="{Binding RemoteControl.HasStatusMessage}"
                                            Foreground="OrangeRed" TextWrapping="Wrap" FontSize="12" />
-                                <TextBox Text="{Binding RemoteControl.ConnectUrl}" IsReadOnly="True"
+                                <TextBox Classes="glass" Text="{Binding RemoteControl.ConnectUrl}" IsReadOnly="True"
                                          IsVisible="{Binding RemoteControl.IsActive}"
                                          FontSize="11" TextWrapping="Wrap" />
                                 <StackPanel Orientation="Horizontal" Spacing="8"
                                             IsVisible="{Binding RemoteControl.IsActive}">
-                                    <Button Content="New Code" Command="{Binding RemoteControl.RegenerateCodeCommand}" />
-                                    <Button Content="Stop" Command="{Binding RemoteControl.StopCommand}" />
+                                    <Button Classes="glass-ctrl" Content="New Code" Command="{Binding RemoteControl.RegenerateCodeCommand}" />
+                                    <Button Classes="glass-ctrl" Content="Stop" Command="{Binding RemoteControl.StopCommand}" />
                                 </StackPanel>
                             </StackPanel>
                         </Flyout>
