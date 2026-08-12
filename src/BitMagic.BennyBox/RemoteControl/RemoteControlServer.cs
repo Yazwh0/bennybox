@@ -23,12 +23,15 @@ namespace BitMagic.BennyBox.RemoteControl;
 // `netsh http add urlacl` reservation. Kestrel binds via plain managed sockets, so it works for a
 // normal, non-administrator user - the only realistic option for a consumer feature.
 //
-// Split across RemoteControlServer.{LiveTv,Guide,Series,Movies,Favorites}.cs by content area - this
-// file is just the core (auth, lifecycle, routing table) plus the original playback-transport routes.
-// Every content-area route deliberately reads repositories directly rather than driving
-// LiveTvViewModel/GuideViewModel/SeriesViewModel/MoviesViewModel/FavoritesViewModel - those are
-// effectively singletons bound straight to the desktop screen, so searching from the phone would
-// otherwise visibly hijack whatever's shown on the TV/desktop at that moment.
+// Split across RemoteControlServer.{LiveTv,Guide,Series,Movies,Clips,Favorites}.cs by content area -
+// this file is just the core (auth, lifecycle, routing table) plus the original playback-transport
+// routes. Every content-area route deliberately reads repositories directly rather than driving
+// LiveTvViewModel/GuideViewModel/SeriesViewModel/MoviesViewModel/ClipsViewModel/FavoritesViewModel -
+// those are effectively singletons bound straight to the desktop screen, so searching from the phone
+// would otherwise visibly hijack whatever's shown on the TV/desktop at that moment. Downloads has no
+// remote equivalent - it's cancel/retry/delete management, not "browse and play" (playing a
+// downloaded item already happens transparently through Movies/Series/Clips, see
+// DownloadPlaybackResolver), so there was nothing here for it to mirror.
 public sealed partial class RemoteControlServer : IAsyncDisposable
 {
     private const int PreferredPort = 47819;
@@ -53,6 +56,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
     private readonly IEpgRepository _epgRepository;
     private readonly ISeriesRepository _seriesRepository;
     private readonly IMovieRepository _movieRepository;
+    private readonly IClipRepository _clipRepository;
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly IWatchProgressRepository _watchProgressRepository;
@@ -74,6 +78,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         IEpgRepository epgRepository,
         ISeriesRepository seriesRepository,
         IMovieRepository movieRepository,
+        IClipRepository clipRepository,
         IFavoriteRepository favoriteRepository,
         IWatchedItemRepository watchedItemRepository,
         IWatchProgressRepository watchProgressRepository,
@@ -89,6 +94,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         _epgRepository = epgRepository;
         _seriesRepository = seriesRepository;
         _movieRepository = movieRepository;
+        _clipRepository = clipRepository;
         _favoriteRepository = favoriteRepository;
         _watchedItemRepository = watchedItemRepository;
         _watchProgressRepository = watchProgressRepository;
@@ -169,6 +175,7 @@ public sealed partial class RemoteControlServer : IAsyncDisposable
         MapGuideRoutes(app);
         MapSeriesRoutes(app);
         MapMoviesRoutes(app);
+        MapClipsRoutes(app);
         MapFavoritesRoutes(app);
         MapSearchRoutes(app);
     }

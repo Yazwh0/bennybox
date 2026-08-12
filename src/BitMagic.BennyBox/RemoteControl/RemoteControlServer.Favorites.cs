@@ -30,12 +30,14 @@ public sealed partial class RemoteControlServer
         var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
         var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
         var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+        var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
         var recentProgress = await _watchProgressRepository.GetRecentAsync();
         var profiles = await _profileRepository.GetAllAsync();
 
         var channelItems = new List<LiveTvItemResponse>();
         var seriesItems = new List<SeriesItemResponse>();
         var movieItems = new List<MovieItemResponse>();
+        var clipItems = new List<ClipItemResponse>();
 
         foreach (var profile in profiles)
         {
@@ -60,6 +62,11 @@ public sealed partial class RemoteControlServer
             movieItems.AddRange(movies
                 .Where(m => favoriteMovieIds.Contains(m.Id))
                 .Select(m => new MovieItemResponse(m.Id, m.Name, m.CoverUrl, "", true, false)));
+
+            var clips = await _clipRepository.GetClipsAsync(profile.Id);
+            clipItems.AddRange(clips
+                .Where(c => favoriteClipIds.Contains(c.Id))
+                .Select(c => new ClipItemResponse(c.Id, c.Name, c.CoverUrl, "", true, false)));
         }
 
         var continueWatching = recentProgress.Select(p => new ContinueWatchingResponse(
@@ -71,7 +78,8 @@ public sealed partial class RemoteControlServer
             continueWatching,
             channelItems.OrderBy(c => c.Name).ToList(),
             seriesItems.OrderBy(s => s.Name).ToList(),
-            movieItems.OrderBy(m => m.Name).ToList()));
+            movieItems.OrderBy(m => m.Name).ToList(),
+            clipItems.OrderBy(c => c.Name).ToList()));
     }
 
     private async Task<IResult> HandleFavoritesResume(HttpRequest request, ProgressKeyRequest? body)
@@ -176,6 +184,22 @@ public sealed partial class RemoteControlServer
                 }
                 break;
 
+            case "clip":
+                if (body.Favorite)
+                {
+                    var clip = await FindClipAsync(body.Id);
+                    if (clip is null)
+                    {
+                        return Results.NotFound();
+                    }
+                    await _favoriteRepository.AddClipAsync(clip.ProfileId, clip.Id);
+                }
+                else
+                {
+                    await _favoriteRepository.RemoveClipAsync(body.Id);
+                }
+                break;
+
             default:
                 return Results.BadRequest();
         }
@@ -192,5 +216,6 @@ public sealed partial class RemoteControlServer
         List<ContinueWatchingResponse> ContinueWatching,
         List<LiveTvItemResponse> Channels,
         List<SeriesItemResponse> Series,
-        List<MovieItemResponse> Movies);
+        List<MovieItemResponse> Movies,
+        List<ClipItemResponse> Clips);
 }

@@ -34,12 +34,13 @@ public sealed partial class RemoteControlServer
         {
             // Searching implies you've typed something - an empty query skips the repository reads
             // entirely rather than dumping the whole combined catalog.
-            return Results.Json(new SearchResponse([], false, [], false, [], false));
+            return Results.Json(new SearchResponse([], false, [], false, [], false, [], false));
         }
 
         var favoriteChannelIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
         var favoriteSeriesIds = await _favoriteRepository.GetFavoriteSeriesIdsAsync();
         var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
+        var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
         var watchedItems = await _watchedItemRepository.GetAllAsync();
         var watchedSeriesKeys = watchedItems
             .Where(w => w.ContentType == WatchProgressContentType.Series)
@@ -49,11 +50,16 @@ public sealed partial class RemoteControlServer
             .Where(w => w.ContentType == WatchProgressContentType.Movie)
             .Select(w => (w.ProfileId, w.ContentKey))
             .ToHashSet();
+        var watchedClipKeys = watchedItems
+            .Where(w => w.ContentType == WatchProgressContentType.Clip)
+            .Select(w => (w.ProfileId, w.ContentKey))
+            .ToHashSet();
         var profiles = await _profileRepository.GetAllAsync();
 
         var channels = new List<LiveTvItemResponse>();
         var series = new List<SeriesItemResponse>();
         var movies = new List<MovieItemResponse>();
+        var clips = new List<ClipItemResponse>();
 
         foreach (var profile in profiles)
         {
@@ -73,14 +79,21 @@ public sealed partial class RemoteControlServer
                 .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .Select(m => new MovieItemResponse(
                     m.Id, m.Name, m.CoverUrl, "", favoriteMovieIds.Contains(m.Id), watchedMovieKeys.Contains((m.ProfileId, m.SourceMovieId)))));
+
+            var profileClips = await _clipRepository.GetClipsAsync(profile.Id);
+            clips.AddRange(profileClips
+                .Where(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Select(c => new ClipItemResponse(
+                    c.Id, c.Name, c.CoverUrl, "", favoriteClipIds.Contains(c.Id), watchedClipKeys.Contains((c.ProfileId, c.SourceMovieId)))));
         }
 
         var (cappedChannels, channelsTruncated) = Cap(channels);
         var (cappedSeries, seriesTruncated) = Cap(series);
         var (cappedMovies, moviesTruncated) = Cap(movies);
+        var (cappedClips, clipsTruncated) = Cap(clips);
 
         return Results.Json(new SearchResponse(
-            cappedChannels, channelsTruncated, cappedSeries, seriesTruncated, cappedMovies, moviesTruncated));
+            cappedChannels, channelsTruncated, cappedSeries, seriesTruncated, cappedMovies, moviesTruncated, cappedClips, clipsTruncated));
     }
 
     private static (List<T> Items, bool Truncated) Cap<T>(List<T> items) =>
@@ -91,5 +104,6 @@ public sealed partial class RemoteControlServer
     private sealed record SearchResponse(
         List<LiveTvItemResponse> Channels, bool ChannelsTruncated,
         List<SeriesItemResponse> Series, bool SeriesTruncated,
-        List<MovieItemResponse> Movies, bool MoviesTruncated);
+        List<MovieItemResponse> Movies, bool MoviesTruncated,
+        List<ClipItemResponse> Clips, bool ClipsTruncated);
 }

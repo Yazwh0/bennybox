@@ -8,7 +8,8 @@ namespace BitMagic.BennyBox.RemoteControl;
 // fetch() from the page can carry it without the user ever seeing/handling it themselves.
 //
 // A small multi-tab app: Now Playing (the original transport controls) plus Live TV/Guide/Series/
-// Movies/Favorites browsing tabs, each backed by the matching RemoteControlServer.*.cs route file.
+// Movies/Clips/Favorites browsing tabs, each backed by the matching RemoteControlServer.*.cs route
+// file. Downloads has no tab here - see the type-level comment on RemoteControlServer.cs for why.
 internal static class RemoteControlPage
 {
     public static string Build(Guid token) => Html.Replace("__TOKEN__", token.ToString());
@@ -130,9 +131,9 @@ internal static class RemoteControlPage
           <div class="page" id="page-search">
             <h1>Search</h1>
             <div class="search-row">
-              <input type="text" id="search-query" placeholder="Search Live TV, Series, and Movies..." />
+              <input type="text" id="search-query" placeholder="Search Live TV, Series, Movies, and Clips..." />
             </div>
-            <div id="search-results"><div class="empty-note">Type to search across Live TV, Series, and Movies.</div></div>
+            <div id="search-results"><div class="empty-note">Type to search across Live TV, Series, Movies, and Clips.</div></div>
           </div>
 
           <div class="page" id="page-livetv">
@@ -177,6 +178,18 @@ internal static class RemoteControlPage
             <div id="movies-detail-view" style="display:none"></div>
           </div>
 
+          <div class="page" id="page-clips">
+            <div id="clips-list-view">
+              <h1>Clips</h1>
+              <div class="search-row">
+                <input type="text" id="clips-search" placeholder="Search clips..." />
+                <select id="clips-category"><option value="">All Categories</option></select>
+              </div>
+              <div id="clips-list"></div>
+            </div>
+            <div id="clips-detail-view" style="display:none"></div>
+          </div>
+
           <div class="page" id="page-favorites">
             <h1>Favorites</h1>
             <div id="favorites-list"></div>
@@ -189,6 +202,7 @@ internal static class RemoteControlPage
             <button data-tab="guide"><span class="icon">📅</span>Guide</button>
             <button data-tab="series"><span class="icon">📋</span>Series</button>
             <button data-tab="movies"><span class="icon">🎬</span>Movies</button>
+            <button data-tab="clips"><span class="icon">🎞️</span>Clips</button>
             <button data-tab="favorites"><span class="icon">⭐</span>Favs</button>
           </nav>
 
@@ -246,6 +260,7 @@ internal static class RemoteControlPage
             guide: () => loadGuide(),
             series: () => { if (!seriesLoaded) loadSeriesList(); },
             movies: () => { if (!moviesLoaded) loadMoviesList(); },
+            clips: () => { if (!clipsLoaded) loadClipsList(); },
             favorites: () => loadFavorites()
           };
           function showTab(tab) {
@@ -369,7 +384,7 @@ internal static class RemoteControlPage
             const results = document.getElementById("search-results");
             results.innerHTML = "";
 
-            if (data.channels.length === 0 && data.series.length === 0 && data.movies.length === 0) {
+            if (data.channels.length === 0 && data.series.length === 0 && data.movies.length === 0 && data.clips.length === 0) {
               results.innerHTML = '<div class="empty-note">No matches found.</div>';
               return;
             }
@@ -421,6 +436,23 @@ internal static class RemoteControlPage
                   '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
                 row.onclick = () => openMovieDetail(item.id);
                 row.appendChild(starButton("movie", item.id, item.isFavorite));
+                results.appendChild(row);
+              }
+            }
+
+            if (data.clips.length > 0) {
+              results.insertAdjacentHTML("beforeend", '<div class="section-header">Clips</div>');
+              if (data.clipsTruncated) {
+                results.insertAdjacentHTML("beforeend", '<div class="truncated-note">Showing first ' + data.clips.length + ' results - refine your search for more.</div>');
+              }
+              for (const item of data.clips) {
+                const row = document.createElement("div");
+                row.className = "list-item tap" + (item.isWatched ? " watched" : "");
+                row.innerHTML =
+                  '<img class="cover" src="' + esc(item.coverUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />' +
+                  '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
+                row.onclick = () => openClipDetail(item.id);
+                row.appendChild(starButton("clip", item.id, item.isFavorite));
                 results.appendChild(row);
               }
             }
@@ -747,6 +779,92 @@ internal static class RemoteControlPage
           moviesSearch.addEventListener("input", debounce(loadMoviesList, 300));
           moviesCategory.addEventListener("change", loadMoviesList);
 
+          // ---------- Clips ----------
+          let clipsLoaded = false;
+          const clipsSearch = document.getElementById("clips-search");
+          const clipsCategory = document.getElementById("clips-category");
+
+          async function loadClipsList() {
+            const params = new URLSearchParams({ search: clipsSearch.value, category: clipsCategory.value });
+            let data;
+            try {
+              const res = await api("/api/clips?" + params);
+              if (!res.ok) throw new Error("clips " + res.status);
+              data = await res.json();
+            } catch (e) {
+              showToast("Couldn't load clips.");
+              return;
+            }
+            clipsLoaded = true;
+            populateCategorySelect(clipsCategory, data.categories);
+            const list = document.getElementById("clips-list");
+            list.innerHTML = "";
+            if (data.truncated) {
+              const note = document.createElement("div");
+              note.className = "truncated-note";
+              note.textContent = "Showing first 200 results - refine your search for more.";
+              list.appendChild(note);
+            }
+            if (data.items.length === 0) {
+              list.innerHTML += '<div class="empty-note">No clips found.</div>';
+              return;
+            }
+            for (const item of data.items) {
+              const row = document.createElement("div");
+              row.className = "list-item tap" + (item.isWatched ? " watched" : "");
+              row.innerHTML =
+                '<img class="cover" src="' + esc(item.coverUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />' +
+                '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
+              row.onclick = () => openClipDetail(item.id);
+              row.appendChild(starButton("clip", item.id, item.isFavorite));
+              list.appendChild(row);
+            }
+          }
+
+          async function openClipDetail(id) {
+            showTab("clips");
+            document.getElementById("clips-list-view").style.display = "none";
+            const view = document.getElementById("clips-detail-view");
+            view.style.display = "";
+            view.innerHTML = '<button class="back-btn">&larr; Back to Clips</button><div class="empty-note">Loading...</div>';
+            view.querySelector(".back-btn").onclick = closeClipDetail;
+
+            let c;
+            try {
+              const res = await api("/api/clips/" + id);
+              if (!res.ok) throw new Error("clip detail " + res.status);
+              c = await res.json();
+            } catch (e) {
+              view.innerHTML = '<button class="back-btn">&larr; Back to Clips</button><div class="empty-note">Failed to load.</div>';
+              view.querySelector(".back-btn").onclick = closeClipDetail;
+              return;
+            }
+
+            let html = '<button class="back-btn">&larr; Back to Clips</button>';
+            html += '<div class="detail-header"><img class="cover" src="' + esc(c.coverUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />';
+            html += '<div><div class="name">' + esc(c.name) + '</div>';
+            const metaParts = [c.genre, c.releaseDate].filter(Boolean);
+            if (metaParts.length) html += '<div class="meta">' + esc(metaParts.join(" · ")) + '</div>';
+            if (c.plot) html += '<div class="plot">' + esc(c.plot) + '</div>';
+            html += '</div></div>';
+            html += '<button class="play-btn" id="clip-play-btn">▶ Play</button>';
+
+            view.innerHTML = html;
+            view.querySelector(".back-btn").onclick = closeClipDetail;
+            document.getElementById("clip-play-btn").onclick = async () => {
+              const ok = await apiAction("/api/clips/" + id + "/play", { method: "POST" }, "Couldn't play that clip.");
+              if (ok) goToNowPlaying();
+            };
+          }
+
+          function closeClipDetail() {
+            document.getElementById("clips-detail-view").style.display = "none";
+            document.getElementById("clips-list-view").style.display = "";
+          }
+
+          clipsSearch.addEventListener("input", debounce(loadClipsList, 300));
+          clipsCategory.addEventListener("change", loadClipsList);
+
           // ---------- Favorites ----------
           async function loadFavorites() {
             let data;
@@ -761,7 +879,7 @@ internal static class RemoteControlPage
             const list = document.getElementById("favorites-list");
             list.innerHTML = "";
 
-            if (data.continueWatching.length === 0 && data.channels.length === 0 && data.series.length === 0 && data.movies.length === 0) {
+            if (data.continueWatching.length === 0 && data.channels.length === 0 && data.series.length === 0 && data.movies.length === 0 && data.clips.length === 0) {
               list.innerHTML = '<div class="empty-note">Nothing favorited yet.</div>';
               return;
             }
@@ -824,6 +942,20 @@ internal static class RemoteControlPage
                   '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
                 row.onclick = () => openMovieDetail(item.id);
                 row.appendChild(starButton("movie", item.id, true, (fav) => { if (!fav) loadFavorites(); }));
+                list.appendChild(row);
+              }
+            }
+
+            if (data.clips.length > 0) {
+              list.insertAdjacentHTML("beforeend", '<div class="section-header">Clips</div>');
+              for (const item of data.clips) {
+                const row = document.createElement("div");
+                row.className = "list-item tap";
+                row.innerHTML =
+                  '<img class="cover" src="' + esc(item.coverUrl || "") + '" onerror="this.style.visibility=\'hidden\'" />' +
+                  '<div class="info"><div class="name">' + esc(item.name) + '</div></div>';
+                row.onclick = () => openClipDetail(item.id);
+                row.appendChild(starButton("clip", item.id, true, (fav) => { if (!fav) loadFavorites(); }));
                 list.appendChild(row);
               }
             }
