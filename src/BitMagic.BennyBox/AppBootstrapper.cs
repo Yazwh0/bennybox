@@ -6,6 +6,7 @@ using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
 using BitMagic.BennyBox.Data.Sqlite;
 using BitMagic.BennyBox.Sources.Folder;
+using BitMagic.BennyBox.Sources.GitHub;
 using BitMagic.BennyBox.Sources.M3u;
 using BitMagic.BennyBox.Sources.Tmdb;
 using BitMagic.BennyBox.Sources.Xmltv;
@@ -117,6 +118,15 @@ internal static class AppBootstrapper
         services.AddSingleton<IMetadataEnrichmentService>(sp => new CachingMetadataEnrichmentService(
             sp.GetRequiredService<TmdbMetadataEnrichmentService>(),
             sp.GetRequiredService<IMetadataEnrichmentCacheRepository>()));
+
+        // Checked once at startup (see MainWindowViewModel) - no caching layer needed, unlike TMDb
+        // above, since this is at most one call per launch rather than one per title in a library scan.
+        services.AddHttpClient<GitHubUpdateCheckService>(client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+        });
+        services.AddTransient<IUpdateCheckService>(sp => sp.GetRequiredService<GitHubUpdateCheckService>());
 
         services.AddSingleton<IMovieSource>(sp => new FolderMovieSource(ProfileSourceType.LocalFolder, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IMetadataEnrichmentService>()));
         services.AddSingleton<IMovieSource>(sp => new FolderMovieSource(ProfileSourceType.Sftp, sp.GetRequiredService<IMediaFileSystemFactory>(), sp.GetRequiredService<IMetadataEnrichmentService>()));

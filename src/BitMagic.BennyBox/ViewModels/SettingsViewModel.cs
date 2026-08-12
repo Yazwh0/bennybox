@@ -24,6 +24,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly ISettingsStore _settingsStore;
     private readonly IMetadataEnrichmentService _metadataEnrichmentService;
     private readonly DownloadManager _downloadManager;
+    private readonly IUpdateCheckService _updateCheckService;
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
@@ -32,6 +33,7 @@ public partial class SettingsViewModel : ViewModelBase
     private bool _isApplyingSavedTrackPreferences;
     private bool _isApplyingSavedRemoteKeyMode;
     private bool _isApplyingSavedTmdbApiKey;
+    private bool _isApplyingSavedCheckForUpdates;
 
     public string Title => "Settings";
 
@@ -103,6 +105,28 @@ public partial class SettingsViewModel : ViewModelBase
         set => IsRemoteKeyFixed = !value;
     }
 
+    // Read by MainWindowViewModel.CheckForUpdateAsync via the same ISettingsStore key
+    // ("CheckForUpdatesAutomatically") - default true (on) so existing installs start checking
+    // without needing a migration; only an explicit "false" turns it off.
+    [ObservableProperty]
+    private bool _checkForUpdatesAutomatically = true;
+
+    // Deliberately separate from IsBusy/StatusMessage above - those are shared by profile refresh/
+    // add/remove and would otherwise disable unrelated buttons (Add Profile, Clear all downloads) or
+    // get clobbered by an unrelated status message while a manual update check is in flight.
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUpdateCheckStatus))]
+    private string? _updateCheckStatus;
+
+    public bool HasUpdateCheckStatus => !string.IsNullOrEmpty(UpdateCheckStatus);
+
+    // Never changes over the app's lifetime (the assembly's own version), so a plain computed
+    // property is enough - no [ObservableProperty]/change notification needed.
+    public string CurrentVersion => _updateCheckService.CurrentVersion;
+
     // Read by TmdbMetadataEnrichmentService (see BitMagic.BennyBox.Sources.Tmdb) via the same
     // ISettingsStore key ("TmdbApiKey") - fills in Plot/Genre/ReleaseDate/poster for LocalFolder/Sftp
     // movies and shows with no local NFO/poster. Overrides the build's bundled key (see
@@ -145,6 +169,7 @@ public partial class SettingsViewModel : ViewModelBase
         ISettingsStore settingsStore,
         IMetadataEnrichmentService metadataEnrichmentService,
         DownloadManager downloadManager,
+        IUpdateCheckService updateCheckService,
         ILogger<SettingsViewModel> logger)
     {
         _profileRepository = profileRepository;
@@ -157,6 +182,7 @@ public partial class SettingsViewModel : ViewModelBase
         _settingsStore = settingsStore;
         _metadataEnrichmentService = metadataEnrichmentService;
         _downloadManager = downloadManager;
+        _updateCheckService = updateCheckService;
         _logger = logger;
 
         _ = LoadProfilesAsync();
@@ -167,6 +193,7 @@ public partial class SettingsViewModel : ViewModelBase
         _ = LoadRemoteKeyModeAsync();
         _ = LoadTmdbApiKeyAsync();
         _ = LoadDownloadsSectionAsync();
+        _ = LoadCheckForUpdatesAsync();
     }
 
     private async Task LoadDownloadsSectionAsync()
@@ -369,6 +396,39 @@ public partial class SettingsViewModel : ViewModelBase
         }
 
         _ = _settingsStore.SetAsync("RemoteKeyFixed", value ? "true" : "false");
+    }
+
+    private async Task LoadCheckForUpdatesAsync()
+    {
+        _isApplyingSavedCheckForUpdates = true;
+        CheckForUpdatesAutomatically = await _settingsStore.GetAsync("CheckForUpdatesAutomatically") != "false";
+        _isApplyingSavedCheckForUpdates = false;
+    }
+
+    partial void OnCheckForUpdatesAutomaticallyChanged(bool value)
+    {
+        if (_isApplyingSavedCheckForUpdates)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("CheckForUpdatesAutomatically", value ? "true" : "false");
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesNowAsync()
+    {
+        IsCheckingForUpdates = true;
+        UpdateCheckStatus = null;
+        try
+        {
+            var update = await _updateCheckService.CheckForUpdateAsync();
+            UpdateCheckStatus = update is not null ? $"Version {update.Version} is available." : "You're up to date.";
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
     }
 
     private async Task LoadTmdbApiKeyAsync()

@@ -50,22 +50,38 @@
         </Grid.ColumnDefinitions>
 
         <Grid Grid.Column="0" x:Name="SidebarContentGrid" RowDefinitions="Auto,Auto,*" IsVisible="{Binding !Player.IsFullscreen}">
-            <!-- App-wide "X is starting now" banner for in-app EPG reminders (see GuideView's per-
-                 programme reminder toggle) - lives above the nav row so it's visible from any page,
-                 not just Guide. -->
-            <Border Grid.Row="0" Background="#2D5F3A" Padding="10,6" Margin="8,8,8,0" CornerRadius="4"
-                    IsVisible="{Binding HasDueReminder}">
-                <Grid ColumnDefinitions="*,Auto,Auto">
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap">
-                        <Run Text="{Binding DueReminder.ChannelName}" FontWeight="Bold" />
-                        <Run Text=" - " />
-                        <Run Text="{Binding DueReminder.ProgrammeTitle}" />
-                        <Run Text=" is starting now" />
-                    </TextBlock>
-                    <Button Grid.Column="1" Content="Watch" Command="{Binding WatchReminderCommand}" Margin="8,0,0,0" />
-                    <Button Grid.Column="2" Content="✕" Command="{Binding DismissReminderCommand}" Margin="4,0,0,0" />
-                </Grid>
-            </Border>
+            <!-- App-wide banners (EPG reminders, update available) - stacked above the nav row so
+                 either is visible from any page, not just wherever it was triggered from. -->
+            <StackPanel Grid.Row="0" Spacing="4">
+                <!-- "X is starting now" for in-app EPG reminders (see GuideView's per-programme
+                     reminder toggle). -->
+                <Border Background="#2D5F3A" Padding="10,6" Margin="8,8,8,0" CornerRadius="4"
+                        IsVisible="{Binding HasDueReminder}">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap">
+                            <Run Text="{Binding DueReminder.ChannelName}" FontWeight="Bold" />
+                            <Run Text=" - " />
+                            <Run Text="{Binding DueReminder.ProgrammeTitle}" />
+                            <Run Text=" is starting now" />
+                        </TextBlock>
+                        <Button Grid.Column="1" Content="Watch" Command="{Binding WatchReminderCommand}" Margin="8,0,0,0" />
+                        <Button Grid.Column="2" Content="✕" Command="{Binding DismissReminderCommand}" Margin="4,0,0,0" />
+                    </Grid>
+                </Border>
+                <!-- A new release is available on GitHub (see MainWindowViewModel.CheckForUpdateAsync) -
+                     opt out via Settings -> Updates. -->
+                <Border Background="#2D4B5F" Padding="10,6" Margin="8,8,8,0" CornerRadius="4"
+                        IsVisible="{Binding HasUpdateAvailable}">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap">
+                            <Run Text="Benny Box" FontWeight="Bold" />
+                            <Run Text="{Binding AvailableUpdate.Version, StringFormat=' {0} is available'}" />
+                        </TextBlock>
+                        <Button Grid.Column="1" Content="View" Command="{Binding OpenUpdateCommand}" Margin="8,0,0,0" />
+                        <Button Grid.Column="2" Content="✕" Command="{Binding DismissUpdateCommand}" Margin="4,0,0,0" />
+                    </Grid>
+                </Border>
+            </StackPanel>
             <!-- Nav "pane" is just a row of buttons above the page content now, instead of its own
                  separate column. Icon-only and deliberately condensed to one row (not a wrapping
                  WrapPanel) so the sidebar's remaining height goes to the actual channel/series/movie

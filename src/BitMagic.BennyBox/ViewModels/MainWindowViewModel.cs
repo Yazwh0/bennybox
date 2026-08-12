@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,6 +21,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IReminderRepository _reminderRepository;
     private readonly IChannelRepository _channelRepository;
     private readonly ISettingsStore _settingsStore;
+    private readonly IUpdateCheckService _updateCheckService;
     private readonly Queue<Reminder> _pendingReminders = new();
     private readonly DispatcherTimer _reminderTimer;
     private bool _isRestoringLastPage;
@@ -34,6 +36,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private Reminder? _dueReminder;
 
     public bool HasDueReminder => DueReminder is not null;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUpdateAvailable))]
+    private UpdateInfo? _availableUpdate;
+
+    public bool HasUpdateAvailable => AvailableUpdate is not null;
 
     // Settings is the one page with no video area - MainWindow's single shared video/sidebar layout
     // (see MainWindow.axaml) uses this to give Settings the full window width instead of squeezing it
@@ -88,7 +96,8 @@ public partial class MainWindowViewModel : ViewModelBase
         RemoteControlViewModel remoteControl,
         IReminderRepository reminderRepository,
         IChannelRepository channelRepository,
-        ISettingsStore settingsStore)
+        ISettingsStore settingsStore,
+        IUpdateCheckService updateCheckService)
     {
         Search = search;
         LiveTv = liveTv;
@@ -104,6 +113,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _reminderRepository = reminderRepository;
         _channelRepository = channelRepository;
         _settingsStore = settingsStore;
+        _updateCheckService = updateCheckService;
         _currentPage = liveTv;
 
         // A series/movie favorited elsewhere is opened by switching to its page and asking it to
@@ -131,6 +141,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _reminderTimer.Start();
         _ = CheckRemindersAsync();
         _ = RestoreLastPageAsync();
+        _ = CheckForUpdateAsync();
     }
 
     [RelayCommand]
@@ -219,5 +230,42 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         DismissReminder();
+    }
+
+    // Once per launch, not on a repeating timer like reminders - there's nothing to poll for (a new
+    // release doesn't ship more often than once every few hours at the very fastest), and hitting
+    // GitHub's API repeatedly for the life of the process would be pointless. Opt-out via Settings ->
+    // Updates ("CheckForUpdatesAutomatically" - absent/anything but the literal "false" means on, so
+    // existing installs default to checking without needing a migration).
+    private async Task CheckForUpdateAsync()
+    {
+        if (await _settingsStore.GetAsync("CheckForUpdatesAutomatically") == "false")
+        {
+            return;
+        }
+
+        AvailableUpdate = await _updateCheckService.CheckForUpdateAsync();
+    }
+
+    [RelayCommand]
+    private void DismissUpdate() => AvailableUpdate = null;
+
+    [RelayCommand]
+    private void OpenUpdate()
+    {
+        if (AvailableUpdate is { } update)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(update.ReleaseUrl) { UseShellExecute = true });
+            }
+            catch
+            {
+                // Opening the default browser is a courtesy, not something worth surfacing an error
+                // for - the release is still reachable manually from github.com/Yazwh0/bennybox.
+            }
+        }
+
+        DismissUpdate();
     }
 }

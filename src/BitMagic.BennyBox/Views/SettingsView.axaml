@@ -3,6 +3,7 @@
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
              xmlns:models="using:BitMagic.BennyBox.Core.Models"
              xmlns:converters="using:Avalonia.Data.Converters"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="BitMagic.BennyBox.Views.SettingsView"
              x:DataType="vm:SettingsViewModel"
              x:Name="RootControl">
@@ -23,6 +24,23 @@
                     <TextBlock Text="{Binding WindowBackgroundOpacityPercent, StringFormat='{}{0}%'}" VerticalAlignment="Center" Width="40" Foreground="{StaticResource GlassTextDimBrush}" />
                 </StackPanel>
                 <TextBlock Text="How much of the desktop shows through behind the app - lower is more see-through."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Classes="glass-card" Padding="16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Updates" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="{Binding CurrentVersion, StringFormat='Current version: {0}'}"
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" />
+                <CheckBox Content="Check for updates automatically" IsChecked="{Binding CheckForUpdatesAutomatically}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="glass-ctrl" Content="Check now" Command="{Binding CheckForUpdatesNowCommand}" IsEnabled="{Binding !IsCheckingForUpdates}" />
+                    <ui:FAProgressRing IsActive="{Binding IsCheckingForUpdates}" Width="18" Height="18" IsVisible="{Binding IsCheckingForUpdates}" />
+                    <TextBlock Text="{Binding UpdateCheckStatus}" IsVisible="{Binding HasUpdateCheckStatus}"
+                               VerticalAlignment="Center" Foreground="{StaticResource GlassTextDimBrush}" />
+                </StackPanel>
+                <TextBlock Text="A new release shows a banner above the nav bar when one's available - this only checks, it never installs anything automatically."
                            Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
