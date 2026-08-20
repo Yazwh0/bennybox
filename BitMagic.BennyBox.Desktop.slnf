@@ -1,0 +1,14 @@
+{
+  "solution": {
+    "path": "BitMagic.BennyBox.slnx",
+    "projects": [
+      "src/BitMagic.BennyBox/BitMagic.BennyBox.csproj",
+      "src/BitMagic.BennyBox.Core/BitMagic.BennyBox.Core.csproj",
+      "src/BitMagic.BennyBox.Data/BitMagic.BennyBox.Data.csproj",
+      "src/BitMagic.BennyBox.Sources/BitMagic.BennyBox.Sources.csproj",
+      "src/BitMagic.BennyBox.UI/BitMagic.BennyBox.UI.csproj",
+      "tests/BitMagic.BennyBox.Core.Tests/BitMagic.BennyBox.Core.Tests.csproj",
+      "tests/BitMagic.BennyBox.Sources.Tests/BitMagic.BennyBox.Sources.Tests.csproj"
+    ]
+  }
+}

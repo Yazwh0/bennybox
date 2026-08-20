@@ -1,0 +1,51 @@
+name: Android CI
+
+# Builds BitMagic.BennyBox.Android on its own - kept separate from ci.yml (which only builds
+# BitMagic.BennyBox.Desktop.slnf) because it needs the android workload/SDK that the desktop job
+# doesn't install, and because Android changes shouldn't block/be blocked by the Windows-only
+# desktop pipeline or vice versa.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/BitMagic.BennyBox.Android/**'
+      - 'src/BitMagic.BennyBox.Core/**'
+      - 'src/BitMagic.BennyBox.Data/**'
+      - 'src/BitMagic.BennyBox.Sources/**'
+      - 'src/BitMagic.BennyBox.UI/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/BitMagic.BennyBox.Android/**'
+      - 'src/BitMagic.BennyBox.Core/**'
+      - 'src/BitMagic.BennyBox.Data/**'
+      - 'src/BitMagic.BennyBox.Sources/**'
+      - 'src/BitMagic.BennyBox.UI/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/android-ci.yml'
+
+jobs:
+  build-android:
+    # No OS-specific code in this project (unlike the desktop head's DPAPI dependency), and
+    # GitHub-hosted runners ship with the Android SDK preinstalled - ubuntu-latest works fine and is
+    # cheaper/faster than windows-latest.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Build
+        run: dotnet build src/BitMagic.BennyBox.Android/BitMagic.BennyBox.Android.csproj --configuration Release

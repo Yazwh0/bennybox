@@ -8,8 +8,11 @@ on:
 
 jobs:
   build-and-test:
-    # Some code paths (CredentialProtector, XtreamSeriesSource) are Windows-only, and the app itself
-    # is a Windows desktop app - a Windows runner is required, not just preferred.
+    # The desktop head (BitMagic.BennyBox) is Windows-only (DPAPI-backed CredentialProtector), so a
+    # Windows runner is required here, not just preferred. Scoped to
+    # BitMagic.BennyBox.Desktop.slnf (excludes BitMagic.BennyBox.Android) rather than the full .slnx -
+    # the Android project needs the android workload/SDK, which this job doesn't install; see
+    # android-ci.yml for that build.
     runs-on: windows-latest
 
     steps:
@@ -22,10 +25,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore BitMagic.BennyBox.Desktop.slnf
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build BitMagic.BennyBox.Desktop.slnf --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"
+        run: dotnet test BitMagic.BennyBox.Desktop.slnf --configuration Release --no-build --logger "console;verbosity=normal"

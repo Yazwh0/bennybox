@@ -43,10 +43,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore BitMagic.BennyBox.Desktop.slnf
 
       - name: Test
-        run: dotnet test --configuration Release
+        run: dotnet test BitMagic.BennyBox.Desktop.slnf --configuration Release
 
       - name: Publish self-contained win-x64
         # TMDB_API_KEY_ENCODED must already be obfuscated (EmbeddedKeyObfuscator.Obfuscate, see
