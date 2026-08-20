@@ -1,9 +1,10 @@
 name: Release
 
 # Builds a self-contained win-x64 publish, packages it into a Windows installer with Inno Setup, and
-# (for an actual version tag push) attaches it to a GitHub Release. Manual runs via workflow_dispatch
-# just produce a downloadable build artifact, without publishing a public release - handy for testing
-# changes to this workflow or the installer script itself.
+# a signed Android APK (build-android job below) - both (for an actual version tag push) get attached
+# to the same GitHub Release. Manual runs via workflow_dispatch just produce downloadable build
+# artifacts, without publishing a public release - handy for testing changes to this workflow or the
+# installer script itself.
 on:
   push:
     tags:
@@ -89,4 +90,86 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: installer-output/*.exe
+          generate_release_notes: true
+
+  build-android:
+    # Separate job/runner from build-installer (Android needs the workload the Windows job doesn't
+    # install, same split as ci.yml/android-ci.yml) - both jobs independently attach their own files
+    # to the same tag's GitHub Release via softprops/action-gh-release, which is safe to call from
+    # multiple jobs since it updates an existing release for the tag rather than erroring if one
+    # already exists.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # versionCode must be a plain increasing integer (Android refuses to install an update
+          # whose versionCode isn't higher than what's already on the device) - major.minor.patch
+          # packed as major*10000+minor*100+patch is a common convention that comfortably covers a
+          # 0-99 range for minor/patch. Falls back to 1 if the version string doesn't parse as
+          # three dot-separated numbers (e.g. a workflow_dispatch typo) rather than failing the build.
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          if [[ "$MAJOR" =~ ^[0-9]+$ && "$MINOR" =~ ^[0-9]+$ && "$PATCH" =~ ^[0-9]+$ ]]; then
+            echo "versioncode=$((MAJOR * 10000 + MINOR * 100 + PATCH))" >> "$GITHUB_OUTPUT"
+          else
+            echo "versioncode=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Publish Android APK
+        # Same TMDB_API_KEY_ENCODED secret as the Windows installer build - see its own comment above
+        # and BitMagic.BennyBox.Sources.csproj (the embedding is shared, platform-agnostic MSBuild
+        # logic, not something each head project wires up separately).
+        #
+        # No AndroidSigningKeyStore/-KeyAlias/-KeyPass/-StorePass is configured, so this is signed
+        # with an ephemeral debug keystore .NET for Android auto-generates when none is set - fine to
+        # get a real installable APK out the door today, but every CI run gets its own signing key,
+        # so Android will refuse to install a newer release over an older one (different signer) -
+        # users have to uninstall the old APK first each time until this has a persistent release
+        # keystore stored as a repo secret instead.
+        env:
+          TMDB_API_KEY_ENCODED: ${{ secrets.TMDB_API_KEY_ENCODED }}
+        run: >
+          dotnet publish src/BitMagic.BennyBox.Android/BitMagic.BennyBox.Android.csproj
+          --configuration Release
+          -p:ApplicationVersion=${{ steps.version.outputs.versioncode }}
+          -p:ApplicationDisplayVersion=${{ steps.version.outputs.version }}
+          --output publish/android
+
+      - name: Collect signed APK
+        shell: bash
+        run: |
+          mkdir -p apk-output
+          cp publish/android/*-Signed.apk "apk-output/BennyBox-${{ steps.version.outputs.version }}.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BennyBox-${{ steps.version.outputs.version }}-android
+          path: apk-output/*.apk
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apk-output/*.apk
           generate_release_notes: true
