@@ -135,24 +135,43 @@ jobs:
       - name: Install Android workload
         run: dotnet workload install android
 
+      - name: Decode release keystore
+        # Persistent signing key (see ANDROID_KEYSTORE_BASE64 etc. below) - every release from here on
+        # is signed with the same key, so Android treats them as updates to install in place rather
+        # than a different app each time. Only decoded into $RUNNER_TEMP, which is wiped with the rest
+        # of the ephemeral runner at the end of the job - never written into the checked-out repo.
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/bennybox-release.keystore"
+
       - name: Publish Android APK
-        # Same TMDB_API_KEY_ENCODED secret as the Windows installer build - see its own comment above
+        # TMDB_API_KEY_ENCODED: same secret as the Windows installer build - see its own comment above
         # and BitMagic.BennyBox.Sources.csproj (the embedding is shared, platform-agnostic MSBuild
         # logic, not something each head project wires up separately).
         #
-        # No AndroidSigningKeyStore/-KeyAlias/-KeyPass/-StorePass is configured, so this is signed
-        # with an ephemeral debug keystore .NET for Android auto-generates when none is set - fine to
-        # get a real installable APK out the door today, but every CI run gets its own signing key,
-        # so Android will refuse to install a newer release over an older one (different signer) -
-        # users have to uninstall the old APK first each time until this has a persistent release
-        # keystore stored as a repo secret instead.
+        # AndroidSigningKeyStore/-KeyAlias/-KeyPass/-StorePass sign with the persistent keystore decoded
+        # above instead of the ephemeral debug keystore .NET for Android would otherwise auto-generate -
+        # the whole point being that every release uses the *same* key, so Android accepts each new one
+        # as an update to the last rather than refusing to install over a different signer. Note this
+        # only takes effect from this release onward: anyone with an older release installed (signed
+        # with a prior run's own ephemeral debug key) still needs to uninstall that one first - after
+        # that, updates install in place with no data loss.
         env:
           TMDB_API_KEY_ENCODED: ${{ secrets.TMDB_API_KEY_ENCODED }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: >
           dotnet publish src/BitMagic.BennyBox.Android/BitMagic.BennyBox.Android.csproj
           --configuration Release
           -p:ApplicationVersion=${{ steps.version.outputs.versioncode }}
           -p:ApplicationDisplayVersion=${{ steps.version.outputs.version }}
+          -p:AndroidKeyStore=true
+          "-p:AndroidSigningKeyStore=$RUNNER_TEMP/bennybox-release.keystore"
+          "-p:AndroidSigningKeyAlias=$ANDROID_KEY_ALIAS"
+          "-p:AndroidSigningKeyPass=$ANDROID_KEY_PASSWORD"
+          "-p:AndroidSigningStorePass=$ANDROID_KEYSTORE_PASSWORD"
           --output publish/android
 
       - name: Collect signed APK

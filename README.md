@@ -74,7 +74,7 @@ Every [release](https://github.com/Yazwh0/bennybox/releases) includes a Windows 
 ### Android
 1. On the phone, download `BennyBox-<version>.apk` from the [latest release](https://github.com/Yazwh0/bennybox/releases/latest).
 2. Android blocks the first install - allow "Install unknown apps" for whichever app you downloaded it with (Settings → Apps → *that app* → Install unknown apps), then open the file to install.
-3. **Updating loses your data - for now.** Each release is signed with its own build-time key, not a persistent one, so Android won't install a new version over an old one; you have to uninstall first. Uninstalling wipes the app's private storage, which is where profiles, favourites, watch progress, settings, and downloaded files all live, so there's currently no way to update without starting over. Fixing this needs a persistent signing key added to the build, which hasn't happened yet.
+3. Releases are now signed with a persistent key, so from here on, installing a newer version over an older one updates it in place and keeps your data. If you have a version installed from before this change (signed with a one-off build key), you'll need to uninstall it once to move to a persistently-signed release - after that, updates just work.
 
 No Play Store listing - this is a hobby project, so sideloading the APK is the only route for now.
 
