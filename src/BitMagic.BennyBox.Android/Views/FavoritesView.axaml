@@ -8,6 +8,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
              xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:views="using:BitMagic.BennyBox.Android.Views"
              x:Class="BitMagic.BennyBox.Views.FavoritesView"
              x:DataType="vm:FavoritesViewModel"
              x:Name="RootControl">
@@ -51,10 +52,12 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Button>
-                                <Button Grid.Column="1" Content="&#10007;"
+                                <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveWatchProgressCommand}" CommandParameter="{Binding}"
                                         Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
+                                    <ui:FASymbolIcon Symbol="Dismiss" FontSize="16" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -73,10 +76,12 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Button>
-                                <Button Grid.Column="1" Content="&#9733;"
+                                <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}" CommandParameter="{Binding}"
                                         Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
+                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -91,10 +96,12 @@
                                         <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button Grid.Column="1" Content="&#9733;"
+                                <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveSeriesFavoriteCommand}" CommandParameter="{Binding}"
                                         Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
+                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -109,10 +116,12 @@
                                         <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button Grid.Column="1" Content="&#9733;"
+                                <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveMovieFavoriteCommand}" CommandParameter="{Binding}"
                                         Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
+                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -127,10 +136,12 @@
                                         <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button Grid.Column="1" Content="&#9733;"
+                                <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveClipFavoriteCommand}" CommandParameter="{Binding}"
                                         Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
+                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>

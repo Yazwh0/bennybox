@@ -6,6 +6,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="BitMagic.BennyBox.Views.DownloadsView"
              x:DataType="vm:DownloadsViewModel"
              x:Name="RootControl">
@@ -48,14 +49,18 @@
                                         IsVisible="{Binding IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0" />
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
                                             IsVisible="{Binding !IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0">
-                                    <Button Content="&#8635;" ToolTip.Tip="Retry"
+                                    <Button ToolTip.Tip="Retry"
                                             Command="{Binding #RootControl.DataContext.RetryCommand}" CommandParameter="{Binding}"
                                             IsVisible="{Binding IsFailedOrCanceled}" Width="36" Height="36" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-                                    <Button Content="&#10007;" ToolTip.Tip="Delete"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
+                                    </Button>
+                                    <Button ToolTip.Tip="Delete"
                                             Command="{Binding #RootControl.DataContext.DeleteCommand}" CommandParameter="{Binding}"
                                             Width="36" Height="36" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <ui:FASymbolIcon Symbol="Dismiss" FontSize="16" />
+                                    </Button>
                                 </StackPanel>
                             </Grid>
                         </Border>

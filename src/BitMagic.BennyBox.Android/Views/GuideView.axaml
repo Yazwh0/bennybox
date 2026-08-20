@@ -21,15 +21,24 @@
         <StackPanel Grid.Row="0" Spacing="6" Margin="8">
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Content="Today" Command="{Binding GoToTodayCommand}" IsEnabled="{Binding !IsLoading}" />
-                <Button Content="&#9664;" Command="{Binding GoToPreviousDayCommand}" IsEnabled="{Binding !IsLoading}" />
-                <Button Content="&#9654;" Command="{Binding GoToNextDayCommand}" IsEnabled="{Binding !IsLoading}" />
+                <Button Command="{Binding GoToPreviousDayCommand}" IsEnabled="{Binding !IsLoading}"
+                        Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <ui:FASymbolIcon Symbol="ChevronLeft" FontSize="16" />
+                </Button>
+                <Button Command="{Binding GoToNextDayCommand}" IsEnabled="{Binding !IsLoading}"
+                        Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <ui:FASymbolIcon Symbol="ChevronRight" FontSize="16" />
+                </Button>
                 <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0" />
             </StackPanel>
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels or what's on..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="18" Height="18" Margin="6,0,0,0" />
-                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0" />
+                <Button Grid.Column="2" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0"
+                        Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
+                </Button>
             </Grid>
             <TextBox Text="{Binding CategoryFilterText}" Watermark="Filter categories..." />
             <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
@@ -52,11 +61,12 @@
                             <Expander.Header>
                                 <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                                     <Button Grid.Column="0"
-                                            Content="{Binding FavoriteIcon}"
                                             Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
                                             CommandParameter="{Binding}"
                                             Width="36" Height="36" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                        <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
+                                    </Button>
                                     <controls:ChannelLogoImage Grid.Column="1"
                                                                 LogoUrl="{Binding Channel.LogoUrl}"
                                                                 FallbackLogoUrl="{Binding FallbackLogoUrl}"
@@ -64,12 +74,14 @@
                                                                 Width="32" Height="32" Margin="6,0" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="2" Text="{Binding ChannelName}" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" />
-                                    <Button Grid.Column="3" Content="&#9654;"
+                                    <Button Grid.Column="3"
                                             Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
                                             CommandParameter="{Binding}"
                                             Width="36" Height="36" Padding="0"
                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                            ToolTip.Tip="Watch live" />
+                                            ToolTip.Tip="Watch live">
+                                        <ui:FASymbolIcon Symbol="PlayFilled" FontSize="16" />
+                                    </Button>
                                 </Grid>
                             </Expander.Header>
 
@@ -89,8 +101,8 @@
                                                     <TextBlock Grid.Column="0" Text="{Binding StartUtc, Converter={x:Static views:UtcToLocalTimeConverter.Instance}}"
                                                                Opacity="0.7" FontSize="12" VerticalAlignment="Center" />
                                                     <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="6,0" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="2" Text="&#128276;" FontSize="12" VerticalAlignment="Center"
-                                                               IsVisible="{Binding HasReminder}" ToolTip.Tip="Reminder set" />
+                                                    <ui:FASymbolIcon Grid.Column="2" Symbol="AlertOn" FontSize="12" VerticalAlignment="Center"
+                                                                     IsVisible="{Binding HasReminder}" ToolTip.Tip="Reminder set" />
                                                 </Grid>
                                             </Button>
                                         </DataTemplate>

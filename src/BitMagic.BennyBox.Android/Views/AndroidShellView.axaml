@@ -149,7 +149,7 @@
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                         Command="{Binding Player.ToggleFullscreenCommand}"
                         IsVisible="False">
-                    <TextBlock Text="&#10005;" Foreground="White" FontSize="16" />
+                    <ui:FASymbolIcon Symbol="Dismiss" Foreground="White" FontSize="16" />
                 </Button>
             </Grid>
 

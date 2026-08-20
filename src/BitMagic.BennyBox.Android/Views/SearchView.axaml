@@ -9,6 +9,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
              xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:views="using:BitMagic.BennyBox.Android.Views"
              x:Class="BitMagic.BennyBox.Views.SearchView"
              x:DataType="vm:SearchViewModel"
              x:Name="RootControl">
@@ -53,9 +54,11 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:ChannelListItemViewModel">
                         <Grid ColumnDefinitions="Auto,*" Margin="8,2">
-                            <Button Grid.Column="0" Content="{Binding FavoriteIcon}"
+                            <Button Grid.Column="0"
                                     Command="{Binding #RootControl.DataContext.ToggleChannelFavoriteCommand}" CommandParameter="{Binding}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
                             <Button Grid.Column="1" Background="Transparent" BorderThickness="0"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectChannelCommand}" CommandParameter="{Binding Channel}">
@@ -72,9 +75,11 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:SeriesListItemViewModel">
                         <Grid ColumnDefinitions="Auto,*" Margin="8,2">
-                            <Button Grid.Column="0" Content="{Binding FavoriteIcon}"
+                            <Button Grid.Column="0"
                                     Command="{Binding #RootControl.DataContext.ToggleSeriesFavoriteCommand}" CommandParameter="{Binding}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
                             <Button Grid.Column="1" Background="Transparent" BorderThickness="0"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectSeriesCommand}" CommandParameter="{Binding}">
@@ -87,16 +92,22 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:MovieListItemViewModel">
                         <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="8,2">
-                            <Button Grid.Column="0" Content="{Binding FavoriteIcon}"
+                            <Button Grid.Column="0"
                                     Command="{Binding #RootControl.DataContext.ToggleMovieFavoriteCommand}" CommandParameter="{Binding}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
-                            <Button Grid.Column="1" Content="{Binding WatchedIcon}" ToolTip.Tip="Toggle watched"
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="1" ToolTip.Tip="Toggle watched"
                                     Command="{Binding #RootControl.DataContext.ToggleMovieWatchedCommand}" CommandParameter="{Binding}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
-                            <Button Grid.Column="2" Content="{Binding DownloadIcon}" ToolTip.Tip="Download to this device"
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="2" ToolTip.Tip="Download to this device"
                                     Command="{Binding #RootControl.DataContext.DownloadMovieCommand}" CommandParameter="{Binding}"
                                     IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
                             <Button Grid.Column="3" Background="Transparent" BorderThickness="0"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectMovieCommand}" CommandParameter="{Binding}">
@@ -109,16 +120,22 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:ClipListItemViewModel">
                         <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="8,2">
-                            <Button Grid.Column="0" Content="{Binding FavoriteIcon}"
+                            <Button Grid.Column="0"
                                     Command="{Binding #RootControl.DataContext.ToggleClipFavoriteCommand}" CommandParameter="{Binding}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
-                            <Button Grid.Column="1" Content="{Binding WatchedIcon}" ToolTip.Tip="Toggle watched"
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="1" ToolTip.Tip="Toggle watched"
                                     Command="{Binding #RootControl.DataContext.ToggleClipWatchedCommand}" CommandParameter="{Binding}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
-                            <Button Grid.Column="2" Content="{Binding DownloadIcon}" ToolTip.Tip="Download to this device"
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="2" ToolTip.Tip="Download to this device"
                                     Command="{Binding #RootControl.DataContext.DownloadClipCommand}" CommandParameter="{Binding}"
                                     IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}"
-                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0" />
+                                    Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,4,0">
+                                <ui:FASymbolIcon Symbol="{Binding DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="16" />
+                            </Button>
                             <Button Grid.Column="3" Background="Transparent" BorderThickness="0"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     Command="{Binding #RootControl.DataContext.SelectClipCommand}" CommandParameter="{Binding}">
