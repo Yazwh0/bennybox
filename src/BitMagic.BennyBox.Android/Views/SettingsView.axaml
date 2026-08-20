@@ -1,0 +1,159 @@
+<!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
+     comment for why (ViewLocator resolves by string-substituting the ViewModel's own namespace).
+
+     Trimmed down from desktop's SettingsView.axaml: no "Background opacity" card (that drives
+     MainWindow's Window.Background acrylic brush, a desktop-window concept AndroidShellView - a plain
+     UserControl - has no equivalent of) and no "Remote control" card (AndroidShellViewModel doesn't
+     compose RemoteControlViewModel - see its own comment). Everything else maps directly since it's
+     all just ISettingsStore-backed values with no desktop-only assumptions. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:models="using:BitMagic.BennyBox.Core.Models"
+             xmlns:converters="using:Avalonia.Data.Converters"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="BitMagic.BennyBox.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel"
+             x:Name="RootControl">
+    <ScrollViewer>
+        <StackPanel Margin="8" Spacing="10">
+            <TextBlock Text="Settings" FontSize="22" Margin="4,4,4,0" />
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Appearance" FontSize="16" FontWeight="Bold" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Theme" Opacity="0.7" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Updates" FontSize="16" FontWeight="Bold" />
+                    <TextBlock Text="{Binding CurrentVersion, StringFormat='Current version: {0}'}" Opacity="0.7" FontSize="12" />
+                    <CheckBox Content="Check for updates automatically" IsChecked="{Binding CheckForUpdatesAutomatically}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Check now" Command="{Binding CheckForUpdatesNowCommand}" IsEnabled="{Binding !IsCheckingForUpdates}" />
+                        <ui:FAProgressRing IsActive="{Binding IsCheckingForUpdates}" Width="18" Height="18" IsVisible="{Binding IsCheckingForUpdates}" />
+                        <TextBlock Text="{Binding UpdateCheckStatus}" IsVisible="{Binding HasUpdateCheckStatus}" VerticalAlignment="Center" Opacity="0.7" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Playback controls" FontSize="16" FontWeight="Bold" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Skip interval (seconds)" Opacity="0.7" FontSize="12" />
+                        <NumericUpDown Value="{Binding SkipIntervalSeconds}" Minimum="5" Maximum="300" Increment="5" FormatString="0" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Playback recovery" FontSize="16" FontWeight="Bold" />
+                    <TextBlock Text="How quickly a frozen/dropped stream is detected and offered a retry."
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Connect timeout (seconds)" Opacity="0.7" FontSize="12" />
+                        <NumericUpDown Value="{Binding LoadTimeoutSeconds}" Minimum="3" Maximum="120" Increment="1" FormatString="0" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Stall detection (seconds)" Opacity="0.7" FontSize="12" />
+                        <NumericUpDown Value="{Binding StallThresholdSeconds}" Minimum="2" Maximum="60" Increment="1" FormatString="0" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Pause reconnect after (seconds)" Opacity="0.7" FontSize="12" />
+                        <NumericUpDown Value="{Binding PauseReconnectThresholdSeconds}" Minimum="5" Maximum="600" Increment="5" FormatString="0" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Track defaults" FontSize="16" FontWeight="Bold" />
+                    <TextBlock Text="Matched loosely against whatever name the stream/episode reports for its tracks. Leave blank to use the stream's own default; subtitles default to off unless set here."
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Preferred audio" Opacity="0.7" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding CommonLanguages}" SelectedItem="{Binding PreferredAudioLanguage}" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Preferred subtitles" Opacity="0.7" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding CommonLanguages}" SelectedItem="{Binding PreferredSubtitleLanguage}" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Same "disappear entirely rather than show an empty notice" rule as desktop's SettingsView. -->
+            <Border Background="#22000000" CornerRadius="6" Padding="12" IsVisible="{Binding ShowMetadataEnrichmentCard}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Metadata enrichment" FontSize="16" FontWeight="Bold" />
+                    <TextBlock Text="Fills in a synopsis, genre, and poster for Local Folder/SFTP movies and shows with no local NFO/poster, using themoviedb.org. Leave blank to skip. Get a free API key at themoviedb.org (Settings &#8594; API)."
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="TMDb API Key" Opacity="0.7" FontSize="12" />
+                        <TextBox Text="{Binding TmdbApiKey}" Watermark="Not set" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Downloads" FontSize="16" FontWeight="Bold" />
+                    <TextBlock Text="Where movies, episodes, and clips land when downloaded for offline/faster playback."
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                    <TextBox Text="{Binding DownloadsFolderPath}" IsReadOnly="True" />
+                    <Button Content="Change location..." Click="OnChangeDownloadsLocationClick" HorizontalAlignment="Left" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding DownloadsDiskUsageLabel}" Opacity="0.7" FontSize="12" VerticalAlignment="Center" />
+                        <Button Content="Clear all downloads" Command="{Binding ClearAllDownloadsCommand}" IsEnabled="{Binding !IsBusy}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Profiles" FontSize="16" FontWeight="Bold" />
+                    <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" />
+                    <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" TextWrapping="Wrap" />
+                    <ItemsControl ItemsSource="{Binding Profiles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:ProfileSource">
+                                <Border BorderBrush="#33FFFFFF" BorderThickness="0,0,0,1" Padding="0,8">
+                                    <StackPanel Spacing="6">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding SourceType}" Opacity="0.7" FontSize="12" />
+                                            <TextBlock Opacity="0.7" FontSize="12"
+                                                       IsVisible="{Binding XtreamStatus, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0} · expires {1:yyyy-MM-dd} · {2} connections">
+                                                        <Binding Path="XtreamStatus" />
+                                                        <Binding Path="XtreamExpiryUtc" />
+                                                        <Binding Path="XtreamMaxConnections" />
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Content="Edit" Click="OnEditProfileClick" CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                                            <Button Content="Refresh" Command="{Binding #RootControl.DataContext.RefreshProfileCommand}" CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                                            <Button Content="Delete" Command="{Binding #RootControl.DataContext.DeleteProfileCommand}" CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

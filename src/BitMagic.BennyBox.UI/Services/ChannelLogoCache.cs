@@ -48,14 +48,12 @@ public class ChannelLogoCache : IChannelLogoCache
     // losing task's work is just wasted, not incorrect, so that's an acceptable simplification here.
     private readonly ConcurrentDictionary<string, Task<Bitmap?>> _memoryCache = new();
 
-    public ChannelLogoCache(HttpClient httpClient, IMetadataEnrichmentService enrichmentService, ILogger<ChannelLogoCache> logger)
+    public ChannelLogoCache(HttpClient httpClient, IMetadataEnrichmentService enrichmentService, ILogger<ChannelLogoCache> logger, IAppPaths appPaths)
     {
         _httpClient = httpClient;
         _enrichmentService = enrichmentService;
         _logger = logger;
-        _cacheDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "BennyBox", "logos");
+        _cacheDirectory = appPaths.LogoCacheDirectory;
     }
 
     public Task<Bitmap?> GetLogoAsync(string? logoUrl, string? fallbackLogoUrl = null, string? tmdbFallbackTitle = null)

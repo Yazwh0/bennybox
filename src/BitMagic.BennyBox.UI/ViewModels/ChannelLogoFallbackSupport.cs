@@ -16,7 +16,7 @@ namespace BitMagic.BennyBox.ViewModels;
 // stripping that produces real false positives - single-word channel brand names collide with
 // unrelated movies of the same title (e.g. channel "Quest" vs. the film "Quest - 2017", channel "MAX"
 // vs. "Max - 2015"). Showing a wrong poster is worse than showing none, so Movies are out of scope.
-internal static class ChannelLogoFallbackSupport
+public static class ChannelLogoFallbackSupport
 {
     // Builds once per load pass across every profile's Series - a channel and the show it loops
     // aren't guaranteed to share a ProfileId (e.g. one profile's Live TV list, another profile's VOD

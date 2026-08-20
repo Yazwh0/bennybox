@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using BitMagic.BennyBox.Services;
 using BitMagic.BennyBox.ViewModels;
 using BitMagic.BennyBox.Core.Services;
 using FluentAvalonia.UI.Controls;
@@ -138,8 +139,13 @@ public partial class MainWindow : Window
         // child control is guaranteed to be realized, so forcing a fresh assignment here (bypassing
         // the no-op-on-same-reference guard by nulling first) reliably attaches it. Without this,
         // video silently renders nowhere - or libVLC falls back to popping its own native window.
-        MainVideoView.MediaPlayer = null;
-        MainVideoView.MediaPlayer = _player.MediaPlayer;
+        // _player.Engine is the portable IPlayerEngine - only the desktop head needs the concrete
+        // LibVlcPlayerEngine to get at the underlying LibVLCSharp.Shared.MediaPlayer VideoView binds to.
+        if (_player.Engine is LibVlcPlayerEngine libVlcEngine)
+        {
+            MainVideoView.MediaPlayer = null;
+            MainVideoView.MediaPlayer = libVlcEngine.MediaPlayer;
+        }
 
         var saved = await _settingsStore.GetAsync("WindowState");
         if (saved is null)

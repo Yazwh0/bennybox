@@ -1,12 +1,17 @@
-using System.Runtime.Versioning;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
 
 namespace BitMagic.BennyBox.Sources.Folder;
 
-[SupportedOSPlatform("windows")]
 public class MediaFileSystemFactory : IMediaFileSystemFactory
 {
+    private readonly ICredentialProtector _credentialProtector;
+
+    public MediaFileSystemFactory(ICredentialProtector credentialProtector)
+    {
+        _credentialProtector = credentialProtector;
+    }
+
     public IMediaFileSystem? Create(ProfileSource profile, MediaKind kind) => profile.SourceType switch
     {
         ProfileSourceType.LocalFolder => CreateLocal(profile, kind),
@@ -25,7 +30,7 @@ public class MediaFileSystemFactory : IMediaFileSystemFactory
         return string.IsNullOrWhiteSpace(path) ? null : new LocalFileSystem(path);
     }
 
-    private static SftpFileSystem? CreateSftp(ProfileSource profile, MediaKind kind)
+    private SftpFileSystem? CreateSftp(ProfileSource profile, MediaKind kind)
     {
         var path = kind switch
         {
@@ -43,7 +48,7 @@ public class MediaFileSystemFactory : IMediaFileSystemFactory
             throw new InvalidOperationException("Profile has no SFTP host/username configured.");
         }
 
-        var password = CredentialProtector.Unprotect(profile.SftpPasswordEncrypted)
+        var password = _credentialProtector.Unprotect(profile.SftpPasswordEncrypted)
             ?? throw new InvalidOperationException("Profile has no SFTP password configured.");
 
         return new SftpFileSystem(profile.SftpHost, profile.SftpPort ?? 22, profile.SftpUsername, password, path);

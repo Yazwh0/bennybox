@@ -1,0 +1,198 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.Android.ViewModels"
+             xmlns:views="using:BitMagic.BennyBox.Android.Views"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="BitMagic.BennyBox.Android.Views.AndroidShellView"
+             x:DataType="vm:AndroidShellViewModel">
+    <Panel>
+        <Grid RowDefinitions="*,Auto">
+            <ContentControl Grid.Row="0" Content="{Binding CurrentPage}" />
+
+            <!-- Bottom tab bar - phone-appropriate equivalent of the desktop icon-row NavBar (see
+                 MainWindow.axaml): same FASymbolIcon glyphs desktop uses per tag (see MainWindow.axaml's
+                 NavBar), but stacked with a text label underneath each icon rather than relying on
+                 ToolTip.Tip for the name - a phone has no hover state to reveal a tooltip from. Active-
+                 tab highlighting mirrors desktop's ActiveTagToBackgroundConverter/
+                 ActiveTagToFontWeightConverter (see ActiveTabConverters.cs for why this needed its own
+                 copy rather than reusing those - they're desktop-only). Horizontally scrollable rather
+                 than trying to fit all 9 tabs in one fixed-width row on a phone screen. -->
+            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Margin="4">
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Search" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Search}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Find" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Search" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Search}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=LiveTv}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Video" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Live TV" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=LiveTv}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Guide" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Guide}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="CalendarDay" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Guide" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Guide}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Series}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="List" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Series" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Series}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Movies" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Movies}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Library" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Movies" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Movies}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Clips" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Clips}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Flag" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Clips" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Clips}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Downloads" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Downloads}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Download" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Downloads" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Downloads}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Favorites}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Star" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Favorites" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Favorites}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Settings" Margin="2" Padding="10,6" Width="64"
+                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Settings}">
+                        <StackPanel Spacing="2" HorizontalAlignment="Center">
+                            <ui:FASymbolIcon Symbol="Settings" FontSize="16" HorizontalAlignment="Center" />
+                            <TextBlock Text="Settings" FontSize="10" HorizontalAlignment="Center"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Settings}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Fullscreen player overlay - shown whenever something is playing, matching desktop's
+             "NowPlayingChannelName is the source of truth for whether the video area should be
+             visible" convention (see MainWindow.axaml). Phone screens have no room for a permanently-
+             docked video area next to the list the way desktop does, so this is a genuine overlay
+             instead - closing it (see the Close button) stops playback outright, since there's no
+             "minimize and keep browsing while still playing" concept in PlayerViewModel to hook into.
+             Video and transport bar are in separate Grid rows, not stacked in the same cell - a
+             native view hosted via NativeControlHost (ExoPlayerHostControl) still captures touch
+             input in its own bounds regardless of what Avalonia content is drawn on top of it, the
+             same "native surface always wins" behavior already documented for desktop's LibVLC
+             VideoView (see MainWindow.axaml) - confirmed by taps on the transport bar's Close button
+             silently doing nothing while it visually overlapped the native surface's bounds. -->
+        <Grid RowDefinitions="*,Auto" Background="Black"
+              IsVisible="{Binding Player.NowPlayingChannelName, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+            <Grid Grid.Row="0">
+                <views:ExoPlayerHostControl IsVisible="{Binding !Player.ShowLoadingOverlay}" />
+
+                <Border Background="Black" IsVisible="{Binding Player.ShowLoadingOverlay}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                        <TextBlock Text="{Binding Player.StatusText}" Foreground="White" HorizontalAlignment="Center" />
+                        <Button Content="Retry" Command="{Binding Player.RetryCommand}" IsVisible="{Binding Player.HasPlaybackError}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Small, unobtrusive - matches ShowBufferingBadge's "don't hide the video for a
+                     brief re-buffer" behavior on desktop. -->
+                <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="12" Background="#AA000000" CornerRadius="4" Padding="8,4"
+                        IsVisible="{Binding Player.ShowBufferingBadge}">
+                    <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="12" />
+                </Border>
+
+                <!-- Tap-to-reveal catcher for ExitFullscreenButton below - only present while
+                     fullscreen, transparent (Background="Transparent" is still hit-testable, unlike
+                     null/unset). Toggled rather than "tap to show, auto-hide after N seconds" for now -
+                     see OnVideoTapped. Despite sitting in the same Grid cell as ExoPlayerHostControl
+                     (a NativeControlHost), this does receive taps fine - unlike desktop's LibVLC
+                     VideoView, Android's embedded video surface doesn't appear to always-win hit-testing
+                     the way that comment on ExoPlayerHostControl-adjacent desktop code describes; confirmed
+                     empirically (ExitFullscreenButton itself already received taps correctly while
+                     overlapping the playing video, before this catcher was added). -->
+                <Border Background="Transparent" IsVisible="{Binding Player.IsFullscreen}" Tapped="OnVideoTapped" />
+
+                <!-- Hidden by default, shown only via OnVideoTapped (see above) - "only the video
+                     visible" until you tap. Top-left so it doesn't collide with the buffering badge's
+                     top-right corner. Not the hardware/gesture back action: that was tried first (via
+                     Avalonia's BackRequested event) and reliably backgrounded the whole app on this
+                     Android version instead of just exiting fullscreen, even with the event confirmed
+                     handled - see MainActivity.SetImmersiveFullscreen's comment. -->
+                <Button x:Name="ExitFullscreenButton" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12"
+                        Background="#AA000000" Padding="8" Width="36" Height="36"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Command="{Binding Player.ToggleFullscreenCommand}"
+                        IsVisible="False">
+                    <TextBlock Text="&#10005;" Foreground="White" FontSize="16" />
+                </Button>
+            </Grid>
+
+            <!-- Hidden while fullscreen - matches desktop's TransportBar (see MainWindow.axaml, same
+                 !Player.IsFullscreen binding), so fullscreen really is "just the video" (plus the small
+                 exit button above). Icon-only buttons (matching desktop's icon-only transport bar - see
+                 MainWindow.axaml) instead of the wide text-label buttons this started with - fixed
+                 Width/Height + Padding="0", not MinWidth (see CLAUDE.md's row/tile card guidance on why:
+                 an icon-only button sized by MinWidth grows/shrinks as whichever bound glyph is
+                 currently showing changes advance width, e.g. PlayFilled vs PauseFilled, and the whole
+                 row visibly reflows every toggle). -->
+            <StackPanel Grid.Row="1" Background="#CC000000" Spacing="4" IsVisible="{Binding !Player.IsFullscreen}">
+                <TextBlock Text="{Binding Player.NowPlayingChannelName}" Foreground="White" FontWeight="Bold" Margin="12,8,12,0" TextWrapping="Wrap" />
+                <TextBlock Margin="12,0,12,4" Foreground="White" Opacity="0.7" FontSize="12">
+                    <Run Text="{Binding Player.PositionLabel}" /><Run Text=" / " /><Run Text="{Binding Player.DurationLabel}" />
+                </TextBlock>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" Margin="0,0,0,12">
+                    <Button Command="{Binding Player.StopCommand}" Width="40" Height="40" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <ui:FASymbolIcon Symbol="StopFilled" FontSize="16" />
+                    </Button>
+                    <Button Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}"
+                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <TextBlock Text="&#9194;" FontSize="16" />
+                    </Button>
+                    <Button Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}"
+                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}" FontSize="16" />
+                    </Button>
+                    <Button Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}"
+                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <TextBlock Text="&#9193;" FontSize="16" />
+                    </Button>
+                    <Button Command="{Binding Player.ToggleFullscreenCommand}"
+                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="16" />
+                    </Button>
+                    <Button Command="{Binding Player.ToggleMuteCommand}"
+                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <ui:FASymbolIcon Symbol="{Binding Player.IsMuted, Converter={x:Static views:MutedToSymbolConverter.Instance}}" FontSize="16" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Panel>
+</UserControl>

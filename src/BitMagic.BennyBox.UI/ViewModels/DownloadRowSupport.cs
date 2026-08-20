@@ -8,7 +8,7 @@ namespace BitMagic.BennyBox.ViewModels;
 // season/episode number for episodes - each caller determines this itself since the check differs by
 // content kind), else Queued/Downloading if an active Download row exists for this exact original
 // item, else NotDownloaded.
-internal static class DownloadRowSupport
+public static class DownloadRowSupport
 {
     public static (DownloadUiState State, double Progress) ComputeState(
         IReadOnlyCollection<Download> activeDownloads, bool isAlreadyDownloaded,

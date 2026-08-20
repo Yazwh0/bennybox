@@ -30,6 +30,7 @@ public class DownloadManager
     private readonly IClipRepository _clipRepository;
     private readonly ISeriesRepository _seriesRepository;
     private readonly ISettingsStore _settingsStore;
+    private readonly IAppPaths _appPaths;
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _concurrencyLimiter = new(MaxConcurrentDownloads);
     private readonly Dictionary<Guid, CancellationTokenSource> _activeCancellations = [];
@@ -52,6 +53,7 @@ public class DownloadManager
         IClipRepository clipRepository,
         ISeriesRepository seriesRepository,
         ISettingsStore settingsStore,
+        IAppPaths appPaths,
         HttpClient httpClient)
     {
         _downloadRepository = downloadRepository;
@@ -64,12 +66,13 @@ public class DownloadManager
         _clipRepository = clipRepository;
         _seriesRepository = seriesRepository;
         _settingsStore = settingsStore;
+        _appPaths = appPaths;
         _httpClient = httpClient;
     }
 
     public async Task<string> GetDownloadsRootAsync(CancellationToken cancellationToken = default) =>
         await _settingsStore.GetAsync(DownloadsRootPathKey, cancellationToken)
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BennyBox", "Downloads");
+        ?? _appPaths.DownloadsRoot;
 
     // Changes where FUTURE downloads land - existing downloaded files stay where they are (see
     // SettingsViewModel's Downloads section). Doesn't touch the Downloads profile's paths until the

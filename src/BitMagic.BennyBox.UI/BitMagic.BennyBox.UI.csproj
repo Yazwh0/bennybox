@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Platform-neutral: ViewModels, converters, cross-page messages, ViewLocator, and
+       SharedServiceRegistration (the platform-neutral portion of the DI graph) shared between the
+       desktop and Android heads. No Avalonia.Desktop/Avalonia.Android reference here - Views (XAML)
+       stay per-platform in each head project. See RemoteControlViewModel/MainWindowViewModel in
+       BitMagic.BennyBox for why those two stay desktop-only for now: RemoteControlViewModel is
+       coupled to the desktop-only Kestrel-hosted RemoteControlServer, and MainWindowViewModel
+       composes it - see the Android port plan. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BitMagic.BennyBox.Core\BitMagic.BennyBox.Core.csproj" />
+    <ProjectReference Include="..\BitMagic.BennyBox.Data\BitMagic.BennyBox.Data.csproj" />
+    <ProjectReference Include="..\BitMagic.BennyBox.Sources\BitMagic.BennyBox.Sources.csproj" />
+  </ItemGroup>
+
+</Project>

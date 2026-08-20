@@ -111,10 +111,10 @@
             </StackPanel>
         </Border>
 
-        <!-- Nothing to configure at all once a bundled key is already doing the job - the whole
-             card disappears rather than showing an empty "works out of the box" notice with no
-             control underneath it. -->
-        <Border Classes="glass-card" Padding="16" IsVisible="{Binding !HasEmbeddedTmdbKey}">
+        <!-- Nothing to configure at all once a key - bundled or manually entered - is already doing
+             the job (see ShowMetadataEnrichmentCard) - the whole card disappears rather than showing
+             an empty "works out of the box" notice with no control underneath it. -->
+        <Border Classes="glass-card" Padding="16" IsVisible="{Binding ShowMetadataEnrichmentCard}">
             <StackPanel Spacing="12">
                 <TextBlock Text="Metadata enrichment" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
                 <TextBlock Text="Fills in a synopsis, genre, and poster for Local Folder/SFTP movies and shows that have no local NFO/poster of their own, using themoviedb.org. Leave blank to skip this entirely - local metadata always wins when it's present either way. Get a free API key at themoviedb.org (Settings &#8594; API)."

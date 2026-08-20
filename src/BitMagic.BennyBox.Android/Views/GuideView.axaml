@@ -1,0 +1,106 @@
+<!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
+     comment for why.
+
+     Deliberately NOT a port of desktop's pixel-timeline grid (TimeHeaderControl/EpgRowControl,
+     horizontal-scroll-synced channel/time/body panes) - that layout assumes desktop width and mouse
+     wheel horizontal scroll, neither of which a phone has. Same data (GuideRowViewModel.Programmes),
+     different shape: one Expander per channel that opens into a plain vertical list of that channel's
+     programmes for the day, closed by default so a full day of EPG data for hundreds of channels
+     doesn't render as a wall of open lists. Same three tap behaviours as EpgRowControl.OnPointerPressed
+     (tune if live, catch-up if available, toggle reminder if upcoming) - see GuideView.axaml.cs. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:controls="using:BitMagic.BennyBox.Controls"
+             xmlns:views="using:BitMagic.BennyBox.Android.Views"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="BitMagic.BennyBox.Views.GuideView"
+             x:DataType="vm:GuideViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Today" Command="{Binding GoToTodayCommand}" IsEnabled="{Binding !IsLoading}" />
+                <Button Content="&#9664;" Command="{Binding GoToPreviousDayCommand}" IsEnabled="{Binding !IsLoading}" />
+                <Button Content="&#9654;" Command="{Binding GoToNextDayCommand}" IsEnabled="{Binding !IsLoading}" />
+                <TextBlock Text="{Binding CurrentDayLabel}" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0" />
+            </StackPanel>
+            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels or what's on..." />
+                <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="18" Height="18" Margin="6,0,0,0" />
+                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0" />
+            </Grid>
+            <TextBox Text="{Binding CategoryFilterText}" Watermark="Filter categories..." />
+            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+            <CheckBox Content="Hide channels with no info" IsChecked="{Binding HideEmptyChannels}" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="Loading guide..." HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
+                   IsVisible="{Binding IsLoading}" />
+
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GuideRowViewModel">
+                        <Expander x:Name="RowRoot" Margin="8,4">
+                            <Expander.Header>
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                    <Button Grid.Column="0"
+                                            Content="{Binding FavoriteIcon}"
+                                            Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
+                                            CommandParameter="{Binding}"
+                                            Width="36" Height="36" Padding="0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                    <controls:ChannelLogoImage Grid.Column="1"
+                                                                LogoUrl="{Binding Channel.LogoUrl}"
+                                                                FallbackLogoUrl="{Binding FallbackLogoUrl}"
+                                                                TmdbFallbackTitle="{Binding ChannelName}"
+                                                                Width="32" Height="32" Margin="6,0" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding ChannelName}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <Button Grid.Column="3" Content="&#9654;"
+                                            Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
+                                            CommandParameter="{Binding}"
+                                            Width="36" Height="36" Padding="0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            ToolTip.Tip="Watch live" />
+                                </Grid>
+                            </Expander.Header>
+
+                            <StackPanel>
+                                <TextBlock Text="No programme info for this window." Opacity="0.6" FontSize="12"
+                                           Margin="8,4" IsVisible="{Binding !HasProgrammes}" />
+                                <ItemsControl ItemsSource="{Binding Programmes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ProgrammeViewModel">
+                                            <!-- Tag carries the parent GuideRowViewModel (via the Expander's own
+                                                 DataContext) so the Click handler can tell live/catch-up/upcoming
+                                                 apart without a multi-value converter - see GuideView.axaml.cs. -->
+                                            <Button Background="Transparent" BorderThickness="0"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="8,6"
+                                                    Click="OnProgrammeClick" Tag="{Binding #RowRoot.DataContext}">
+                                                <Grid ColumnDefinitions="60,*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{Binding StartUtc, Converter={x:Static views:UtcToLocalTimeConverter.Instance}}"
+                                                               Opacity="0.7" FontSize="12" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="6,0" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="&#128276;" FontSize="12" VerticalAlignment="Center"
+                                                               IsVisible="{Binding HasReminder}" ToolTip.Tip="Reminder set" />
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Expander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

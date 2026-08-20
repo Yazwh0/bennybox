@@ -10,15 +10,10 @@ using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.Messages;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
-using LibVLCSharp.Shared;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.ViewModels;
-
-// Id/Name pair for one audio or subtitle track, as reported by libVLC's TrackDescription - Id is
-// what MediaPlayer.SetAudioTrack/SetSpu expect back, Name is whatever the stream/container labels it
-// (language name, "Disable", etc).
-public sealed record TrackOption(int Id, string Name);
 
 public partial class PlayerViewModel : ViewModelBase, IDisposable
 {
@@ -43,13 +38,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     // behind for everything the user watches to the end.
     private const double CompletionThreshold = 0.95;
 
-    private readonly LibVLC _libVlc;
     private readonly ISettingsStore _settingsStore;
     private readonly IWatchProgressRepository _watchProgressRepository;
     private readonly IWatchedItemRepository _watchedItemRepository;
     private readonly DownloadPlaybackResolver _downloadPlaybackResolver;
     private readonly ILogger<PlayerViewModel> _logger;
-    private Media? _currentMedia;
     private DispatcherTimer? _loadTimeoutTimer;
     private DispatcherTimer? _progressSaveTimer;
     private DispatcherTimer? _stallWatchdogTimer;
@@ -66,10 +59,10 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private string? _preferredSubtitleLanguage;
 
     // Only the *first* track-list refresh for a given PlayUrl should apply the language preference -
-    // later refreshes (a track appearing/disappearing mid-stream) instead follow MediaPlayer.AudioTrack/
-    // Spu's current value, which is whatever the user last manually picked, so a mid-stream ES event
-    // doesn't stomp on their in-session choice. Audio and subtitle tracks can be discovered by separate
-    // ES-added events, so each gets its own flag rather than one shared "preferences applied" bool.
+    // later refreshes (a track appearing/disappearing mid-stream) instead follow the engine's current
+    // selection, which is whatever the user last manually picked, so a mid-stream track-list change
+    // doesn't stomp on their in-session choice. Audio and subtitle tracks can change independently, so
+    // each gets its own flag rather than one shared "preferences applied" bool.
     private bool _audioPreferenceApplied;
     private bool _subtitlePreferenceApplied;
     private string? _currentUrl;
@@ -80,7 +73,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     // True once the current PlayUrl call has actually shown a frame (OnPlaying fired) - distinguishes
     // "still connecting, nothing to look at yet" from "playing fine but hit a brief re-buffer", since
-    // libVLC's Buffering event fires for both and doesn't reset IsPlaying for the latter.
+    // the engine's Buffering event fires for both and doesn't reset IsPlaying for the latter.
     private bool _hasShownFrame;
 
     // Set only while playing a movie/episode - live channels are never tracked. See PlayWithResumeAsync.
@@ -91,11 +84,13 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private string? _currentCoverUrl;
     private long? _pendingResumeMs;
 
-    public MediaPlayer MediaPlayer { get; }
+    // Desktop's MainWindow.axaml.cs casts this to LibVlcPlayerEngine to bind LibVLCSharp.Avalonia's
+    // VideoView directly - IPlayerEngine itself has no notion of a native player control (see
+    // IPlayerEngine's comment).
+    public IPlayerEngine Engine { get; }
 
-    // Populated from libVLC's ESAdded/ESDeleted events as the demuxer discovers tracks in the
-    // current stream - empty until then, so the UI only shows a selector once there's something to
-    // choose between.
+    // Populated from the engine's TracksChanged event as it discovers tracks in the current stream -
+    // empty until then, so the UI only shows a selector once there's something to choose between.
     public ObservableCollection<TrackOption> AudioTracks { get; } = [];
     public ObservableCollection<TrackOption> SubtitleTracks { get; } = [];
 
@@ -160,8 +155,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public string MuteButtonText => IsMuted ? "🔇" : "🔊";
 
     // Live channels are usually not seekable/pausable, VOD episodes always are - rather than
-    // hardcoding that assumption, these mirror libVLC's own per-stream capability flags (some IPTV
-    // "live" streams do support timeshifting and report seekable too), so the seek bar and
+    // hardcoding that assumption, these mirror the engine's own per-stream capability flags (some
+    // IPTV "live" streams do support timeshifting and report seekable too), so the seek bar and
     // pause/skip buttons only ever appear when the current stream genuinely supports them.
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(TogglePauseCommand))]
@@ -187,26 +182,24 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public string SkipBackwardLabel => $"⏪ {(int)_skipInterval.TotalSeconds}s";
     public string SkipForwardLabel => $"{(int)_skipInterval.TotalSeconds}s ⏩";
 
-    public PlayerViewModel(LibVLC libVlc, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, DownloadPlaybackResolver downloadPlaybackResolver, ILogger<PlayerViewModel> logger)
+    public PlayerViewModel(IPlayerEngine engine, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, DownloadPlaybackResolver downloadPlaybackResolver, ILogger<PlayerViewModel> logger)
     {
-        _libVlc = libVlc;
+        Engine = engine;
         _settingsStore = settingsStore;
         _watchProgressRepository = watchProgressRepository;
         _watchedItemRepository = watchedItemRepository;
         _downloadPlaybackResolver = downloadPlaybackResolver;
         _logger = logger;
-        MediaPlayer = new MediaPlayer(_libVlc);
 
-        MediaPlayer.Playing += OnPlaying;
-        MediaPlayer.Paused += OnPaused;
-        MediaPlayer.Buffering += OnBuffering;
-        MediaPlayer.EncounteredError += OnEncounteredError;
-        MediaPlayer.EndReached += OnEndReached;
-        MediaPlayer.Stopped += OnStopped;
-        MediaPlayer.TimeChanged += OnTimeChanged;
-        MediaPlayer.LengthChanged += OnLengthChanged;
-        MediaPlayer.ESAdded += OnEsAdded;
-        MediaPlayer.ESDeleted += OnEsDeleted;
+        Engine.Playing += OnPlaying;
+        Engine.Paused += OnPaused;
+        Engine.Buffering += OnBuffering;
+        Engine.EncounteredError += OnEncounteredError;
+        Engine.EndReached += OnEndReached;
+        Engine.Stopped += OnStopped;
+        Engine.TimeChanged += OnTimeChanged;
+        Engine.LengthChanged += OnLengthChanged;
+        Engine.TracksChanged += OnTracksChanged;
 
         _ = LoadSidebarWidthAsync();
         _ = LoadVolumeAsync();
@@ -278,7 +271,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     partial void OnVolumeChanged(int value)
     {
-        MediaPlayer.Volume = value;
+        Engine.Volume = value;
 
         if (_isApplyingSavedVolume)
         {
@@ -288,7 +281,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _ = _settingsStore.SetAsync("Volume", value.ToString(CultureInfo.InvariantCulture));
     }
 
-    partial void OnIsMutedChanged(bool value) => MediaPlayer.Mute = value;
+    partial void OnIsMutedChanged(bool value) => Engine.IsMuted = value;
 
     [RelayCommand]
     private void ToggleMute() => IsMuted = !IsMuted;
@@ -300,7 +293,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        MediaPlayer.SetAudioTrack(value.Id);
+        Engine.SelectAudioTrack(value.Id);
     }
 
     partial void OnSelectedSubtitleTrackChanged(TrackOption? value)
@@ -310,7 +303,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        MediaPlayer.SetSpu(value.Id);
+        Engine.SelectSubtitleTrack(value.Id);
     }
 
     public void PlayChannel(Channel channel)
@@ -410,7 +403,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         FinalizeCurrentProgress();
         CancelLoadTimeout();
         CancelStallWatchdog();
-        MediaPlayer.Stop();
+        Engine.Stop();
         StatusText = "Idle";
         IsPlaying = false;
         IsPaused = false;
@@ -441,17 +434,17 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         if (IsPaused && _pausedAtUtc is { } pausedAt && DateTime.UtcNow - pausedAt >= _pauseReconnectThreshold && _currentUrl is not null)
         {
             // IPTV/Xtream-style backends commonly drop a connection that's gone idle for a while,
-            // which is exactly what pausing does - a plain SetPause(false) after a long enough pause
-            // would just resume against a dead connection and sit there until the stall watchdog
+            // which is exactly what pausing does - a plain resume after a long enough pause would
+            // just resume against a dead connection and sit there until the stall watchdog
             // eventually caught it, forcing a manual Retry. Reconnect proactively instead, from the
             // exact position we paused at, so a long pause resumes seamlessly instead of guaranteed
             // stall-then-retry.
-            _pendingResumeMs = MediaPlayer.Time > 0 ? MediaPlayer.Time : _lastKnownTimeMs;
+            _pendingResumeMs = Engine.PositionMs > 0 ? Engine.PositionMs : _lastKnownTimeMs;
             PlayUrl(_currentUrl);
             return;
         }
 
-        MediaPlayer.SetPause(!IsPaused);
+        Engine.SetPaused(!IsPaused);
     }
 
     [RelayCommand(CanExecute = nameof(IsSeekable))]
@@ -463,7 +456,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private void SeekBy(TimeSpan delta)
     {
         var maxMs = DurationSeconds > 0 ? (long)(DurationSeconds * 1000) : long.MaxValue;
-        MediaPlayer.Time = Math.Clamp(MediaPlayer.Time + (long)delta.TotalMilliseconds, 0, maxMs);
+        Engine.PositionMs = Math.Clamp(Engine.PositionMs + (long)delta.TotalMilliseconds, 0, maxMs);
     }
 
     // Called from the seek Slider's PointerPressed/PointerReleased in MainWindow's code-behind - while
@@ -476,7 +469,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _isUserSeeking = false;
         if (IsSeekable)
         {
-            MediaPlayer.Time = (long)(SeekSliderValue * 1000);
+            Engine.PositionMs = (long)(SeekSliderValue * 1000);
         }
     }
 
@@ -491,8 +484,6 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         CancelStallWatchdog();
 
         _currentUrl = url;
-        _currentMedia?.Dispose();
-        _currentMedia = new Media(_libVlc, url, FromType.FromLocation);
 
         StatusText = "Loading...";
         IsPaused = false;
@@ -502,7 +493,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _subtitlePreferenceApplied = false;
         IsBuffering = true;
         ResetSeekState();
-        MediaPlayer.Play(_currentMedia);
+        Engine.Play(url);
 
         // Avoid hammering a dead server: time out once, don't auto-retry.
         _loadTimeoutTimer = new DispatcherTimer { Interval = _loadTimeout };
@@ -515,7 +506,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 IsBuffering = false;
                 HasPlaybackError = true;
                 _logger.LogWarning("Stream load timed out: {Url}", url);
-                MediaPlayer.Stop();
+                Engine.Stop();
             }
         };
         _loadTimeoutTimer.Start();
@@ -545,16 +536,16 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     }
 
     // Started once a frame has actually shown (OnPlaying) - the load timeout above only covers the
-    // initial connect. Ticks periodically and compares against DisplayedPictures (see GetDisplayedPictures)
-    // rather than MediaPlayer.Time/TimeChanged - confirmed via live testing that some streams keep their
-    // demux clock free-running (Time keeps climbing smoothly at real-time rate) for minutes after the
-    // connection has actually died and the picture is genuinely frozen, so Time is not a trustworthy
-    // "is a new frame actually being rendered" signal here. DisplayedPictures only increments when
-    // libVLC has actually decoded and handed a frame to the video output.
+    // initial connect. Ticks periodically and compares against RenderedFrameCount rather than
+    // Engine.PositionMs/TimeChanged - confirmed via live testing that some streams keep their demux
+    // clock free-running (position keeps climbing smoothly at real-time rate) for minutes after the
+    // connection has actually died and the picture is genuinely frozen, so position alone is not a
+    // trustworthy "is a new frame actually being rendered" signal here. RenderedFrameCount only
+    // increments when a frame has actually been decoded and handed to the video output.
     private void StartStallWatchdog()
     {
         CancelStallWatchdog();
-        _lastDisplayedPictures = GetDisplayedPictures();
+        _lastDisplayedPictures = Engine.RenderedFrameCount;
         _lastDisplayedPicturesChangeUtc = DateTime.UtcNow;
         // Never check less often than the threshold itself allows, so a short user-configured
         // threshold (e.g. 2s) isn't silently floored to this timer's usual 5s tick rate.
@@ -562,7 +553,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _stallWatchdogTimer = new DispatcherTimer { Interval = tickInterval };
         _stallWatchdogTimer.Tick += (_, _) =>
         {
-            var displayed = GetDisplayedPictures();
+            var displayed = Engine.RenderedFrameCount;
             if (displayed > _lastDisplayedPictures)
             {
                 _lastDisplayedPictures = displayed;
@@ -578,11 +569,6 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         };
         _stallWatchdogTimer.Start();
     }
-
-    // Returns 0 (never treated as "no progress" on its own, since the very next real tick's comparison
-    // point would also be 0) if stats aren't available yet - matches how a fresh CreateStatistics-less
-    // media is handled by libVLC itself.
-    private long GetDisplayedPictures() => _currentMedia?.Statistics.DisplayedPictures ?? 0;
 
     private void CancelStallWatchdog()
     {
@@ -601,7 +587,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         IsBuffering = false;
         HasPlaybackError = true;
         StatusText = "Playback stalled";
-        MediaPlayer.Stop();
+        Engine.Stop();
     }
 
     // Only meaningful for tracked (seekable VOD) content - re-seeking a fresh connection to a live
@@ -615,7 +601,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var lastKnownMs = MediaPlayer.Time > 0 ? MediaPlayer.Time : _lastKnownTimeMs;
+        var lastKnownMs = Engine.PositionMs > 0 ? Engine.PositionMs : _lastKnownTimeMs;
         SaveProgressTick();
         _pendingResumeMs = lastKnownMs > 0 ? lastKnownMs : null;
         WeakReferenceMessenger.Default.Send(new WatchProgressUpdatedMessage());
@@ -642,7 +628,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _ = SaveOrRemoveProgressAsync(contentType, profileId, _currentContentKey, _currentTitle!, _currentCoverUrl, _currentUrl!, MediaPlayer.Time / 1000.0, DurationSeconds);
+        _ = SaveOrRemoveProgressAsync(contentType, profileId, _currentContentKey, _currentTitle!, _currentCoverUrl, _currentUrl!, Engine.PositionMs / 1000.0, DurationSeconds);
     }
 
     // Called whenever tracked playback is about to switch or stop, so the position reached so far is
@@ -655,7 +641,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
     // Called on EndReached specifically - we know for certain the title was watched to completion,
     // so this always removes the bookmark rather than relying on SaveProgressTick's percentage
-    // heuristic (MediaPlayer.Time can lag slightly behind the real end position at this point).
+    // heuristic (position can lag slightly behind the real end position at this point).
     private void MarkCurrentContentFinished()
     {
         if (_currentContentType is { } contentType && _currentProfileId is { } profileId && _currentContentKey is not null)
@@ -740,7 +726,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         return span.TotalHours >= 1 ? span.ToString(@"h\:mm\:ss") : span.ToString(@"mm\:ss");
     }
 
-    // LibVLCSharp raises these on background threads - always marshal back to the UI thread.
+    // The engine raises these on background threads - always marshal back to the UI thread.
     private void OnPlaying(object? sender, EventArgs e) =>
         Dispatcher.UIThread.Post(() =>
         {
@@ -759,7 +745,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
             if (_pendingResumeMs is { } resumeMs)
             {
-                MediaPlayer.Time = resumeMs;
+                Engine.PositionMs = resumeMs;
             }
             _pendingResumeMs = null;
         });
@@ -773,11 +759,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             StatusText = "Paused";
         });
 
-    private void OnBuffering(object? sender, MediaPlayerBufferingEventArgs e) =>
+    private void OnBuffering(object? sender, double cache) =>
         Dispatcher.UIThread.Post(() =>
         {
-            StatusText = $"Buffering ({e.Cache:0}%)";
-            IsBuffering = e.Cache < 100;
+            StatusText = $"Buffering ({cache:0}%)";
+            IsBuffering = cache < 100;
         });
 
     private void OnEncounteredError(object? sender, EventArgs e) =>
@@ -799,16 +785,16 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         {
             // Confirmed via live testing: when the connection drops mid-stream, this particular
             // demuxer/protocol combination reports it as a clean EndReached, not EncounteredError and
-            // not a stall (TimeChanged/DisplayedPictures both just stop, same as a genuine end) - so a
+            // not a stall (position/RenderedFrameCount both just stop, same as a genuine end) - so a
             // dropped connection 90 seconds into a 40-minute episode looked identical to "the user
             // finished watching it". If we're stopping well short of the known duration, treat this
             // the same as any other interrupted playback (error state + exact-position Retry) instead
             // of silently marking the title watched and discarding the resume point.
-            if (DurationSeconds > 0 && MediaPlayer.Time < DurationSeconds * 1000 * CompletionThreshold)
+            if (DurationSeconds > 0 && Engine.PositionMs < DurationSeconds * 1000 * CompletionThreshold)
             {
                 _logger.LogWarning(
                     "EndReached fired well short of the known duration ({Time}ms of {Duration}ms) - treating as an interrupted stream, not a finished one: {Url}",
-                    MediaPlayer.Time, DurationSeconds * 1000, _currentUrl);
+                    Engine.PositionMs, DurationSeconds * 1000, _currentUrl);
                 HandlePlaybackStalled();
                 return;
             }
@@ -828,59 +814,45 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             IsPaused = false;
         });
 
-    private void OnTimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e) =>
+    private void OnTimeChanged(object? sender, long time) =>
         Dispatcher.UIThread.Post(() =>
         {
-            CanPause = MediaPlayer.CanPause;
-            IsSeekable = MediaPlayer.IsSeekable;
+            CanPause = Engine.CanPause;
+            IsSeekable = Engine.IsSeekable;
 
-            // Only reset the stall watchdog's clock on a genuine position advance - libVLC can keep
-            // firing TimeChanged with the *same* stale value on some sort of internal heartbeat while
-            // actually stalled, which would otherwise keep resetting the watchdog forever and mask
-            // exactly the freeze it exists to catch.
-            if (e.Time != _lastKnownTimeMs)
+            // Only reset the stall watchdog's clock on a genuine position advance - the engine can
+            // keep firing TimeChanged with the *same* stale value on some sort of internal heartbeat
+            // while actually stalled, which would otherwise keep resetting the watchdog forever and
+            // mask exactly the freeze it exists to catch.
+            if (time != _lastKnownTimeMs)
             {
                 _lastTimeChangeUtc = DateTime.UtcNow;
             }
-            _lastKnownTimeMs = e.Time;
+            _lastKnownTimeMs = time;
 
             if (!_isUserSeeking)
             {
-                SeekSliderValue = e.Time / 1000.0;
+                SeekSliderValue = time / 1000.0;
             }
         });
 
-    private void OnLengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e) =>
-        Dispatcher.UIThread.Post(() => DurationSeconds = e.Length > 0 ? e.Length / 1000.0 : 0);
+    private void OnLengthChanged(object? sender, long length) =>
+        Dispatcher.UIThread.Post(() => DurationSeconds = length > 0 ? length / 1000.0 : 0);
 
-    private void OnEsAdded(object? sender, MediaPlayerESAddedEventArgs e)
-    {
-        if (e.Type is TrackType.Audio or TrackType.Text)
-        {
-            Dispatcher.UIThread.Post(RefreshTrackLists);
-        }
-    }
+    private void OnTracksChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(RefreshTrackLists);
 
-    private void OnEsDeleted(object? sender, MediaPlayerESDeletedEventArgs e)
-    {
-        if (e.Type is TrackType.Audio or TrackType.Text)
-        {
-            Dispatcher.UIThread.Post(RefreshTrackLists);
-        }
-    }
-
-    // Rereads the full track lists from libVLC rather than incrementally applying the add/delete
-    // event that triggered this - the description arrays are already the source of truth and cheap
-    // to reread, so there's no separate "list" state to keep in sync by hand.
+    // Rereads the full track lists from the engine rather than incrementally applying whatever
+    // add/delete triggered this - the engine's lists are already the source of truth and cheap to
+    // reread, so there's no separate "list" state to keep in sync by hand.
     private void RefreshTrackLists()
     {
         _isSyncingTrackSelection = true;
         try
         {
             AudioTracks.Clear();
-            foreach (var track in MediaPlayer.AudioTrackDescription ?? [])
+            foreach (var track in Engine.AudioTracks)
             {
-                AudioTracks.Add(new TrackOption(track.Id, track.Name));
+                AudioTracks.Add(track);
             }
             TrackOption? preferredAudio = null;
             if (!_audioPreferenceApplied && AudioTracks.Count > 0)
@@ -889,19 +861,19 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 _audioPreferenceApplied = true;
             }
             SelectedAudioTrack = preferredAudio
-                ?? AudioTracks.FirstOrDefault(t => t.Id == MediaPlayer.AudioTrack)
+                ?? AudioTracks.FirstOrDefault(t => t.Id == Engine.SelectedAudioTrackId)
                 ?? AudioTracks.FirstOrDefault();
 
             SubtitleTracks.Clear();
-            foreach (var track in MediaPlayer.SpuDescription ?? [])
+            foreach (var track in Engine.SubtitleTracks)
             {
-                SubtitleTracks.Add(new TrackOption(track.Id, track.Name));
+                SubtitleTracks.Add(track);
             }
             TrackOption? preferredSubtitle = null;
             if (!_subtitlePreferenceApplied && SubtitleTracks.Count > 0)
             {
-                // No preferred language configured means subtitles off by default - "Disable" is
-                // libVLC's own standard entry for that, present whenever a stream has any subtitle
+                // No preferred language configured means subtitles off by default - "Disable" is the
+                // engine's own standard entry for that, present whenever a stream has any subtitle
                 // tracks at all, so this is deterministic rather than depending on whatever this
                 // particular stream/container happened to mark as its own default track.
                 preferredSubtitle = FindPreferredTrack(SubtitleTracks, _preferredSubtitleLanguage)
@@ -909,7 +881,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 _subtitlePreferenceApplied = true;
             }
             SelectedSubtitleTrack = preferredSubtitle
-                ?? SubtitleTracks.FirstOrDefault(t => t.Id == MediaPlayer.Spu)
+                ?? SubtitleTracks.FirstOrDefault(t => t.Id == Engine.SelectedSubtitleTrackId)
                 ?? SubtitleTracks.FirstOrDefault();
         }
         finally
@@ -921,9 +893,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasSubtitleTracks));
     }
 
-    // Substring match against the track name libVLC/the container reports (e.g. "English",
-    // "eng", "English (undetermined)") - there's no standardized language code exposed here, so this
-    // is deliberately a loose, best-effort match rather than an exact one.
+    // Substring match against the track name the engine reports (e.g. "English", "eng", "English
+    // (undetermined)") - there's no standardized language code exposed here, so this is deliberately
+    // a loose, best-effort match rather than an exact one.
     private static TrackOption? FindPreferredTrack(IEnumerable<TrackOption> tracks, string? preferredLanguage) =>
         string.IsNullOrWhiteSpace(preferredLanguage)
             ? null
@@ -936,17 +908,14 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         FinalizeCurrentProgress();
         CancelLoadTimeout();
         CancelStallWatchdog();
-        MediaPlayer.Playing -= OnPlaying;
-        MediaPlayer.Paused -= OnPaused;
-        MediaPlayer.Buffering -= OnBuffering;
-        MediaPlayer.EncounteredError -= OnEncounteredError;
-        MediaPlayer.EndReached -= OnEndReached;
-        MediaPlayer.Stopped -= OnStopped;
-        MediaPlayer.TimeChanged -= OnTimeChanged;
-        MediaPlayer.LengthChanged -= OnLengthChanged;
-        MediaPlayer.ESAdded -= OnEsAdded;
-        MediaPlayer.ESDeleted -= OnEsDeleted;
-        _currentMedia?.Dispose();
-        MediaPlayer.Dispose();
+        Engine.Playing -= OnPlaying;
+        Engine.Paused -= OnPaused;
+        Engine.Buffering -= OnBuffering;
+        Engine.EncounteredError -= OnEncounteredError;
+        Engine.EndReached -= OnEndReached;
+        Engine.Stopped -= OnStopped;
+        Engine.TimeChanged -= OnTimeChanged;
+        Engine.LengthChanged -= OnLengthChanged;
+        Engine.TracksChanged -= OnTracksChanged;
     }
 }

@@ -1,3 +1,4 @@
+using BitMagic.BennyBox.Core.Services;
 using Dapper;
 using Microsoft.Data.Sqlite;
 
@@ -17,11 +18,9 @@ public class SqliteConnectionFactory
         SqlMapper.AddTypeHandler(new NullableGuidTypeHandler());
     }
 
-    public SqliteConnectionFactory(string? dbPath = null)
+    public SqliteConnectionFactory(IAppPaths appPaths, string? dbPath = null)
     {
-        var path = dbPath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "BennyBox", "iptv.db");
+        var path = dbPath ?? appPaths.DatabasePath;
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         _connectionString = new SqliteConnectionStringBuilder { DataSource = path }.ToString();

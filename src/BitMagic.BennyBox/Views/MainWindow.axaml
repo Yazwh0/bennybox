@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+        xmlns:player="using:BitMagic.BennyBox.UI.Services"
         xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:conv="using:Avalonia.Data.Converters"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -209,7 +210,10 @@
                  reset to null by Stop()) - without that, the native surface's own opaque black paints
                  over the whole pane even when nothing has ever been played, hiding the acrylic blur
                  that should show through there. -->
-            <vlc:VideoView Grid.Row="0" x:Name="MainVideoView" MediaPlayer="{Binding Player.MediaPlayer}">
+            <!-- MediaPlayer is assigned in code-behind (see OnOpened) rather than bound here - PlayerViewModel
+                 exposes the portable IPlayerEngine, not a LibVLCSharp.Shared.MediaPlayer directly, since
+                 Android uses a different engine entirely (see the Android port plan). -->
+            <vlc:VideoView Grid.Row="0" x:Name="MainVideoView">
                 <vlc:VideoView.IsVisible>
                     <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
                         <Binding Path="!Player.ShowLoadingOverlay" />
@@ -310,7 +314,7 @@
                               IsVisible="{Binding Player.HasMultipleAudioTracks}"
                               Width="140" VerticalAlignment="Center">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate DataType="vm:TrackOption">
+                            <DataTemplate DataType="player:TrackOption">
                                 <TextBlock Text="{Binding Name}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
@@ -320,7 +324,7 @@
                               IsVisible="{Binding Player.HasSubtitleTracks}"
                               Width="140" VerticalAlignment="Center">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate DataType="vm:TrackOption">
+                            <DataTemplate DataType="player:TrackOption">
                                 <TextBlock Text="{Binding Name}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>

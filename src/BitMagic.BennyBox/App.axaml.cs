@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using BitMagic.BennyBox.ViewModels;
 using BitMagic.BennyBox.Views;
 using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -67,6 +68,7 @@ public partial class App : Application
             var host = await Task.Run(() => AppBootstrapper.BuildHost(Program.StartupArgs, libVlcTask));
             _host = host;
             Services = host.Services;
+            AppServices.Current = host.Services;
 
             var settingsStore = host.Services.GetRequiredService<ISettingsStore>();
             var savedTheme = await Task.Run(() => settingsStore.GetAsync("Theme").GetAwaiter().GetResult());

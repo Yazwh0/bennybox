@@ -133,12 +133,21 @@ public partial class SettingsViewModel : ViewModelBase
     // HasEmbeddedTmdbKey) when set; on a build with no bundled key, blank here means enrichment is
     // skipped entirely instead.
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowMetadataEnrichmentCard))]
     private string _tmdbApiKey = "";
 
     // Whether THIS build has a bundled TMDb key at all (see EmbeddedTmdbApiKey) - independent of
     // whatever's typed into TmdbApiKey above. Drives the Settings page's placeholder/description text
     // so it doesn't claim "leave blank to skip" on a build where a blank field still works.
     public bool HasEmbeddedTmdbKey => _metadataEnrichmentService.HasEmbeddedFallback;
+
+    // Whether the "Metadata enrichment" card (with its TmdbApiKey text box) should show at all - only
+    // when enrichment genuinely has no key to work with yet, whether embedded or manually entered.
+    // Checking HasEmbeddedTmdbKey alone left the card (and its input box) sitting there forever once a
+    // key had already been typed in and was working fine - same "nothing to configure once it just
+    // works" rationale HasEmbeddedTmdbKey's own card-hiding already applies for the embedded case, just
+    // extended to cover a manually-set key too.
+    public bool ShowMetadataEnrichmentCard => !HasEmbeddedTmdbKey && string.IsNullOrWhiteSpace(TmdbApiKey);
 
     [ObservableProperty]
     private bool _isBusy;

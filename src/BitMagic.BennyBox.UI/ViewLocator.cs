@@ -15,7 +15,13 @@ public class ViewLocator : IDataTemplate
         }
 
         var viewTypeName = param.GetType().FullName!.Replace("ViewModels", "Views").Replace("ViewModel", "View");
-        var viewType = Type.GetType(viewTypeName);
+
+        // Type.GetType(string) only searches the calling assembly (this one) plus core assemblies by
+        // default - it can't see Views in whichever head assembly (desktop, Android, ...) is actually
+        // running, so every loaded assembly needs to be searched explicitly instead.
+        var viewType = AppDomain.CurrentDomain.GetAssemblies()
+            .Select(assembly => assembly.GetType(viewTypeName))
+            .FirstOrDefault(type => type is not null);
 
         if (viewType is not null)
         {

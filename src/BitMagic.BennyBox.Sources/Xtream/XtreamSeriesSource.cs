@@ -1,17 +1,17 @@
-using System.Runtime.Versioning;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
 
 namespace BitMagic.BennyBox.Sources.Xtream;
 
-[SupportedOSPlatform("windows")]
 public class XtreamSeriesSource : ISeriesSource
 {
     private readonly XtreamClient _client;
+    private readonly ICredentialProtector _credentialProtector;
 
-    public XtreamSeriesSource(XtreamClient client)
+    public XtreamSeriesSource(XtreamClient client, ICredentialProtector credentialProtector)
     {
         _client = client;
+        _credentialProtector = credentialProtector;
     }
 
     public ProfileSourceType SourceType => ProfileSourceType.XtreamCodes;
@@ -85,14 +85,14 @@ public class XtreamSeriesSource : ISeriesSource
             .ToList();
     }
 
-    private static (string ServerUrl, string Username, string Password) ResolveCredentials(ProfileSource profile)
+    private (string ServerUrl, string Username, string Password) ResolveCredentials(ProfileSource profile)
     {
         if (string.IsNullOrWhiteSpace(profile.XtreamServerUrl) || string.IsNullOrWhiteSpace(profile.XtreamUsername))
         {
             throw new InvalidOperationException("Profile has no Xtream Codes server/username configured.");
         }
 
-        var password = CredentialProtector.Unprotect(profile.XtreamPasswordEncrypted)
+        var password = _credentialProtector.Unprotect(profile.XtreamPasswordEncrypted)
             ?? throw new InvalidOperationException("Profile has no Xtream Codes password configured.");
 
         return (profile.XtreamServerUrl.TrimEnd('/'), profile.XtreamUsername, password);

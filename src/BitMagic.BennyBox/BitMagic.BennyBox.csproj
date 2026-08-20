@@ -56,5 +56,6 @@
     <ProjectReference Include="..\BitMagic.BennyBox.Core\BitMagic.BennyBox.Core.csproj" />
     <ProjectReference Include="..\BitMagic.BennyBox.Sources\BitMagic.BennyBox.Sources.csproj" />
     <ProjectReference Include="..\BitMagic.BennyBox.Data\BitMagic.BennyBox.Data.csproj" />
+    <ProjectReference Include="..\BitMagic.BennyBox.UI\BitMagic.BennyBox.UI.csproj" />
   </ItemGroup>
 </Project>

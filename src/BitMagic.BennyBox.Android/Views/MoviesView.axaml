@@ -1,0 +1,129 @@
+<!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
+     comment for why. Same list/detail two-mode structure as desktop's MoviesView.axaml, adapted to
+     plain controls (no glass-* classes/source-badge - Android has neither, see App.axaml) and the
+     row-card look already established in LiveTvView.axaml (#22000000 card background). -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:controls="using:BitMagic.BennyBox.Controls"
+             x:Class="BitMagic.BennyBox.Views.MoviesView"
+             x:DataType="vm:MoviesViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8"
+                    IsVisible="{Binding SelectedMovie, Converter={x:Static conv:ObjectConverters.IsNull}}">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search movies..." />
+                <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="18" Height="18" Margin="6,0,0,0" />
+                <Button Grid.Column="2" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0" />
+            </Grid>
+            <TextBox Text="{Binding CategoryFilterText}" Watermark="Filter categories..." />
+            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+            <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" HorizontalAlignment="Stretch" />
+            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
+            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading movies...'}" Opacity="0.7" />
+        </StackPanel>
+        <TextBlock Grid.Row="1" Text="No movies available yet - add an Xtream profile and refresh it in Settings."
+                   Margin="16" TextWrapping="Wrap" Opacity="0.7">
+            <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="HasNoMovies" />
+                </MultiBinding>
+            </TextBlock.IsVisible>
+        </TextBlock>
+        <TextBlock Grid.Row="1" Text="No matches found." Margin="16" TextWrapping="Wrap" Opacity="0.7">
+            <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="HasNoMatches" />
+                </MultiBinding>
+            </TextBlock.IsVisible>
+        </TextBlock>
+
+        <ScrollViewer Grid.Row="1">
+            <ScrollViewer.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="SelectedMovie" Converter="{x:Static conv:ObjectConverters.IsNull}" />
+                </MultiBinding>
+            </ScrollViewer.IsVisible>
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <DataTemplate DataType="vm:CategoryHeaderRow">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:MovieListItemViewModel">
+                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Command="{Binding #RootControl.DataContext.SelectMovieCommand}" CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
+                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding SourceName}" FontSize="11" Opacity="0.6" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Content="{Binding FavoriteIcon}"
+                                        Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}"
+                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                <Button Grid.Column="2" Content="{Binding WatchedIcon}" ToolTip.Tip="Toggle watched"
+                                        Command="{Binding #RootControl.DataContext.ToggleWatchedCommand}" CommandParameter="{Binding}"
+                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                <Button Grid.Column="3" Content="{Binding DownloadIcon}" ToolTip.Tip="Download to this device"
+                                        Command="{Binding #RootControl.DataContext.DownloadCommand}" CommandParameter="{Binding}"
+                                        IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}"
+                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,*"
+              IsVisible="{Binding SelectedMovie, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+            <Button Grid.Row="0" Content="&#8592; Back to Movies" Command="{Binding BackToListCommand}" Margin="8" HorizontalAlignment="Stretch" />
+            <ScrollViewer Grid.Row="1">
+                <Grid ColumnDefinitions="Auto,*" Margin="8">
+                    <controls:ChannelLogoImage Grid.Column="0" LogoUrl="{Binding SelectedMovie.CoverUrl}" Width="110" Height="165" VerticalAlignment="Top" />
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding SelectedMovie.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SelectedMovie.SourceName}" FontSize="11" Opacity="0.6" />
+                        <TextBlock Text="{Binding SelectedMovie.MetaLine}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"
+                                   IsVisible="{Binding SelectedMovie.HasMetaLine}" />
+                        <ui:FAProgressRing IsActive="{Binding SelectedMovie.IsLoadingDetails}" Width="20" Height="20"
+                                           HorizontalAlignment="Left" IsVisible="{Binding SelectedMovie.IsLoadingDetails}" />
+                        <TextBlock Text="{Binding SelectedMovie.Plot}" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
+                                   IsVisible="{Binding SelectedMovie.HasPlot}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                            <Button Content="&#9654; Play" Command="{Binding PlayMovieCommand}" CommandParameter="{Binding SelectedMovie}" />
+                            <Button Content="{Binding SelectedMovie.WatchedIcon}" ToolTip.Tip="Toggle watched"
+                                    Command="{Binding ToggleWatchedCommand}" CommandParameter="{Binding SelectedMovie}" />
+                            <Button Content="{Binding SelectedMovie.DownloadIcon}" ToolTip.Tip="Download to this device"
+                                    Command="{Binding DownloadCommand}" CommandParameter="{Binding SelectedMovie}"
+                                    IsEnabled="{Binding SelectedMovie.CanDownload}" IsVisible="{Binding !SelectedMovie.IsFromDownloadsProfile}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

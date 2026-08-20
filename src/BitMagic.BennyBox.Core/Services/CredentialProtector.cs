@@ -7,9 +7,9 @@ namespace BitMagic.BennyBox.Core.Services;
 // Wraps DPAPI (Windows-only, matches this app's target platform) so Xtream Codes
 // passwords are encrypted at rest and only ever held in memory as plaintext.
 [SupportedOSPlatform("windows")]
-public static class CredentialProtector
+public class CredentialProtector : ICredentialProtector
 {
-    public static string? Protect(string? plaintext)
+    public string? Protect(string? plaintext)
     {
         if (string.IsNullOrEmpty(plaintext))
         {
@@ -21,7 +21,7 @@ public static class CredentialProtector
         return Convert.ToBase64String(protectedBytes);
     }
 
-    public static string? Unprotect(string? encrypted)
+    public string? Unprotect(string? encrypted)
     {
         if (string.IsNullOrEmpty(encrypted))
         {

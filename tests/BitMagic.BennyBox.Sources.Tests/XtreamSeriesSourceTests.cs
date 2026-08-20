@@ -7,6 +7,8 @@ namespace BitMagic.BennyBox.Sources.Tests;
 
 public class XtreamSeriesSourceTests
 {
+    private static readonly ICredentialProtector CredentialProtector = new CredentialProtector();
+
     private const string CategoriesJson = """
         [{"category_id":"5","category_name":"Drama"}]
         """;
@@ -40,7 +42,7 @@ public class XtreamSeriesSourceTests
         SourceType = ProfileSourceType.XtreamCodes,
         XtreamServerUrl = "http://example.com",
         XtreamUsername = "user",
-        XtreamPasswordEncrypted = CredentialProtector.Protect("pass")
+        XtreamPasswordEncrypted = CredentialProtector.Protect("pass"),
     };
 
     [Fact]
@@ -58,7 +60,7 @@ public class XtreamSeriesSourceTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
         });
         using var httpClient = new HttpClient(handler);
-        var source = new XtreamSeriesSource(new XtreamClient(httpClient));
+        var source = new XtreamSeriesSource(new XtreamClient(httpClient), CredentialProtector);
 
         var result = await source.ImportAsync(CreateProfile());
 
@@ -85,7 +87,7 @@ public class XtreamSeriesSourceTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(SeriesInfoJson) };
         });
         using var httpClient = new HttpClient(handler);
-        var source = new XtreamSeriesSource(new XtreamClient(httpClient));
+        var source = new XtreamSeriesSource(new XtreamClient(httpClient), CredentialProtector);
         var series = new Series { ProfileId = Guid.NewGuid(), SourceSeriesId = "123", Name = "Breaking Bad" };
 
         var episodes = await source.GetEpisodesAsync(CreateProfile(), series);

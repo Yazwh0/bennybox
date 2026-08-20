@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia;
+using BitMagic.BennyBox.Core.Services;
 using LibVLCSharp.Shared;
 using Serilog;
 
@@ -22,9 +23,9 @@ internal static class Program
     {
         MigrateAppDataFolder();
 
-        var logDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "BennyBox", "logs");
+        // No DI container exists yet at this point (see AppBootstrapper) - constructed directly rather
+        // than resolved.
+        var logDirectory = new WindowsAppPaths().LogDirectory;
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()

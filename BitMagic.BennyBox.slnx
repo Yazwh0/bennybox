@@ -4,6 +4,8 @@
     <Project Path="src/BitMagic.BennyBox.Core/BitMagic.BennyBox.Core.csproj" />
     <Project Path="src/BitMagic.BennyBox.Data/BitMagic.BennyBox.Data.csproj" />
     <Project Path="src/BitMagic.BennyBox.Sources/BitMagic.BennyBox.Sources.csproj" />
+    <Project Path="src/BitMagic.BennyBox.UI/BitMagic.BennyBox.UI.csproj" />
+    <Project Path="src/BitMagic.BennyBox.Android/BitMagic.BennyBox.Android.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/BitMagic.BennyBox.Core.Tests/BitMagic.BennyBox.Core.Tests.csproj" />

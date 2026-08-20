@@ -1,4 +1,3 @@
-using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using BitMagic.BennyBox.Core.Models;
@@ -7,14 +6,15 @@ using BitMagic.BennyBox.Sources.Xtream;
 
 namespace BitMagic.BennyBox.ViewModels;
 
-[SupportedOSPlatform("windows")]
 public partial class AddProfileViewModel : ViewModelBase
 {
     private readonly XtreamClient _xtreamClient;
+    private readonly ICredentialProtector _credentialProtector;
 
-    public AddProfileViewModel(XtreamClient xtreamClient)
+    public AddProfileViewModel(XtreamClient xtreamClient, ICredentialProtector credentialProtector)
     {
         _xtreamClient = xtreamClient;
+        _credentialProtector = credentialProtector;
     }
 
     // Set by LoadForEdit when this dialog is editing an existing profile rather than creating a new
@@ -34,14 +34,14 @@ public partial class AddProfileViewModel : ViewModelBase
         EpgUrl = profile.EpgSourceType == EpgSourceType.XmltvUrl ? profile.EpgUrl ?? string.Empty : string.Empty;
         XtreamServerUrl = profile.XtreamServerUrl ?? string.Empty;
         XtreamUsername = profile.XtreamUsername ?? string.Empty;
-        XtreamPassword = CredentialProtector.Unprotect(profile.XtreamPasswordEncrypted) ?? string.Empty;
+        XtreamPassword = _credentialProtector.Unprotect(profile.XtreamPasswordEncrypted) ?? string.Empty;
         LocalMoviesPath = profile.LocalMoviesPath ?? string.Empty;
         LocalSeriesPath = profile.LocalSeriesPath ?? string.Empty;
         LocalClipsPath = profile.LocalClipsPath ?? string.Empty;
         SftpHost = profile.SftpHost ?? string.Empty;
         SftpPort = profile.SftpPort?.ToString() ?? "22";
         SftpUsername = profile.SftpUsername ?? string.Empty;
-        SftpPassword = CredentialProtector.Unprotect(profile.SftpPasswordEncrypted) ?? string.Empty;
+        SftpPassword = _credentialProtector.Unprotect(profile.SftpPasswordEncrypted) ?? string.Empty;
         SftpMoviesRemotePath = profile.SftpMoviesRemotePath ?? string.Empty;
         SftpSeriesRemotePath = profile.SftpSeriesRemotePath ?? string.Empty;
         SftpClipsRemotePath = profile.SftpClipsRemotePath ?? string.Empty;
@@ -303,7 +303,7 @@ public partial class AddProfileViewModel : ViewModelBase
                 SftpHost = SftpHost.Trim(),
                 SftpPort = port,
                 SftpUsername = SftpUsername.Trim(),
-                SftpPasswordEncrypted = CredentialProtector.Protect(SftpPassword),
+                SftpPasswordEncrypted = _credentialProtector.Protect(SftpPassword),
                 SftpMoviesRemotePath = string.IsNullOrWhiteSpace(SftpMoviesRemotePath) ? null : SftpMoviesRemotePath.Trim(),
                 SftpSeriesRemotePath = string.IsNullOrWhiteSpace(SftpSeriesRemotePath) ? null : SftpSeriesRemotePath.Trim(),
                 SftpClipsRemotePath = string.IsNullOrWhiteSpace(SftpClipsRemotePath) ? null : SftpClipsRemotePath.Trim()
@@ -326,7 +326,7 @@ public partial class AddProfileViewModel : ViewModelBase
             SourceType = ProfileSourceType.XtreamCodes,
             XtreamServerUrl = XtreamServerUrl.Trim().TrimEnd('/'),
             XtreamUsername = XtreamUsername.Trim(),
-            XtreamPasswordEncrypted = CredentialProtector.Protect(XtreamPassword),
+            XtreamPasswordEncrypted = _credentialProtector.Protect(XtreamPassword),
             EpgSourceType = EpgSourceType.XtreamEmbedded
         };
 

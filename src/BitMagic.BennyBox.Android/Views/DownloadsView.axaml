@@ -1,0 +1,67 @@
+<!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
+     comment for why. Mirrors desktop's DownloadsView.axaml, adapted to plain controls (no glass-*
+     classes/theme brushes - see App.axaml) and the row-card look already established in
+     LiveTvView.axaml. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:controls="using:BitMagic.BennyBox.Controls"
+             x:Class="BitMagic.BennyBox.Views.DownloadsView"
+             x:DataType="vm:DownloadsViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,*">
+        <TextBlock Grid.Row="0" Text="Downloads" FontWeight="Bold" FontSize="18" Margin="8" />
+
+        <TextBlock Grid.Row="1" Text="Nothing downloaded yet - look for the download button on a movie, episode, or clip."
+                   Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoDownloads}" />
+
+        <ScrollViewer Grid.Row="1">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <DataTemplate DataType="vm:CategoryHeaderRow">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:DownloadItemViewModel">
+                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Command="{Binding #RootControl.DataContext.OpenCommand}" CommandParameter="{Binding}"
+                                        IsEnabled="{Binding IsCompleted}" ToolTip.Tip="Open in Movies/Series/Clips">
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <controls:ChannelLogoImage Grid.Column="0" LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                                            <TextBlock Text="{Binding StatusLabel}" FontSize="11" Opacity="0.75" Margin="0,4,0,0" />
+                                            <ProgressBar Height="4" Margin="0,6,0,0" Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"
+                                                         IsVisible="{Binding IsInProgress}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                                <Button Grid.Column="1" Content="Cancel"
+                                        Command="{Binding #RootControl.DataContext.CancelCommand}" CommandParameter="{Binding}"
+                                        IsVisible="{Binding IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                            IsVisible="{Binding !IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0">
+                                    <Button Content="&#8635;" ToolTip.Tip="Retry"
+                                            Command="{Binding #RootControl.DataContext.RetryCommand}" CommandParameter="{Binding}"
+                                            IsVisible="{Binding IsFailedOrCanceled}" Width="36" Height="36" Padding="0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                    <Button Content="&#10007;" ToolTip.Tip="Delete"
+                                            Command="{Binding #RootControl.DataContext.DeleteCommand}" CommandParameter="{Binding}"
+                                            Width="36" Height="36" Padding="0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

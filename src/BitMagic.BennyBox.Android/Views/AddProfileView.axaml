@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             x:Class="BitMagic.BennyBox.Android.Views.AddProfileView"
+             x:DataType="vm:AddProfileViewModel">
+    <ScrollViewer MaxHeight="500">
+        <StackPanel Spacing="12" Width="320">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Name" />
+                <TextBox Text="{Binding Name}" Watermark="My IPTV Playlist" />
+            </StackPanel>
+
+            <WrapPanel>
+                <RadioButton Content="M3U Playlist" GroupName="SourceType" IsChecked="{Binding IsM3uSelected}" Margin="0,0,16,8" />
+                <RadioButton Content="Xtream Codes" GroupName="SourceType" IsChecked="{Binding IsXtreamSelected}" Margin="0,0,16,8" />
+                <RadioButton Content="Local Folder" GroupName="SourceType" IsChecked="{Binding IsLocalFolderSelected}" Margin="0,0,16,8" />
+                <RadioButton Content="SFTP Site" GroupName="SourceType" IsChecked="{Binding IsSftpSelected}" Margin="0,0,16,8" />
+            </WrapPanel>
+
+            <StackPanel Spacing="12" IsVisible="{Binding IsM3uSelected}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="M3U Playlist URL" />
+                    <TextBox Text="{Binding M3uUrl}" Watermark="https://example.com/playlist.m3u8" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="EPG (XMLTV) URL - optional" />
+                    <TextBox Text="{Binding EpgUrl}" Watermark="https://example.com/epg.xml" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="12" IsVisible="{Binding IsXtreamSelected}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Server URL" />
+                    <TextBox Text="{Binding XtreamServerUrl}" Watermark="https://example.com:8080" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Username" />
+                    <TextBox Text="{Binding XtreamUsername}" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Password" />
+                    <TextBox Text="{Binding XtreamPassword}" PasswordChar="●" />
+                </StackPanel>
+                <Button Content="Test Connection" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding !IsTestingConnection}" />
+                <TextBlock Text="{Binding TestResultMessage}" TextWrapping="Wrap" IsVisible="{Binding HasTestResult}" />
+            </StackPanel>
+
+            <StackPanel Spacing="12" IsVisible="{Binding IsLocalFolderSelected}">
+                <TextBlock Text="Set a Movies folder, a TV Shows folder, a Clips folder, or some combination."
+                           Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Movies Folder" />
+                    <TextBox Text="{Binding LocalMoviesPath}" Watermark="Not set" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="TV Shows Folder" />
+                    <TextBox Text="{Binding LocalSeriesPath}" Watermark="Not set" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Clips Folder" />
+                    <TextBox Text="{Binding LocalClipsPath}" Watermark="Not set" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="12" IsVisible="{Binding IsSftpSelected}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Host" />
+                    <TextBox Text="{Binding SftpHost}" Watermark="example.com" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Port" />
+                    <TextBox Text="{Binding SftpPort}" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Username" />
+                    <TextBox Text="{Binding SftpUsername}" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Password" />
+                    <TextBox Text="{Binding SftpPassword}" PasswordChar="●" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Movies Remote Path" />
+                    <TextBox Text="{Binding SftpMoviesRemotePath}" Watermark="/movies (leave blank if none)" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="TV Shows Remote Path" />
+                    <TextBox Text="{Binding SftpSeriesRemotePath}" Watermark="/tv (leave blank if none)" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Clips Remote Path" />
+                    <TextBox Text="{Binding SftpClipsRemotePath}" Watermark="/clips (leave blank if none)" />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="Red" TextWrapping="Wrap" IsVisible="{Binding HasError}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

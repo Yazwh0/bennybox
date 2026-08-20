@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using BitMagic.BennyBox.Services;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BitMagic.BennyBox.Controls;
@@ -80,7 +81,7 @@ public class ChannelLogoImage : Image
             return;
         }
 
-        var cache = _cache ??= App.Services?.GetService<IChannelLogoCache>();
+        var cache = _cache ??= AppServices.Current?.GetService<IChannelLogoCache>();
         if (cache is null)
         {
             Source = null;

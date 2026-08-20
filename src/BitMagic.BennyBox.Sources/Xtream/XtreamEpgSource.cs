@@ -1,18 +1,18 @@
-using System.Runtime.Versioning;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
 using BitMagic.BennyBox.Sources.Xmltv;
 
 namespace BitMagic.BennyBox.Sources.Xtream;
 
-[SupportedOSPlatform("windows")]
 public class XtreamEpgSource : IEpgSource
 {
     private readonly HttpClient _httpClient;
+    private readonly ICredentialProtector _credentialProtector;
 
-    public XtreamEpgSource(HttpClient httpClient)
+    public XtreamEpgSource(HttpClient httpClient, ICredentialProtector credentialProtector)
     {
         _httpClient = httpClient;
+        _credentialProtector = credentialProtector;
     }
 
     public EpgSourceType SourceType => EpgSourceType.XtreamEmbedded;
@@ -24,7 +24,7 @@ public class XtreamEpgSource : IEpgSource
             throw new InvalidOperationException("Profile has no Xtream Codes server/username configured.");
         }
 
-        var password = CredentialProtector.Unprotect(profile.XtreamPasswordEncrypted)
+        var password = _credentialProtector.Unprotect(profile.XtreamPasswordEncrypted)
             ?? throw new InvalidOperationException("Profile has no Xtream Codes password configured.");
 
         var url = $"{profile.XtreamServerUrl.TrimEnd('/')}/xmltv.php?username={Uri.EscapeDataString(profile.XtreamUsername)}&password={Uri.EscapeDataString(password)}";

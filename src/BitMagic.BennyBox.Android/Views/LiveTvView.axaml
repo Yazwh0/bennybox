@@ -1,0 +1,75 @@
+<!-- Namespace is BitMagic.BennyBox.Views (not BitMagic.BennyBox.Android.Views) even though this file
+     lives in the Android project - ViewLocator resolves a ViewModel's View by string-substituting
+     "ViewModels"->"Views"/"ViewModel"->"View" on its namespace-qualified type name
+     (BitMagic.BennyBox.ViewModels.LiveTvViewModel -> BitMagic.BennyBox.Views.LiveTvView), and that
+     namespace is shared by the ViewModel regardless of which head project it's actually compiled
+     into. Only one of the desktop/Android LiveTvView types is ever loaded in a given process, so
+     there's no runtime collision despite the same fully-qualified name existing in both head
+     projects - see the Android port plan, Phase 3/4. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
+             xmlns:controls="using:BitMagic.BennyBox.Controls"
+             x:Class="BitMagic.BennyBox.Views.LiveTvView"
+             x:DataType="vm:LiveTvViewModel"
+             x:Name="RootControl">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels..." />
+                <Button Grid.Column="1" Content="&#8635;" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0" />
+            </Grid>
+            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="Loading channels..." HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
+                   IsVisible="{Binding IsLoading}" />
+
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <DataTemplate DataType="vm:CategoryHeaderRow">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="12,12,12,4" />
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ChannelListItemViewModel">
+                        <Border Margin="8,4" Padding="10" Background="#22000000" CornerRadius="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Button Grid.Column="0"
+                                        Padding="0"
+                                        Background="Transparent" BorderThickness="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
+                                        CommandParameter="{Binding Channel}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
+                                                                    FallbackLogoUrl="{Binding FallbackLogoUrl}"
+                                                                    TmdbFallbackTitle="{Binding Name}"
+                                                                    Width="48" Height="48" VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="16" />
+                                            <TextBlock Text="{Binding NowTitle}" FontSize="12" Opacity="0.7" IsVisible="{Binding HasNowTitle}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1"
+                                        Content="{Binding FavoriteIcon}"
+                                        Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
+                                        CommandParameter="{Binding}"
+                                        VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                        Width="44" Height="44" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
