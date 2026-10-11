@@ -250,7 +250,7 @@ public partial class FavoritesViewModel : ViewModelBase
             var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
             var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
             var recentProgress = await _watchProgressRepository.GetRecentAsync();
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
 
             // See ChannelLogoFallbackSupport - built up front (not scoped per-profile) so it's
             // complete before any ChannelListItemViewModel below needs it.

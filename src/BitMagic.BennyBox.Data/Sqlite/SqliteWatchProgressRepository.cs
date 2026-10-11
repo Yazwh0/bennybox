@@ -54,7 +54,9 @@ public class SqliteWatchProgressRepository : IWatchProgressRepository
         {
             using var connection = _connectionFactory.CreateConnection();
             var rows = connection.Query<WatchProgress>(
-                "SELECT * FROM WatchProgress ORDER BY UpdatedUtc DESC LIMIT @limit", new { limit });
+                // Continue Watching only lists what can currently be played - see ProfileSource.IsEnabled.
+                "SELECT * FROM WatchProgress WHERE ProfileId IN (SELECT Id FROM Profiles WHERE IsEnabled = 1) ORDER BY UpdatedUtc DESC LIMIT @limit",
+                new { limit });
             return (IReadOnlyList<WatchProgress>)rows.ToList();
         }, cancellationToken);
 }

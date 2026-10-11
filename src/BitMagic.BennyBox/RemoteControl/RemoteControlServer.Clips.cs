@@ -35,7 +35,7 @@ public sealed partial class RemoteControlServer
             .Where(w => w.ContentType == WatchProgressContentType.Clip)
             .Select(w => (w.ProfileId, w.ContentKey))
             .ToHashSet();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
 
         var allCategories = new List<string>();
         var items = new List<ClipItemResponse>();
@@ -135,7 +135,7 @@ public sealed partial class RemoteControlServer
     // its own Id means checking each profile's clip list in turn.
     private async Task<Movie?> FindClipAsync(Guid id)
     {
-        foreach (var profile in await _profileRepository.GetAllAsync())
+        foreach (var profile in await _profileRepository.GetEnabledAsync())
         {
             var clip = (await _clipRepository.GetClipsAsync(profile.Id)).FirstOrDefault(c => c.Id == id);
             if (clip is not null)

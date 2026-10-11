@@ -83,6 +83,25 @@ advance widths), so sibling buttons in the same row visibly shift as state chang
 clipping if a glyph is wider than the box (emoji in particular render larger than plain Unicode
 symbols like `★`/`✓`).
 
+**Buttons sharing a row must have uniform heights, widths, and gaps.** (Settings' profile rows, in
+`SettingsView.axaml` on both desktop and Android, are the reference.)
+- *Height:* every button in a row is the same height. When an icon button sits next to text
+  buttons, don't hard-code `34` (that size is for rows made only of icon buttons). Size it square to
+  a sibling text button instead, e.g. `x:Name="EditButton"` on one of them and
+  `Width="{Binding #EditButton.Bounds.Height}" Height="{Binding #EditButton.Bounds.Height}"`
+  `VerticalAlignment="Center"` on the icon button.
+- *Width:* buttons doing the same job (e.g. every icon button in a row, or the two halves of a
+  state toggle) share one fixed width - see the icon-only rule above.
+- *Gaps:* one spacing value per row, applied identically to every button - either a
+  `StackPanel Spacing="8"`, or (in a `Grid`) the same `Margin="8,0,0,0"` on every button. Don't mix
+  symmetric margins (`"4,0"`) with none on the last button, which gives 8/4/8 gaps that look
+  uneven.
+- *State changes must not shift layout:* a state toggle swaps between two same-sized buttons in the
+  same cell (`IsVisible="{Binding X}"` / `IsVisible="{Binding !X}"`) rather than changing size. Show
+  state without adding or removing lines of text (e.g. dim the row via
+  `Classes.profile-disabled="{Binding !IsEnabled}"` and an `Opacity` style), since an extra line
+  changes the row's height and makes everything below it jump.
+
 **Row/tile card pattern** (Series, Movies, Clips, Live TV, Favorites list rows - see
 `SeriesView.axaml`/`MoviesView.axaml`/`ClipsView.axaml` for the canonical shape): a single
 `Border Classes="glass-card"` wraps the whole row, containing one `Button Classes="glass-ctrl

@@ -523,7 +523,7 @@ public class DownloadManager
                 DownloadChanged?.Invoke(this, download);
             });
 
-            if (sourceProfile.SourceType == ProfileSourceType.XtreamCodes)
+            if (IsHttpSource(sourceProfile.SourceType))
             {
                 await DownloadHttpAsync(streamUrl, destinationPath, progress, cancellationToken);
             }
@@ -640,8 +640,14 @@ public class DownloadManager
         return new string(chars).Trim();
     }
 
+    // Xtream and Jellyfin both hand out a plain HTTP URL per title (Jellyfin's static
+    // /Videos/{id}/stream.{container} route serves the original file untouched, with Range support) -
+    // everything else is a file system path that goes through IMediaFileSystem instead.
+    private static bool IsHttpSource(ProfileSourceType sourceType) =>
+        sourceType is ProfileSourceType.XtreamCodes or ProfileSourceType.Jellyfin;
+
     private static string GetExtension(ProfileSourceType sourceType, string sourceId, string streamUrl) =>
-        sourceType == ProfileSourceType.XtreamCodes
+        IsHttpSource(sourceType)
             ? Path.GetExtension(new Uri(streamUrl).AbsolutePath)
             : Path.GetExtension(ExtractEpisodeSourceRelativePath(sourceId));
 

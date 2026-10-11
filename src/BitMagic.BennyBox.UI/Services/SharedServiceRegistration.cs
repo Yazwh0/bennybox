@@ -4,6 +4,7 @@ using BitMagic.BennyBox.Data.Sqlite;
 using BitMagic.BennyBox.Services;
 using BitMagic.BennyBox.Sources.Folder;
 using BitMagic.BennyBox.Sources.GitHub;
+using BitMagic.BennyBox.Sources.Jellyfin;
 using BitMagic.BennyBox.Sources.M3u;
 using BitMagic.BennyBox.Sources.Tmdb;
 using BitMagic.BennyBox.Sources.Xmltv;
@@ -78,6 +79,20 @@ public static class SharedServiceRegistration
         services.AddSingleton<IMovieSource>(sp => sp.GetRequiredService<XtreamMovieSource>());
         services.AddSingleton<XtreamAccountInfoSource>();
         services.AddSingleton<IAccountInfoSource>(sp => sp.GetRequiredService<XtreamAccountInfoSource>());
+
+        // One JellyfinClient behind all five Jellyfin sources - it owns the per-profile login session
+        // (see JellyfinClient.GetSessionAsync). A whole-library Items listing or a week of Live TV
+        // guide data from a large server can be slow to produce, so this gets the EPG timeout too.
+        services.AddHttpClient<JellyfinClient>(client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+            client.Timeout = epgTimeout;
+        });
+        services.AddSingleton<IChannelSource>(sp => new JellyfinChannelSource(sp.GetRequiredService<JellyfinClient>()));
+        services.AddSingleton<IEpgSource>(sp => new JellyfinEpgSource(sp.GetRequiredService<JellyfinClient>()));
+        services.AddSingleton<IMovieSource>(sp => new JellyfinMovieSource(sp.GetRequiredService<JellyfinClient>()));
+        services.AddSingleton<ISeriesSource>(sp => new JellyfinSeriesSource(sp.GetRequiredService<JellyfinClient>()));
+        services.AddSingleton<IClipSource>(sp => new JellyfinClipSource(sp.GetRequiredService<JellyfinClient>()));
 
         // LocalFolder and Sftp are two registrations apiece of the same FolderMovieSource/
         // FolderSeriesSource class, each fixed to its own SourceType - see FolderMovieSource's

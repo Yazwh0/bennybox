@@ -23,6 +23,14 @@ public class SqliteProfileRepository : IProfileRepository
             return (IReadOnlyList<ProfileSource>)rows.ToList();
         }, cancellationToken);
 
+    public Task<IReadOnlyList<ProfileSource>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var rows = connection.Query<ProfileSource>("SELECT * FROM Profiles WHERE IsEnabled = 1 ORDER BY SortOrder");
+            return (IReadOnlyList<ProfileSource>)rows.ToList();
+        }, cancellationToken);
+
     public Task<ProfileSource?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.Run(() =>
         {
@@ -36,8 +44,8 @@ public class SqliteProfileRepository : IProfileRepository
             using var connection = _connectionFactory.CreateConnection();
             connection.Execute(
                 """
-                INSERT INTO Profiles (Id, Name, SourceType, M3uUrl, XtreamServerUrl, XtreamUsername, XtreamPasswordEncrypted, EpgSourceType, EpgUrl, LastRefreshedUtc, SortOrder, PlaylistETag, PlaylistLastModified, EpgETag, EpgLastModified, XtreamStatus, XtreamExpiryUtc, XtreamMaxConnections, LocalMoviesPath, LocalSeriesPath, SftpHost, SftpPort, SftpUsername, SftpPasswordEncrypted, SftpMoviesRemotePath, SftpSeriesRemotePath, LocalClipsPath, SftpClipsRemotePath)
-                VALUES (@Id, @Name, @SourceType, @M3uUrl, @XtreamServerUrl, @XtreamUsername, @XtreamPasswordEncrypted, @EpgSourceType, @EpgUrl, @LastRefreshedUtc, @SortOrder, @PlaylistETag, @PlaylistLastModified, @EpgETag, @EpgLastModified, @XtreamStatus, @XtreamExpiryUtc, @XtreamMaxConnections, @LocalMoviesPath, @LocalSeriesPath, @SftpHost, @SftpPort, @SftpUsername, @SftpPasswordEncrypted, @SftpMoviesRemotePath, @SftpSeriesRemotePath, @LocalClipsPath, @SftpClipsRemotePath)
+                INSERT INTO Profiles (Id, Name, SourceType, M3uUrl, XtreamServerUrl, XtreamUsername, XtreamPasswordEncrypted, EpgSourceType, EpgUrl, LastRefreshedUtc, SortOrder, PlaylistETag, PlaylistLastModified, EpgETag, EpgLastModified, XtreamStatus, XtreamExpiryUtc, XtreamMaxConnections, LocalMoviesPath, LocalSeriesPath, SftpHost, SftpPort, SftpUsername, SftpPasswordEncrypted, SftpMoviesRemotePath, SftpSeriesRemotePath, LocalClipsPath, SftpClipsRemotePath, JellyfinServerUrl, JellyfinUsername, JellyfinPasswordEncrypted, JellyfinUserId, JellyfinAccessTokenEncrypted, JellyfinApiKeyEncrypted, JellyfinLibraryMappings, IsEnabled)
+                VALUES (@Id, @Name, @SourceType, @M3uUrl, @XtreamServerUrl, @XtreamUsername, @XtreamPasswordEncrypted, @EpgSourceType, @EpgUrl, @LastRefreshedUtc, @SortOrder, @PlaylistETag, @PlaylistLastModified, @EpgETag, @EpgLastModified, @XtreamStatus, @XtreamExpiryUtc, @XtreamMaxConnections, @LocalMoviesPath, @LocalSeriesPath, @SftpHost, @SftpPort, @SftpUsername, @SftpPasswordEncrypted, @SftpMoviesRemotePath, @SftpSeriesRemotePath, @LocalClipsPath, @SftpClipsRemotePath, @JellyfinServerUrl, @JellyfinUsername, @JellyfinPasswordEncrypted, @JellyfinUserId, @JellyfinAccessTokenEncrypted, @JellyfinApiKeyEncrypted, @JellyfinLibraryMappings, @IsEnabled)
                 """, profile);
         }, cancellationToken);
 
@@ -56,7 +64,11 @@ public class SqliteProfileRepository : IProfileRepository
                     LocalMoviesPath = @LocalMoviesPath, LocalSeriesPath = @LocalSeriesPath, SftpHost = @SftpHost, SftpPort = @SftpPort,
                     SftpUsername = @SftpUsername, SftpPasswordEncrypted = @SftpPasswordEncrypted,
                     SftpMoviesRemotePath = @SftpMoviesRemotePath, SftpSeriesRemotePath = @SftpSeriesRemotePath,
-                    LocalClipsPath = @LocalClipsPath, SftpClipsRemotePath = @SftpClipsRemotePath
+                    LocalClipsPath = @LocalClipsPath, SftpClipsRemotePath = @SftpClipsRemotePath,
+                    JellyfinServerUrl = @JellyfinServerUrl, JellyfinUsername = @JellyfinUsername, JellyfinPasswordEncrypted = @JellyfinPasswordEncrypted,
+                    JellyfinUserId = @JellyfinUserId, JellyfinAccessTokenEncrypted = @JellyfinAccessTokenEncrypted,
+                    JellyfinApiKeyEncrypted = @JellyfinApiKeyEncrypted, JellyfinLibraryMappings = @JellyfinLibraryMappings,
+                    IsEnabled = @IsEnabled
                 WHERE Id = @Id
                 """, profile);
         }, cancellationToken);

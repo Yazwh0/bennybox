@@ -1,12 +1,13 @@
 # Benny Box
 
-A Windows desktop and Android IPTV player. Point it at an Xtream Codes or M3U/XMLTV source and browse Live TV, a full EPG guide, Series, and Movies from one app, with resumable playback, catch-up TV, reminders, and (on Windows) a phone remote control.
+A Windows desktop and Android IPTV player. Point it at an Xtream Codes or M3U/XMLTV source (or a Jellyfin server, a local folder, or an SFTP site) and browse Live TV, a full EPG guide, Series, and Movies from one app, with resumable playback, catch-up TV, reminders, and (on Windows) a phone remote control.
 
 ## Features
 
 ### Sources
 - **Xtream Codes** or **M3U playlist** (+ optional separate XMLTV EPG URL) profiles, added/edited from Settings.
 - **Local Folder** or **SFTP** profiles for movies/TV shows/one-off clips already organised on disk or on a remote server - each can point at a Movies path, a TV Shows path, a Clips path, or any combination. Metadata comes from Kodi/Jellyfin-style NFO sidecars when present, filename parsing as a fallback identifier (including grouping season-per-folder scene releases like `Show.Name.S01...`/`...S02...` back into one show), and [themoviedb.org](https://www.themoviedb.org/) automatically fills in whatever synopsis, genre, or poster is still missing for Movies/TV - Clips (sports broadcasts, specials, anything that isn't a movie or an episode) deliberately skip this, since a metadata-matching guess is more likely to be wrong than helpful for one-off content.
+- **Jellyfin** profiles connect to a Jellyfin server and bring in its Movies, TV Shows, other video libraries (as Clips), and - if the server has it set up - Live TV with its guide. Sign in with a username and password, or with an API key from the server's Dashboard → API Keys (the username then just picks whose libraries to show). **Connect & Load Libraries** lists the server's libraries so you can choose where each one appears - Movies, TV Shows, Clips, or Don't import - since Jellyfin's own library type doesn't always fit (a "mixed content" library of sport or one-off specials, for example, is better under Clips). Libraries you haven't assigned go where their Jellyfin type suggests. Posters, synopses, genres, and ratings come from the server; playback and downloads use the original file directly, with no server-side transcoding. Watch progress stays local to Benny Box rather than syncing back to Jellyfin.
 - "Test Connection" on Xtream profiles authenticates and shows account status/expiry before saving.
 - **Refresh** re-imports a profile's content. Xtream/M3U use conditional requests (ETag/Last-Modified) to skip the re-download entirely if nothing changed on the server; Local Folder/SFTP profiles cache everything they find - including every show's full episode list - so browsing never touches the source again until the next Refresh.
 - Multiple profiles can be configured at once - Live TV, Guide, Series, and Movies merge content across all of them. When more than one source contributes to the same list, each title shows a small badge naming which profile it came from, and a Source filter can narrow the list down to just one.
@@ -33,7 +34,7 @@ A Windows desktop and Android IPTV player. Point it at an Xtream Codes or M3U/XM
 - A download button on any movie, episode, or clip pulls a copy onto this machine for offline/faster playback - once downloaded, the app automatically plays that local copy instead of re-streaming the original, without losing your watch progress.
 - **Download Season** and **Download All** on a series' detail page queue every not-yet-downloaded episode at once (two downloads run at a time; the rest just wait their turn).
 - A dedicated **Downloads** page shows progress for everything in flight and everything already downloaded, with Cancel, Retry, and Delete per item - clicking a completed download jumps straight to it in Movies/Series/Clips, ready to play.
-- Downloads resume from where they left off after an interruption (a dropped connection, or the app closing mid-download) for Xtream and Local Folder sources. SFTP downloads restart cleanly instead of resuming - the SFTP library this app uses doesn't yet support reading from a mid-file offset, so a retry re-fetches the whole file rather than continuing it.
+- Downloads resume from where they left off after an interruption (a dropped connection, or the app closing mid-download) for Xtream, Jellyfin, and Local Folder sources. SFTP downloads restart cleanly instead of resuming - the SFTP library this app uses doesn't yet support reading from a mid-file offset, so a retry re-fetches the whole file rather than continuing it.
 - An episode's row shows which profile is actually serving it right now - the streaming source, or "Downloads" once a local copy exists - with the file's location available on hover.
 - Settings → **Downloads** shows where files are being saved, lets you change that location, and reports disk usage with a "Clear all downloads" option.
 
@@ -80,7 +81,7 @@ No Play Store listing - this is a hobby project, so sideloading the APK is the o
 
 ## Getting started
 
-1. Open **Settings** → **Add Profile**, pick Xtream Codes, M3U, Local Folder, or SFTP, and fill in the details.
+1. Open **Settings** → **Add Profile**, pick Xtream Codes, M3U, Local Folder, SFTP, or Jellyfin, and fill in the details.
 2. Once imported, browse Live TV/Guide/Series/Movies/Clips from the nav bar (Windows) or bottom tab bar (Android).
 3. On Windows, to control playback from your phone, open the **Remote** panel and scan the QR code.
 

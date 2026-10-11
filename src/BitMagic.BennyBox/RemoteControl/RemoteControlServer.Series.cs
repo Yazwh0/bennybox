@@ -32,7 +32,7 @@ public sealed partial class RemoteControlServer
             .Where(w => w.ContentType == WatchProgressContentType.Series)
             .Select(w => (w.ProfileId, w.ContentKey))
             .ToHashSet();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
 
         var allCategories = new List<string>();
         var items = new List<SeriesItemResponse>();
@@ -173,7 +173,7 @@ public sealed partial class RemoteControlServer
     // also need the owning ProfileSource itself (episode fetches need its credentials).
     private async Task<(Series Series, ProfileSource Profile)?> FindSeriesAsync(Guid id)
     {
-        foreach (var profile in await _profileRepository.GetAllAsync())
+        foreach (var profile in await _profileRepository.GetEnabledAsync())
         {
             var series = (await _seriesRepository.GetSeriesAsync(profile.Id)).FirstOrDefault(s => s.Id == id);
             if (series is not null)

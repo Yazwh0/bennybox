@@ -5,14 +5,16 @@ public enum ProfileSourceType
     M3u,
     XtreamCodes,
     LocalFolder,
-    Sftp
+    Sftp,
+    Jellyfin
 }
 
 public enum EpgSourceType
 {
     None,
     XmltvUrl,
-    XtreamEmbedded
+    XtreamEmbedded,
+    JellyfinEmbedded
 }
 
 // Which kind of content a given LocalFolder/Sftp root holds - a single profile can set a path for
@@ -43,6 +45,10 @@ public class ProfileSource
     public DateTime? LastRefreshedUtc { get; set; }
     public int SortOrder { get; set; }
 
+    // A disabled profile keeps its settings and imported content but is left out of every browsing page
+    // (and their bulk refreshes) until switched back on - see IProfileRepository.GetEnabledAsync.
+    public bool IsEnabled { get; set; } = true;
+
     // HTTP conditional-request caching (ETag / Last-Modified) so a refresh against a server that
     // supports it - the M3U/EPG payloads, not the Xtream API itself - can skip re-downloading,
     // re-parsing, and re-writing the DB entirely when nothing has changed.
@@ -72,4 +78,23 @@ public class ProfileSource
     public string? SftpMoviesRemotePath { get; set; }
     public string? SftpSeriesRemotePath { get; set; }
     public string? SftpClipsRemotePath { get; set; }
+
+    // Jellyfin: one server login covers Movies, TV Shows, Live TV/EPG, and Clips - which of those
+    // actually exist is decided by the server's own libraries, not by per-kind paths like
+    // LocalFolder/Sftp. The access token is kept (not just the password) so every refresh reuses the
+    // same server-side session: a fresh login for the same device id revokes the previous token, which
+    // would break every api_key-bearing stream URL already stored in the DB. See JellyfinClient.
+    public string? JellyfinServerUrl { get; set; }
+    public string? JellyfinUsername { get; set; }
+    public string? JellyfinPasswordEncrypted { get; set; }
+    public string? JellyfinUserId { get; set; }
+    public string? JellyfinAccessTokenEncrypted { get; set; }
+
+    // Alternative to the password: an API key from the server's Dashboard → API Keys. Not tied to a
+    // user, so JellyfinUsername then only picks whose libraries to read (see JellyfinClient.ResolveUserIdAsync).
+    // Takes precedence over the password when set.
+    public string? JellyfinApiKeyEncrypted { get; set; }
+
+    // JSON list of JellyfinLibraryMapping - see JellyfinLibraryMapping.Parse/Serialize.
+    public string? JellyfinLibraryMappings { get; set; }
 }

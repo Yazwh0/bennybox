@@ -18,6 +18,7 @@
             <RadioButton Content="Xtream Codes" GroupName="SourceType" IsChecked="{Binding IsXtreamSelected}" Margin="0,0,16,8" />
             <RadioButton Content="Local Folder" GroupName="SourceType" IsChecked="{Binding IsLocalFolderSelected}" Margin="0,0,16,8" />
             <RadioButton Content="SFTP Site" GroupName="SourceType" IsChecked="{Binding IsSftpSelected}" Margin="0,0,16,8" />
+            <RadioButton Content="Jellyfin" GroupName="SourceType" IsChecked="{Binding IsJellyfinSelected}" Margin="0,0,16,8" />
         </WrapPanel>
 
         <StackPanel Spacing="12" IsVisible="{Binding IsM3uSelected}">
@@ -48,6 +49,48 @@
             <TextBlock Text="{Binding TestResultMessage}"
                         TextWrapping="Wrap"
                         IsVisible="{Binding HasTestResult}" />
+        </StackPanel>
+
+        <StackPanel Spacing="12" IsVisible="{Binding IsJellyfinSelected}">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Server URL" />
+                <TextBox Text="{Binding JellyfinServerUrl}" PlaceholderText="http://192.168.1.10:8096" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Username" />
+                <TextBox Text="{Binding JellyfinUsername}" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Password" />
+                <TextBox Text="{Binding JellyfinPassword}" PasswordChar="●" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="API Key - optional, used instead of the password" />
+                <TextBox Text="{Binding JellyfinApiKey}" PasswordChar="●" PlaceholderText="Dashboard → API Keys" />
+            </StackPanel>
+            <TextBlock Text="With an API key, the username just picks whose libraries to show (can be left blank if the server has one user)."
+                        Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+            <Button Content="Connect &amp; Load Libraries" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding !IsTestingConnection}" />
+            <TextBlock Text="{Binding TestResultMessage}"
+                        TextWrapping="Wrap"
+                        IsVisible="{Binding HasTestResult}" />
+            <StackPanel Spacing="6">
+                <TextBlock Text="Libraries" />
+                <TextBlock Text="Connect &amp; Load Libraries lists the server's libraries so you can choose where each one appears. Until then, each library goes where its Jellyfin type suggests (mixed-content libraries go to Clips). Live TV is imported automatically if the server has it."
+                            IsVisible="{Binding !JellyfinLibraries.Count}"
+                            Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{Binding JellyfinLibraries}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:JellyfinLibraryRowViewModel">
+                            <Grid ColumnDefinitions="*,150" Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding TargetOptions}" SelectedItem="{Binding SelectedOption}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </StackPanel>
 
         <StackPanel Spacing="12" IsVisible="{Binding IsLocalFolderSelected}">

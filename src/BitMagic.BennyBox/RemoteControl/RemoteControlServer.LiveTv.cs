@@ -26,7 +26,7 @@ public sealed partial class RemoteControlServer
         }
 
         var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
         var nowUtc = DateTime.UtcNow;
 
         var allCategories = new List<string>();
@@ -83,7 +83,7 @@ public sealed partial class RemoteControlServer
     // by its own Id means checking each profile's channel list in turn.
     private async Task<Channel?> FindChannelAsync(Guid id)
     {
-        foreach (var profile in await _profileRepository.GetAllAsync())
+        foreach (var profile in await _profileRepository.GetEnabledAsync())
         {
             var channel = (await _channelRepository.GetChannelsAsync(profile.Id)).FirstOrDefault(c => c.Id == id);
             if (channel is not null)

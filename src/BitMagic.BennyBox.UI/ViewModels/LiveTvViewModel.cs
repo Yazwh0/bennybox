@@ -171,7 +171,7 @@ public partial class LiveTvViewModel : ViewModelBase
         var failedProfiles = new List<string>();
         try
         {
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
             foreach (var profile in profiles)
             {
                 try
@@ -381,7 +381,7 @@ public partial class LiveTvViewModel : ViewModelBase
         try
         {
             var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
             var nowUtc = DateTime.UtcNow;
 
             var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Channel> Channels, IReadOnlyDictionary<string, EpgNowNext> NowNext)>();

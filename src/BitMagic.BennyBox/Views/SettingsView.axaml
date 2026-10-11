@@ -153,8 +153,15 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:ProfileSource">
                             <Border BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="0,0,0,1" Padding="0,8">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                    <StackPanel Grid.Column="0">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                    <!-- Disabled profiles are dimmed rather than given an extra "Disabled" line, so
+                                         toggling doesn't change the row's height and shift everything below it. -->
+                                    <Grid.Styles>
+                                        <Style Selector="StackPanel.profile-disabled">
+                                            <Setter Property="Opacity" Value="0.45" />
+                                        </Style>
+                                    </Grid.Styles>
+                                    <StackPanel Grid.Column="0" Classes.profile-disabled="{Binding !IsEnabled}">
                                         <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{StaticResource GlassTextBrush}" />
                                         <TextBlock Text="{Binding SourceType}" Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" />
                                         <TextBlock Foreground="{StaticResource GlassTextDimBrush}" FontSize="12"
@@ -168,18 +175,41 @@
                                             </TextBlock.Text>
                                         </TextBlock>
                                     </StackPanel>
-                                    <Button Classes="glass-nav" Grid.Column="1" Content="Edit" Margin="4,0"
+                                    <Button Classes="glass-nav" Grid.Column="1" x:Name="EditButton" Content="Edit" Margin="8,0,0,0"
                                             Click="OnEditProfileClick"
                                             CommandParameter="{Binding}"
                                             IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
-                                    <Button Classes="glass-nav" Grid.Column="2" Content="Refresh" Margin="4,0"
+                                    <Button Classes="glass-nav" Grid.Column="2" Content="Refresh" Margin="8,0,0,0"
                                             Command="{Binding #RootControl.DataContext.RefreshProfileCommand}"
                                             CommandParameter="{Binding}"
                                             IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
-                                    <Button Classes="glass-nav" Grid.Column="3" Content="Delete"
+                                    <Button Classes="glass-nav" Grid.Column="3" Content="Delete" Margin="8,0,0,0"
                                             Command="{Binding #RootControl.DataContext.DeleteProfileCommand}"
                                             CommandParameter="{Binding}"
                                             IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                                    <!-- One of these two is visible at a time, showing the current state (full circle =
+                                         enabled, empty circle = disabled) - the command flips and saves IsEnabled, then reloads
+                                         the list. Sized square to the row's Edit button so it matches the text buttons' height. -->
+                                    <Button Classes="glass-nav" Grid.Column="4" Margin="8,0,0,0"
+                                            Width="{Binding #EditButton.Bounds.Height}" Height="{Binding #EditButton.Bounds.Height}" Padding="0" VerticalAlignment="Center"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            ToolTip.Tip="Enabled - click to disable (hides this profile from every page)"
+                                            IsVisible="{Binding IsEnabled}"
+                                            Command="{Binding #RootControl.DataContext.ToggleProfileEnabledCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}">
+                                        <Ellipse Width="12" Height="12" StrokeThickness="1.5" Stroke="{Binding $parent[Button].Foreground}" Fill="{Binding $parent[Button].Foreground}" />
+                                    </Button>
+                                    <Button Classes="glass-nav" Grid.Column="4" Margin="8,0,0,0"
+                                            Width="{Binding #EditButton.Bounds.Height}" Height="{Binding #EditButton.Bounds.Height}" Padding="0" VerticalAlignment="Center"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            ToolTip.Tip="Disabled - click to enable"
+                                            IsVisible="{Binding !IsEnabled}"
+                                            Command="{Binding #RootControl.DataContext.ToggleProfileEnabledCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}">
+                                        <Ellipse Width="12" Height="12" StrokeThickness="1.5" Stroke="{Binding $parent[Button].Foreground}" />
+                                    </Button>
                                 </Grid>
                             </Border>
                         </DataTemplate>

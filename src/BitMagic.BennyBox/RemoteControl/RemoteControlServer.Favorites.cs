@@ -32,7 +32,7 @@ public sealed partial class RemoteControlServer
         var favoriteMovieIds = await _favoriteRepository.GetFavoriteMovieIdsAsync();
         var favoriteClipIds = await _favoriteRepository.GetFavoriteClipIdsAsync();
         var recentProgress = await _watchProgressRepository.GetRecentAsync();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
 
         var channelItems = new List<LiveTvItemResponse>();
         var seriesItems = new List<SeriesItemResponse>();

@@ -310,7 +310,7 @@ public partial class SeriesViewModel : ViewModelBase
         var failedProfiles = new List<string>();
         try
         {
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
             foreach (var profile in profiles)
             {
                 try
@@ -717,7 +717,7 @@ public partial class SeriesViewModel : ViewModelBase
                 .Where(w => w.ContentType == WatchProgressContentType.Series)
                 .Select(w => (w.ProfileId, w.ContentKey))
                 .ToHashSet();
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
 
             // Series is Xtream-specific (no equivalent structured API for M3U) - every Xtream profile
             // with any imported series contributes to the browsing list, same as Live TV merges

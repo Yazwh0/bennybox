@@ -30,7 +30,7 @@ public sealed partial class RemoteControlServer
 
         var favoriteIds = await _favoriteRepository.GetFavoriteChannelIdsAsync();
         var reminders = await _reminderRepository.GetAllAsync();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
         var nowUtc = DateTime.UtcNow;
 
         var allCategories = new List<string>();

@@ -229,7 +229,7 @@ public partial class MoviesViewModel : ViewModelBase
         var failedProfiles = new List<string>();
         try
         {
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
             foreach (var profile in profiles)
             {
                 try
@@ -542,7 +542,7 @@ public partial class MoviesViewModel : ViewModelBase
                 .Where(w => w.ContentType == WatchProgressContentType.Movie)
                 .Select(w => (w.ProfileId, w.ContentKey))
                 .ToHashSet();
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
 
             // See DownloadRowSupport - a movie's initial download button state depends on whether the
             // Downloads profile already has a matching title (Completed) or an active Download row

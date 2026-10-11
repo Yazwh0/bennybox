@@ -54,7 +54,7 @@ public sealed partial class RemoteControlServer
             .Where(w => w.ContentType == WatchProgressContentType.Clip)
             .Select(w => (w.ProfileId, w.ContentKey))
             .ToHashSet();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
 
         var channels = new List<LiveTvItemResponse>();
         var series = new List<SeriesItemResponse>();

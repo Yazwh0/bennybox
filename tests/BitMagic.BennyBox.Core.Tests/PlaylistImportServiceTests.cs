@@ -79,6 +79,9 @@ public class PlaylistImportServiceTests
         public Task<IReadOnlyList<ProfileSource>> GetAllAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ProfileSource>>([]);
 
+        public Task<IReadOnlyList<ProfileSource>> GetEnabledAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ProfileSource>>([]);
+
         public Task<ProfileSource?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
             => Task.FromResult<ProfileSource?>(null);
 

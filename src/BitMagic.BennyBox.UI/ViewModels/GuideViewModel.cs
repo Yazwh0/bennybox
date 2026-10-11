@@ -273,7 +273,7 @@ public partial class GuideViewModel : ViewModelBase
         var failedProfiles = new List<string>();
         try
         {
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
             foreach (var profile in profiles)
             {
                 try
@@ -486,7 +486,7 @@ public partial class GuideViewModel : ViewModelBase
             var reminderKeys = (await _reminderRepository.GetAllAsync())
                 .Select(r => (r.ProfileId, r.ChannelTvgId, r.StartUtc))
                 .ToHashSet();
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
 
             var profileData = new List<(IReadOnlyList<Category> Categories, IReadOnlyList<Channel> Channels, IReadOnlyList<EpgProgramme> Programmes)>();
             var allSeriesForLogoFallback = new List<Series>();

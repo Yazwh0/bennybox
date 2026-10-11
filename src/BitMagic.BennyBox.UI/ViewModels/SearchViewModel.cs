@@ -529,7 +529,7 @@ public partial class SearchViewModel : ViewModelBase
                 .Where(w => w.ContentType == WatchProgressContentType.Clip)
                 .Select(w => (w.ProfileId, w.ContentKey))
                 .ToHashSet();
-            var profiles = await _profileRepository.GetAllAsync();
+            var profiles = await _profileRepository.GetEnabledAsync();
             var nowUtc = DateTime.UtcNow;
 
             // See MoviesViewModel.LoadMoviesAsync's equivalent block - same rationale.

@@ -686,4 +686,22 @@ public partial class SettingsViewModel : ViewModelBase
         await LoadProfilesAsync();
         WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
     }
+
+    // Hides (or brings back) everything a profile contributes without touching its settings or
+    // imported content - see ProfileSource.IsEnabled. ChannelsUpdatedMessage makes every page reload
+    // from the now-filtered profile list.
+    [RelayCommand]
+    private async Task ToggleProfileEnabledAsync(ProfileSource? profile)
+    {
+        if (profile is null || IsBusy)
+        {
+            return;
+        }
+
+        profile.IsEnabled = !profile.IsEnabled;
+        await _profileRepository.UpdateAsync(profile);
+        StatusMessage = profile.IsEnabled ? $"Enabled '{profile.Name}'." : $"Disabled '{profile.Name}'.";
+        await LoadProfilesAsync();
+        WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
+    }
 }

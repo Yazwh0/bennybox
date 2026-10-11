@@ -121,6 +121,14 @@ public class SqliteConnectionFactory
             TryAddColumn(connection, "Movies", "Plot", "TEXT");
             TryAddColumn(connection, "Movies", "Genre", "TEXT");
             TryAddColumn(connection, "Movies", "ReleaseDate", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinServerUrl", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinUsername", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinPasswordEncrypted", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinUserId", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinAccessTokenEncrypted", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinApiKeyEncrypted", "TEXT");
+            TryAddColumn(connection, "Profiles", "JellyfinLibraryMappings", "TEXT");
+            TryAddColumn(connection, "Profiles", "IsEnabled", "INTEGER NOT NULL DEFAULT 1");
 
             _migrationsApplied = true;
         }

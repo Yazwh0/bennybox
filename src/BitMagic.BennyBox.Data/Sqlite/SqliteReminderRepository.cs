@@ -26,7 +26,9 @@ public class SqliteReminderRepository : IReminderRepository
         {
             using var connection = _connectionFactory.CreateConnection();
             var rows = connection.Query<Reminder>(
-                "SELECT * FROM Reminders WHERE StartUtc <= @nowUtc ORDER BY StartUtc", new { nowUtc });
+                // A disabled profile's channels can't be tuned to, so its reminders don't pop up either.
+                "SELECT * FROM Reminders WHERE StartUtc <= @nowUtc AND ProfileId IN (SELECT Id FROM Profiles WHERE IsEnabled = 1) ORDER BY StartUtc",
+                new { nowUtc });
             return (IReadOnlyList<Reminder>)rows.ToList();
         }, cancellationToken);
 

@@ -31,7 +31,7 @@ public sealed partial class RemoteControlServer
             .Where(w => w.ContentType == WatchProgressContentType.Movie)
             .Select(w => (w.ProfileId, w.ContentKey))
             .ToHashSet();
-        var profiles = await _profileRepository.GetAllAsync();
+        var profiles = await _profileRepository.GetEnabledAsync();
 
         var allCategories = new List<string>();
         var items = new List<MovieItemResponse>();
@@ -147,7 +147,7 @@ public sealed partial class RemoteControlServer
     // ProfileSource for on-demand plot/genre detail fetches.
     private async Task<(Movie Movie, ProfileSource Profile)?> FindMovieAsync(Guid id)
     {
-        foreach (var profile in await _profileRepository.GetAllAsync())
+        foreach (var profile in await _profileRepository.GetEnabledAsync())
         {
             var movie = (await _movieRepository.GetMoviesAsync(profile.Id)).FirstOrDefault(m => m.Id == id);
             if (movie is not null)
