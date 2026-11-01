@@ -134,7 +134,23 @@ public class SftpFileSystem : IMediaFileSystem
     // specifically.
     public async Task DownloadToFileAsync(string relativePath, string destinationPath, IProgress<(long BytesTransferred, long? TotalBytes)>? progress = null, CancellationToken cancellationToken = default)
     {
+        try
+        {
+            await DownloadToFileCoreAsync(relativePath, destinationPath, progress, cancellationToken);
+        }
+        catch (SshException ex) when (ex is not SftpPathNotFoundException and not SftpPermissionDeniedException)
+        {
+            // Core has no SSH.NET dependency, so this is how DownloadManager learns a dropped
+            // connection is worth retrying.
+            throw new IOException(ex.Message, ex);
+        }
+    }
+
+    private async Task DownloadToFileCoreAsync(string relativePath, string destinationPath, IProgress<(long BytesTransferred, long? TotalBytes)>? progress, CancellationToken cancellationToken)
+    {
         var client = await GetConnectedClientAsync(cancellationToken);
+        // The default is to wait forever, which is how a connection lost during sleep would behave.
+        client.OperationTimeout = DownloadFileCopier.StallTimeout;
         var fullPath = $"{_rootPath}/{relativePath}";
 
         long? totalBytes = null;
@@ -156,7 +172,7 @@ public class SftpFileSystem : IMediaFileSystem
 
         await Task.Run(() =>
         {
-            using var output = File.Create(destinationPath);
+            using var output = DownloadFileCopier.OpenDestination(destinationPath, append: false, FileOptions.None);
             client.DownloadFile(fullPath, output, bytesTransferred =>
             {
                 // DownloadFile's callback is SSH.NET's only hook into an in-progress transfer - there's

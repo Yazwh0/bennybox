@@ -49,6 +49,7 @@ internal static class AppBootstrapper
     {
         services.AddSingleton<ICredentialProtector, CredentialProtector>();
         services.AddSingleton<IAppPaths, WindowsAppPaths>();
+        services.AddSingleton<ISleepInhibitor, WindowsSleepInhibitor>();
 
         services.AddTransient<MainWindow>();
         services.AddSingleton<MainWindowViewModel>();

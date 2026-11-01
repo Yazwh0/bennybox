@@ -3,45 +3,63 @@ using BitMagic.BennyBox.Core.Models;
 
 namespace BitMagic.BennyBox.ViewModels;
 
-// Wraps a Download row - not itself persisted as an ObservableObject's fields (Download is a plain
-// Core model), so Update() just swaps the reference and fires a single "everything may have changed"
-// notification rather than mirroring every field into its own [ObservableProperty].
+// Wraps a Download row. The displayed values are stored rather than computed on demand: DownloadManager
+// mutates its Download from a background thread, so Update() needs the previous values to compare with,
+// and only the bindings whose value actually changed get notified.
 public partial class DownloadItemViewModel : ObservableObject
 {
     public Download Download { get; private set; }
 
     public string Title => Download.Title;
     public string? CoverUrl => Download.CoverUrl;
-    public bool IsInProgress => Download.Status is DownloadStatus.Queued or DownloadStatus.Downloading;
-    public bool IsFailedOrCanceled => Download.Status is DownloadStatus.Failed or DownloadStatus.Canceled;
-    public bool IsCompleted => Download.Status == DownloadStatus.Completed;
 
-    public double ProgressFraction =>
-        Download.TotalBytes is { } total && total > 0
-            ? Math.Clamp((double)Download.BytesDownloaded / total, 0, 1)
-            : 0;
+    [ObservableProperty]
+    private bool _isInProgress;
 
-    public string StatusLabel => Download.Status switch
-    {
-        DownloadStatus.Queued => "Queued",
-        DownloadStatus.Downloading => Download.TotalBytes is { } total && total > 0
-            ? $"{FormatBytes(Download.BytesDownloaded)} / {FormatBytes(total)} ({ProgressFraction:P0})"
-            : $"{FormatBytes(Download.BytesDownloaded)} downloaded",
-        DownloadStatus.Completed => "Downloaded",
-        DownloadStatus.Failed => Download.ErrorMessage is { } msg ? $"Failed: {msg}" : "Failed",
-        DownloadStatus.Canceled => "Canceled",
-        _ => ""
-    };
+    [ObservableProperty]
+    private bool _isFailedOrCanceled;
+
+    [ObservableProperty]
+    private bool _isCompleted;
+
+    [ObservableProperty]
+    private double _progressFraction;
+
+    [ObservableProperty]
+    private string _statusLabel = "";
 
     public DownloadItemViewModel(Download download)
     {
         Download = download;
+        Update(download);
     }
 
     public void Update(Download download)
     {
         Download = download;
-        OnPropertyChanged((string?)null);
+
+        var status = download.Status;
+        var bytes = download.BytesDownloaded;
+        var totalBytes = download.TotalBytes;
+        var fraction = totalBytes is { } known && known > 0
+            ? Math.Clamp((double)bytes / known, 0, 1)
+            : 0;
+
+        IsInProgress = status is DownloadStatus.Queued or DownloadStatus.Downloading;
+        IsFailedOrCanceled = status is DownloadStatus.Failed or DownloadStatus.Canceled;
+        IsCompleted = status == DownloadStatus.Completed;
+        ProgressFraction = fraction;
+        StatusLabel = status switch
+        {
+            DownloadStatus.Queued => "Queued",
+            DownloadStatus.Downloading => totalBytes is { } total && total > 0
+                ? $"{FormatBytes(bytes)} / {FormatBytes(total)} ({fraction:P0})"
+                : $"{FormatBytes(bytes)} downloaded",
+            DownloadStatus.Completed => "Downloaded",
+            DownloadStatus.Failed => download.ErrorMessage is { } msg ? $"Failed: {msg}" : "Failed",
+            DownloadStatus.Canceled => "Canceled",
+            _ => ""
+        };
     }
 
     private static string FormatBytes(long bytes)
