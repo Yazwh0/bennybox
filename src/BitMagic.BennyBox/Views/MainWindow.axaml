@@ -76,7 +76,7 @@
                     <Grid ColumnDefinitions="*,Auto,Auto">
                         <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap">
                             <Run Text="Benny Box" FontWeight="Bold" />
-                            <Run Text="{Binding AvailableUpdate.Version, StringFormat=' {0} is available'}" />
+                            <Run Text="{Binding AvailableUpdate.Version, Mode=OneWay, StringFormat=' {0} is available'}" />
                         </TextBlock>
                         <Button Grid.Column="1" Content="View" Command="{Binding OpenUpdateCommand}" Margin="8,0,0,0" />
                         <Button Grid.Column="2" Content="✕" Command="{Binding DismissUpdateCommand}" Margin="4,0,0,0" />
