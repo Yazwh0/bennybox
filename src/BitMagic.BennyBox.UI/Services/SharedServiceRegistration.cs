@@ -11,6 +11,7 @@ using BitMagic.BennyBox.Sources.Xmltv;
 using BitMagic.BennyBox.Sources.Xtream;
 using BitMagic.BennyBox.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BitMagic.BennyBox.UI.Services;
 
@@ -136,13 +137,16 @@ public static class SharedServiceRegistration
         // safe to hold and reuse for the app's whole lifetime (that's IHttpClientFactory's point).
         // Movie/episode files can take well over the default 100s HttpClient timeout to pull down
         // (that timeout covers the whole response body being read, not just headers - see
-        // DownloadManager.DownloadHttpAsync) - unbounded here since a genuine stall/user cancel is
-        // already handled per-download via DownloadManager's own CancellationTokenSource.
+        // DownloadManager.DownloadHttpAsync) - unbounded here since a stall is detected per read instead
+        // (see DownloadFileCopier) and a user cancel goes through DownloadManager's own
+        // CancellationTokenSource.
         services.AddHttpClient("Downloads", client =>
         {
             client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
             client.Timeout = Timeout.InfiniteTimeSpan;
         });
+        // Try, because a platform with a real implementation has already registered it by this point.
+        services.TryAddSingleton<ISleepInhibitor, NoOpSleepInhibitor>();
         services.AddSingleton(sp => new DownloadManager(
             sp.GetRequiredService<IDownloadRepository>(),
             sp.GetRequiredService<IProfileRepository>(),
@@ -155,6 +159,7 @@ public static class SharedServiceRegistration
             sp.GetRequiredService<ISeriesRepository>(),
             sp.GetRequiredService<ISettingsStore>(),
             sp.GetRequiredService<IAppPaths>(),
+            sp.GetRequiredService<ISleepInhibitor>(),
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("Downloads")));
         services.AddSingleton<DownloadPlaybackResolver>();
 

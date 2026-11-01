@@ -16,9 +16,20 @@ public class DownloadManager
     private const string DownloadsProfileName = "Downloads";
 
     // Progress is reported far more often than it's worth persisting/broadcasting - a fast local copy
-    // can tick this every few microseconds. Throttled to roughly 4 updates/second, plus always on the
-    // final chunk (see RunDownloadAsync).
-    private static readonly TimeSpan ProgressThrottle = TimeSpan.FromMilliseconds(250);
+    // can tick this every few microseconds. The database copy only matters after a restart, so it's
+    // written much less often than the panel is updated - see DownloadProgressReporter.
+    private const long ProgressNotifyIntervalMs = 500;
+    private const long ProgressPersistIntervalMs = 5000;
+
+    // Long enough overall for Wi-Fi to come back after the machine wakes.
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60)
+    ];
+
+    private const int DiskFullWin32 = 0x70;
+    private const int HandleDiskFullWin32 = 0x27;
+    private const int DiskFullUnix = 28;
 
     private readonly IDownloadRepository _downloadRepository;
     private readonly IProfileRepository _profileRepository;
@@ -31,16 +42,24 @@ public class DownloadManager
     private readonly ISeriesRepository _seriesRepository;
     private readonly ISettingsStore _settingsStore;
     private readonly IAppPaths _appPaths;
+    private readonly ISleepInhibitor _sleepInhibitor;
+    private readonly Lock _activeDownloadCountLock = new();
+    private int _activeDownloadCount;
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _concurrencyLimiter = new(MaxConcurrentDownloads);
     private readonly Dictionary<Guid, CancellationTokenSource> _activeCancellations = [];
     private readonly Lock _activeCancellationsLock = new();
 
-    // Fired whenever a Download's status/progress changes - subscribed to directly by whichever
-    // ViewModels care (the Downloads panel, and the row-level download button state on Movie/Episode/
-    // Clip items). A plain event, not a WeakReferenceMessenger message, since this is a Core service
-    // with no App-layer dependency - see the plan discussion for why.
+    // Fired whenever a Download's status changes - subscribed to directly by whichever ViewModels care
+    // (the Downloads panel, and the row-level download button state on Movie/Episode/Clip items). A
+    // plain event, not a WeakReferenceMessenger message, since this is a Core service with no App-layer
+    // dependency - see the plan discussion for why.
     public event EventHandler<Download>? DownloadChanged;
+
+    // Fired periodically while a download is transferring. Separate from DownloadChanged because the
+    // library pages only care about status and find their row by scanning the whole library, which is
+    // too expensive to repeat on the UI thread for every tick.
+    public event EventHandler<Download>? DownloadProgressChanged;
 
     public DownloadManager(
         IDownloadRepository downloadRepository,
@@ -54,6 +73,7 @@ public class DownloadManager
         ISeriesRepository seriesRepository,
         ISettingsStore settingsStore,
         IAppPaths appPaths,
+        ISleepInhibitor sleepInhibitor,
         HttpClient httpClient)
     {
         _downloadRepository = downloadRepository;
@@ -67,6 +87,7 @@ public class DownloadManager
         _seriesRepository = seriesRepository;
         _settingsStore = settingsStore;
         _appPaths = appPaths;
+        _sleepInhibitor = sleepInhibitor;
         _httpClient = httpClient;
     }
 
@@ -194,7 +215,9 @@ public class DownloadManager
         // subscribers (DownloadsViewModel, row view models) are expected to Dispatcher.UIThread.Post
         // their own UI updates, the same convention already used everywhere else in this app for
         // background-thread-originated updates.
-        _ = Task.Run(() => RunDownloadAsync(download, sourceProfile, kind, streamUrl, buildDestinationPath, cts.Token), cts.Token);
+        // No token on Task.Run itself: a cancel before the task starts would skip RunDownloadAsync, and
+        // with it the handling that records the row as Canceled.
+        _ = Task.Run(() => RunDownloadAsync(download, sourceProfile, kind, streamUrl, buildDestinationPath, cts.Token));
         return download.Id;
     }
 
@@ -261,7 +284,7 @@ public class DownloadManager
             _activeCancellations[downloadId] = cts;
         }
 
-        _ = Task.Run(() => RunDownloadAsync(download, sourceProfile, r.Kind, r.StreamUrl, r.BuildDestinationPath, cts.Token), cts.Token);
+        _ = Task.Run(() => RunDownloadAsync(download, sourceProfile, r.Kind, r.StreamUrl, r.BuildDestinationPath, cts.Token));
     }
 
     // Resolves where a completed download's playable copy now lives in this app's own library
@@ -473,10 +496,16 @@ public class DownloadManager
         Download download, ProfileSource sourceProfile, MediaKind kind, string streamUrl,
         Func<ProfileSource, string> buildDestinationPath, CancellationToken cancellationToken)
     {
-        await _concurrencyLimiter.WaitAsync(cancellationToken);
         string? destinationPath = null;
+        DownloadProgressReporter? progress = null;
+        var holdsConcurrencySlot = false;
+        DownloadStarted();
         try
         {
+            // Inside the try so canceling a download still waiting in the queue lands as Canceled.
+            await _concurrencyLimiter.WaitAsync(cancellationToken);
+            holdsConcurrencySlot = true;
+
             var downloadsProfile = await EnsureDownloadsProfileAsync(cancellationToken);
             destinationPath = buildDestinationPath(downloadsProfile);
 
@@ -505,39 +534,12 @@ public class DownloadManager
             await _downloadRepository.UpdateProgressAsync(download.Id, download.BytesDownloaded, download.TotalBytes, cancellationToken);
             DownloadChanged?.Invoke(this, download);
 
-            var lastReportedUtc = DateTime.UtcNow;
-            var progress = new Progress<(long BytesTransferred, long? TotalBytes)>(p =>
-            {
-                download.BytesDownloaded = p.BytesTransferred;
-                download.TotalBytes = p.TotalBytes;
+            progress = new DownloadProgressReporter(this, download);
 
-                var now = DateTime.UtcNow;
-                var isDone = p.TotalBytes is { } total && p.BytesTransferred >= total;
-                if (!isDone && now - lastReportedUtc < ProgressThrottle)
-                {
-                    return;
-                }
-                lastReportedUtc = now;
+            await TransferWithRetriesAsync(download, sourceProfile, kind, streamUrl, destinationPath, progress, cancellationToken);
 
-                _ = _downloadRepository.UpdateProgressAsync(download.Id, p.BytesTransferred, p.TotalBytes, CancellationToken.None);
-                DownloadChanged?.Invoke(this, download);
-            });
-
-            if (IsHttpSource(sourceProfile.SourceType))
-            {
-                await DownloadHttpAsync(streamUrl, destinationPath, progress, cancellationToken);
-            }
-            else
-            {
-                await using var fileSystem = _fileSystemFactory.Create(sourceProfile, kind)
-                    ?? throw new InvalidOperationException($"'{sourceProfile.Name}' has no matching path configured for this content anymore.");
-
-                var sourceRelativePath = kind == MediaKind.Series
-                    ? ExtractEpisodeSourceRelativePath(download.OriginalSourceId)
-                    : download.OriginalSourceId;
-                await fileSystem.DownloadToFileAsync(sourceRelativePath, destinationPath, progress, cancellationToken);
-            }
-
+            await progress.StopAsync();
+            await _downloadRepository.UpdateProgressAsync(download.Id, download.BytesDownloaded, download.TotalBytes, CancellationToken.None);
             await _downloadRepository.MarkCompletedAsync(download.Id, localRelativePath, cancellationToken);
             download.Status = DownloadStatus.Completed;
             download.CompletedUtc = DateTime.UtcNow;
@@ -553,6 +555,7 @@ public class DownloadManager
             // Cancel is a deliberate "I don't want this" action, unlike a genuine failure below - the
             // partial bytes aren't worth keeping around for a resume that was never asked for.
             TryDeletePartialFile(destinationPath);
+            await (progress?.StopAsync() ?? Task.CompletedTask);
             await _downloadRepository.MarkCanceledAsync(download.Id, CancellationToken.None);
             download.Status = DownloadStatus.Canceled;
             DownloadChanged?.Invoke(this, download);
@@ -563,6 +566,7 @@ public class DownloadManager
             // network drop, a killed connection, or the app closing mid-download are interruptions,
             // not a decision to discard what's already been fetched. Leaving it in place is what lets
             // QueueAsync/RetryDownloadAsync resume from here instead of starting over.
+            await (progress?.StopAsync() ?? Task.CompletedTask);
             await _downloadRepository.MarkFailedAsync(download.Id, ex.Message, CancellationToken.None);
             download.Status = DownloadStatus.Failed;
             download.ErrorMessage = ex.Message;
@@ -574,7 +578,173 @@ public class DownloadManager
             {
                 _activeCancellations.Remove(download.Id);
             }
-            _concurrencyLimiter.Release();
+            if (holdsConcurrencySlot)
+            {
+                _concurrencyLimiter.Release();
+            }
+            DownloadFinished();
+        }
+    }
+
+    // Picks up by itself after anything that interrupts the connection, such as the machine sleeping or
+    // the network dropping. Each attempt resumes from the partial file where the source allows it. The
+    // failure count resets whenever an attempt gets further, so only a download that has really stopped
+    // moving ends up Failed.
+    private async Task TransferWithRetriesAsync(
+        Download download, ProfileSource sourceProfile, MediaKind kind, string streamUrl, string destinationPath,
+        DownloadProgressReporter progress, CancellationToken cancellationToken)
+    {
+        var failures = 0;
+        while (true)
+        {
+            var bytesBeforeAttempt = download.BytesDownloaded;
+            try
+            {
+                await TransferOnceAsync(download, sourceProfile, kind, streamUrl, destinationPath, progress, cancellationToken);
+                return;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && IsWorthRetrying(ex))
+            {
+                failures = download.BytesDownloaded > bytesBeforeAttempt ? 1 : failures + 1;
+                if (failures > RetryDelays.Length)
+                {
+                    throw;
+                }
+            }
+
+            await Task.Delay(RetryDelays[failures - 1], cancellationToken);
+            progress.Rewind();
+        }
+    }
+
+    private async Task TransferOnceAsync(
+        Download download, ProfileSource sourceProfile, MediaKind kind, string streamUrl, string destinationPath,
+        DownloadProgressReporter progress, CancellationToken cancellationToken)
+    {
+        if (IsHttpSource(sourceProfile.SourceType))
+        {
+            await DownloadHttpAsync(streamUrl, destinationPath, progress, cancellationToken);
+            return;
+        }
+
+        await using var fileSystem = _fileSystemFactory.Create(sourceProfile, kind)
+            ?? throw new InvalidOperationException($"'{sourceProfile.Name}' has no matching path configured for this content anymore.");
+
+        var sourceRelativePath = kind == MediaKind.Series
+            ? ExtractEpisodeSourceRelativePath(download.OriginalSourceId)
+            : download.OriginalSourceId;
+        await fileSystem.DownloadToFileAsync(sourceRelativePath, destinationPath, progress, cancellationToken);
+    }
+
+    // Only faults that can clear up by themselves. A 404, a missing file or a full disk would just fail
+    // the same way again, several minutes later.
+    private static bool IsWorthRetrying(Exception ex) => ex switch
+    {
+        HttpRequestException { StatusCode: { } status } => (int)status >= 500 || status is System.Net.HttpStatusCode.RequestTimeout or System.Net.HttpStatusCode.TooManyRequests,
+        HttpRequestException or TimeoutException or System.Net.Sockets.SocketException => true,
+        FileNotFoundException or DirectoryNotFoundException or PathTooLongException => false,
+        IOException io => (io.HResult & 0xFFFF) is not (DiskFullWin32 or HandleDiskFullWin32 or DiskFullUnix),
+        _ => false
+    };
+
+    private void DownloadStarted()
+    {
+        lock (_activeDownloadCountLock)
+        {
+            if (++_activeDownloadCount == 1)
+            {
+                _sleepInhibitor.SetActive(true);
+            }
+        }
+    }
+
+    private void DownloadFinished()
+    {
+        lock (_activeDownloadCountLock)
+        {
+            if (--_activeDownloadCount == 0)
+            {
+                _sleepInhibitor.SetActive(false);
+            }
+        }
+    }
+
+    // Called for every chunk, directly on the transfer's own thread, so the common path is just a few
+    // field writes. Progress<T> isn't used because with no SynchronizationContext it queues each report
+    // to the thread pool, which costs a work item per chunk and lets reports arrive out of order. The
+    // lock and the backwards check are still needed for SFTP, where SSH.NET's callback can run on
+    // whichever pool thread it likes.
+    private sealed class DownloadProgressReporter(DownloadManager owner, Download download) : IProgress<(long BytesTransferred, long? TotalBytes)>
+    {
+        private readonly Lock _lock = new();
+        private long _lastNotifiedTicks = Environment.TickCount64;
+        private long _lastPersistedTicks = Environment.TickCount64;
+        private long _highestBytes;
+        private Task _pendingPersist = Task.CompletedTask;
+        private bool _stopped;
+
+        public void Report((long BytesTransferred, long? TotalBytes) value)
+        {
+            lock (_lock)
+            {
+                if (_stopped || value.BytesTransferred < _highestBytes)
+                {
+                    return;
+                }
+
+                _highestBytes = value.BytesTransferred;
+                download.BytesDownloaded = value.BytesTransferred;
+                download.TotalBytes = value.TotalBytes;
+
+                var now = Environment.TickCount64;
+                var isDone = value.TotalBytes is { } total && value.BytesTransferred >= total;
+                if (!isDone && now - _lastNotifiedTicks < ProgressNotifyIntervalMs)
+                {
+                    return;
+                }
+                _lastNotifiedTicks = now;
+
+                // One write in flight at most, so a busy database can't build up a queue of them.
+                if (now - _lastPersistedTicks >= ProgressPersistIntervalMs && _pendingPersist.IsCompleted)
+                {
+                    _lastPersistedTicks = now;
+                    _pendingPersist = owner._downloadRepository.UpdateProgressAsync(download.Id, value.BytesTransferred, value.TotalBytes, CancellationToken.None);
+                }
+            }
+
+            owner.DownloadProgressChanged?.Invoke(owner, download);
+        }
+
+        // A retry that couldn't resume starts counting from 0 again, which would otherwise be ignored
+        // as an out-of-order report until it caught up.
+        public void Rewind()
+        {
+            lock (_lock)
+            {
+                _highestBytes = 0;
+            }
+        }
+
+        // UpdateProgressAsync also writes Status = Downloading, so nothing may still be in flight when
+        // the caller records the final status, or it could land afterwards and overwrite it.
+        public async Task StopAsync()
+        {
+            Task pending;
+            lock (_lock)
+            {
+                _stopped = true;
+                pending = _pendingPersist;
+            }
+
+            try
+            {
+                await pending;
+            }
+            catch
+            {
+                // A missed progress write isn't worth failing the download over - the file itself is
+                // what resume goes by.
+            }
         }
     }
 
@@ -667,7 +837,16 @@ public class DownloadManager
 
         var startingBytes = File.Exists(destinationPath) ? new FileInfo(destinationPath).Length : 0;
 
-        using var response = await SendFollowingRedirectsAsync(url, startingBytes, cancellationToken);
+        using var response = await SendWithStallTimeoutAsync(url, startingBytes, cancellationToken);
+
+        // The connection dropped after the last byte was written, so there's nothing left to ask for.
+        if (response.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable &&
+            startingBytes > 0 && response.Content.Headers.ContentRange?.Length == startingBytes)
+        {
+            progress.Report((startingBytes, startingBytes));
+            return;
+        }
+
         response.EnsureSuccessStatusCode();
 
         var isResuming = startingBytes > 0 && response.StatusCode == System.Net.HttpStatusCode.PartialContent;
@@ -682,16 +861,22 @@ public class DownloadManager
             : response.Content.Headers.ContentLength;
 
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var destination = new FileStream(destinationPath, isResuming ? FileMode.Append : FileMode.Create, FileAccess.Write);
+        await DownloadFileCopier.CopyAsync(source, destinationPath, isResuming, startingBytes, totalBytes, progress, cancellationToken);
+    }
 
-        var buffer = new byte[81920];
-        var bytesTransferred = startingBytes;
-        int read;
-        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+    // A pooled connection that died during sleep can leave the request waiting on headers forever, the
+    // same problem DownloadFileCopier.StallTimeout covers for the body.
+    private async Task<HttpResponseMessage> SendWithStallTimeoutAsync(string url, long startingBytes, CancellationToken cancellationToken)
+    {
+        using var stallTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        stallTimeout.CancelAfter(DownloadFileCopier.StallTimeout);
+        try
         {
-            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-            bytesTransferred += read;
-            progress.Report((bytesTransferred, totalBytes));
+            return await SendFollowingRedirectsAsync(url, startingBytes, stallTimeout.Token);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"No response for {DownloadFileCopier.StallTimeout.TotalSeconds:0} seconds.", ex);
         }
     }
 

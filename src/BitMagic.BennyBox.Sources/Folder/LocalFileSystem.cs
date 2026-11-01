@@ -80,23 +80,20 @@ public class LocalFileSystem : IMediaFileSystem
             startingBytes = 0;
         }
 
-        await using var source = File.OpenRead(sourcePath);
+        await using var source = new FileStream(sourcePath, new FileStreamOptions
+        {
+            Mode = FileMode.Open,
+            Access = FileAccess.Read,
+            Share = FileShare.Read,
+            BufferSize = 0,
+            Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+        });
         if (startingBytes > 0)
         {
             source.Seek(startingBytes, SeekOrigin.Begin);
         }
 
-        await using var destination = new FileStream(destinationPath, startingBytes > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write);
-
-        var buffer = new byte[81920];
-        var bytesTransferred = startingBytes;
-        int read;
-        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
-        {
-            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-            bytesTransferred += read;
-            progress?.Report((bytesTransferred, totalBytes));
-        }
+        await DownloadFileCopier.CopyAsync(source, destinationPath, startingBytes > 0, startingBytes, totalBytes, progress, cancellationToken);
     }
 
     // Plain file I/O has no connection to hold open, unlike SftpFileSystem.

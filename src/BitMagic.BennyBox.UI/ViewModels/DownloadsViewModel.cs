@@ -22,6 +22,9 @@ public partial class DownloadsViewModel : ViewModelBase
     private readonly DownloadManager _downloadManager;
     private readonly ILogger<DownloadsViewModel> _logger;
 
+    private readonly CategoryHeaderRow _inProgressHeader = new("In Progress");
+    private readonly CategoryHeaderRow _completedHeader = new("Completed");
+
     private Dictionary<Guid, DownloadItemViewModel> _itemsById = [];
 
     public string Title => "Downloads";
@@ -41,23 +44,49 @@ public partial class DownloadsViewModel : ViewModelBase
         _logger = logger;
 
         _downloadManager.DownloadChanged += OnDownloadChanged;
+        _downloadManager.DownloadProgressChanged += OnDownloadProgressChanged;
 
         _ = LoadAsync();
     }
 
+    // Only a row changing section touches Rows - see SyncRows. A Queued -> Downloading change just
+    // updates the row in place.
     private void OnDownloadChanged(object? sender, Download download) =>
         Dispatcher.UIThread.Post(() =>
         {
-            if (_itemsById.TryGetValue(download.Id, out var existing))
+            if (_itemsById.ContainsKey(download.Id))
             {
-                existing.Update(download);
+                UpdateExistingRow(download);
             }
             else
             {
                 _itemsById[download.Id] = new DownloadItemViewModel(download);
+                SyncRows();
             }
-            RebuildRows();
         });
+
+    // Below input priority, so a progress tick can never hold up a click.
+    private void OnDownloadProgressChanged(object? sender, Download download) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_itemsById.ContainsKey(download.Id))
+            {
+                UpdateExistingRow(download);
+            }
+        }, DispatcherPriority.Background);
+
+    // Shared because DownloadManager mutates the same Download these events carry, so a progress tick
+    // can be the one that first sees a new status, and has to move the row just the same.
+    private void UpdateExistingRow(Download download)
+    {
+        var existing = _itemsById[download.Id];
+        var wasInProgress = existing.IsInProgress;
+        existing.Update(download);
+        if (existing.IsInProgress != wasInProgress)
+        {
+            SyncRows();
+        }
+    }
 
     // Jumps to wherever this completed download's playable copy actually lives (Movies/Series/Clips,
     // whichever applies) via the same Open*Message pattern Favorites/Search already use to open an
@@ -110,7 +139,7 @@ public partial class DownloadsViewModel : ViewModelBase
 
         await _downloadManager.DeleteDownloadAsync(item.Download);
         _itemsById.Remove(item.Download.Id);
-        RebuildRows();
+        SyncRows();
     }
 
     // Resumes from wherever the failed/canceled attempt's partial file left off - see
@@ -125,28 +154,47 @@ public partial class DownloadsViewModel : ViewModelBase
         }
     }
 
-    private void RebuildRows()
+    // Moves Rows to the wanted order with as few collection changes as possible, because every row
+    // that gets removed loses its controls - including a button the user is halfway through clicking.
+    private void SyncRows()
     {
         var all = _itemsById.Values.ToList();
         var inProgress = all.Where(i => i.IsInProgress).OrderBy(i => i.Download.StartedUtc).ToList();
         var done = all.Where(i => !i.IsInProgress).OrderByDescending(i => i.Download.CompletedUtc ?? i.Download.StartedUtc).ToList();
 
-        Rows.Clear();
+        var wanted = new List<object>(all.Count + 2);
         if (inProgress.Count > 0)
         {
-            Rows.Add(new CategoryHeaderRow("In Progress"));
-            foreach (var item in inProgress)
-            {
-                Rows.Add(item);
-            }
+            wanted.Add(_inProgressHeader);
+            wanted.AddRange(inProgress);
         }
         if (done.Count > 0)
         {
-            Rows.Add(new CategoryHeaderRow("Completed"));
-            foreach (var item in done)
+            wanted.Add(_completedHeader);
+            wanted.AddRange(done);
+        }
+
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            if (i < Rows.Count && ReferenceEquals(Rows[i], wanted[i]))
             {
-                Rows.Add(item);
+                continue;
             }
+
+            var currentIndex = Rows.IndexOf(wanted[i]);
+            if (currentIndex >= 0)
+            {
+                Rows.Move(currentIndex, i);
+            }
+            else
+            {
+                Rows.Insert(i, wanted[i]);
+            }
+        }
+
+        while (Rows.Count > wanted.Count)
+        {
+            Rows.RemoveAt(Rows.Count - 1);
         }
 
         HasNoDownloads = all.Count == 0;
@@ -159,7 +207,7 @@ public partial class DownloadsViewModel : ViewModelBase
         {
             var downloads = await _downloadRepository.GetAllAsync();
             _itemsById = downloads.ToDictionary(d => d.Id, d => new DownloadItemViewModel(d));
-            RebuildRows();
+            SyncRows();
         }
         catch (Exception ex)
         {
