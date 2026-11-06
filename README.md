@@ -77,7 +77,9 @@ Every [release](https://github.com/Yazwh0/bennybox/releases) includes a Windows 
 2. Android blocks the first install - allow "Install unknown apps" for whichever app you downloaded it with (Settings → Apps → *that app* → Install unknown apps), then open the file to install.
 3. Releases are now signed with a persistent key, so from here on, installing a newer version over an older one updates it in place and keeps your data. If you have a version installed from before this change (signed with a one-off build key), you'll need to uninstall it once to move to a persistently-signed release - after that, updates just work.
 
-No Play Store listing - this is a hobby project, so sideloading the APK is the only route for now.
+Installing the APK directly stays supported alongside any Google Play listing: both are the same build signed with the same key, so you can switch between them without losing data. A Play install gets its updates from Play; a direct install keeps the in-app GitHub update check. See [docs/play-store.md](docs/play-store.md) for the Play setup notes and [PRIVACY.md](PRIVACY.md) for the privacy policy.
+
+To copy your profiles from Windows to a phone, use **Settings → Set up phone...** (or a profile's **QR** button) on Windows, then **Settings → Scan QR code** in the Android app. The QR code contains your passwords, so don't share it.
 
 ## Getting started
 

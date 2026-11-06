@@ -8,7 +8,10 @@
     <ApplicationId>com.bitmagic.bennybox</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Release builds both: the APK for installing directly (GitHub Releases), the AAB for Google
+         Play. Debug stays APK-only so `dotnet build -t:Run` deploys straight to a device/emulator. -->
+    <AndroidPackageFormat Condition="'$(Configuration)' == 'Debug'">apk</AndroidPackageFormat>
+    <AndroidPackageFormats Condition="'$(Configuration)' != 'Debug'">aab;apk</AndroidPackageFormats>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
   </PropertyGroup>
 

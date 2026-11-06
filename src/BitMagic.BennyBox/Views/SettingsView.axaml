@@ -229,6 +229,19 @@
                 </ItemsControl>
             </StackPanel>
         </Border>
+
+        <!-- TMDb's API terms require this attribution somewhere in the app; see also PRIVACY.md. -->
+        <Border Classes="glass-card" Padding="16">
+            <StackPanel Spacing="6">
+                <TextBlock Text="About" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="Benny Box plays sources you add yourself; it doesn't include any channels or content. Your profiles and passwords stay on this computer."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+                <TextBlock Text="This product uses the TMDb API but is not endorsed or certified by TMDb."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+                <TextBlock Text="Privacy policy: github.com/Yazwh0/bennybox/blob/main/PRIVACY.md"
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
     </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -174,17 +174,27 @@ jobs:
           "-p:AndroidSigningStorePass=$ANDROID_KEYSTORE_PASSWORD"
           --output publish/android
 
-      - name: Collect signed APK
+      # Same build, two packages, both signed with the same key: the APK is for installing directly
+      # (attached to the GitHub Release), the AAB is what Google Play wants. The AAB is only kept as a
+      # workflow artifact for uploading to Play Console by hand - nothing here publishes to Play.
+      - name: Collect signed APK and AAB
         shell: bash
         run: |
-          mkdir -p apk-output
+          mkdir -p apk-output aab-output
           cp publish/android/*-Signed.apk "apk-output/BennyBox-${{ steps.version.outputs.version }}.apk"
+          cp publish/android/*-Signed.aab "aab-output/BennyBox-${{ steps.version.outputs.version }}.aab"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BennyBox-${{ steps.version.outputs.version }}-android
           path: apk-output/*.apk
+
+      - name: Upload AAB artifact (for Google Play)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BennyBox-${{ steps.version.outputs.version }}-android-play
+          path: aab-output/*.aab
 
       - name: Create GitHub Release
         if: github.event_name == 'push'

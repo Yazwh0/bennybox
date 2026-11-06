@@ -33,8 +33,11 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="Updates" FontSize="16" FontWeight="Bold" />
                     <TextBlock Text="{Binding CurrentVersion, StringFormat='Current version: {0}'}" Opacity="0.7" FontSize="12" />
-                    <CheckBox Content="Check for updates automatically" IsChecked="{Binding CheckForUpdatesAutomatically}" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!-- A Google Play install gets its updates from Play (see PlayAwareUpdateCheckService), so the
+                         GitHub check is swapped for a note; a sideloaded APK keeps it. -->
+                    <TextBlock Text="Updates are installed by Google Play." Opacity="0.7" FontSize="12" IsVisible="{Binding !IsUpdateCheckAvailable}" />
+                    <CheckBox Content="Check for updates automatically" IsChecked="{Binding CheckForUpdatesAutomatically}" IsVisible="{Binding IsUpdateCheckAvailable}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsUpdateCheckAvailable}">
                         <Button Content="Check now" Command="{Binding CheckForUpdatesNowCommand}" IsEnabled="{Binding !IsCheckingForUpdates}" />
                         <ui:FAProgressRing IsActive="{Binding IsCheckingForUpdates}" Width="18" Height="18" IsVisible="{Binding IsCheckingForUpdates}" />
                         <TextBlock Text="{Binding UpdateCheckStatus}" IsVisible="{Binding HasUpdateCheckStatus}" VerticalAlignment="Center" Opacity="0.7" />
@@ -181,6 +184,18 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                </StackPanel>
+            </Border>
+            <!-- TMDb's API terms require this attribution somewhere in the app; see also PRIVACY.md. -->
+            <Border Background="#22000000" CornerRadius="6" Padding="12">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="About" FontSize="16" FontWeight="Bold" />
+                    <TextBlock Text="Benny Box plays sources you add yourself; it doesn't include any channels or content. Your profiles and passwords stay on this device."
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Text="This product uses the TMDb API but is not endorsed or certified by TMDb."
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Text="Privacy policy: github.com/Yazwh0/bennybox/blob/main/PRIVACY.md"
+                               Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </StackPanel>

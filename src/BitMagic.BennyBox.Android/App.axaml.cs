@@ -38,6 +38,11 @@ public partial class App : Avalonia.Application
 
         SharedServiceRegistration.AddSharedServices(builder.Services);
 
+        // Registered after the shared services so it replaces their plain GitHub IUpdateCheckService -
+        // see PlayAwareUpdateCheckService for why Play installs need their own.
+        builder.Services.AddTransient<IUpdateCheckService>(sp => new PlayAwareUpdateCheckService(
+            sp.GetRequiredService<BitMagic.BennyBox.Sources.GitHub.GitHubUpdateCheckService>(), global::Android.App.Application.Context!));
+
         var host = builder.Build();
         Services = host.Services;
         AppServices.Current = host.Services;

@@ -14,6 +14,11 @@ public interface IUpdateCheckService
     // official release, something like "1.0.0+<sha>" on a local dev build (see the implementation
     // for why a dev build never actually triggers an update banner).
     string CurrentVersion { get; }
+
+    // False when an app store owns updates for this install (Android installed from Google Play -
+    // see PlayAwareUpdateCheckService): Play policy doesn't allow pointing users at updates from
+    // anywhere else, so Settings hides its update controls rather than offering GitHub releases.
+    bool IsAvailable => true;
 }
 
 public record UpdateInfo(string Version, string ReleaseUrl);

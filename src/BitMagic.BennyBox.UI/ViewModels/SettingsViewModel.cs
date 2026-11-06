@@ -128,6 +128,9 @@ public partial class SettingsViewModel : ViewModelBase
     // property is enough - no [ObservableProperty]/change notification needed.
     public string CurrentVersion => _updateCheckService.CurrentVersion;
 
+    // See IUpdateCheckService.IsAvailable - false for a Google Play install, whose updates come from Play.
+    public bool IsUpdateCheckAvailable => _updateCheckService.IsAvailable;
+
     // Read by TmdbMetadataEnrichmentService (see BitMagic.BennyBox.Sources.Tmdb) via the same
     // ISettingsStore key ("TmdbApiKey") - fills in Plot/Genre/ReleaseDate/poster for LocalFolder/Sftp
     // movies and shows with no local NFO/poster. Overrides the build's bundled key (see
