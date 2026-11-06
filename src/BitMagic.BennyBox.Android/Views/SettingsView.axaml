@@ -118,7 +118,13 @@
             <Border Background="#22000000" CornerRadius="6" Padding="12">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Profiles" FontSize="16" FontWeight="Bold" />
-                    <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" />
+                    <!-- Scan reads the code from desktop's "Set up phone..."/row "QR" buttons; Paste takes the
+                         same code as text (desktop's "Copy as text"), for when the camera scanner isn't available. -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Scan QR code" Click="OnScanSetupQrClick" IsEnabled="{Binding !IsBusy}" />
+                        <Button Content="Paste code" Click="OnPasteSetupCodeClick" IsEnabled="{Binding !IsBusy}" />
+                        <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" TextWrapping="Wrap" />
                     <ItemsControl ItemsSource="{Binding Profiles}">
                         <ItemsControl.ItemTemplate>

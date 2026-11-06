@@ -147,13 +147,18 @@
 
         <Border Classes="glass-card" Padding="16">
             <StackPanel Spacing="12">
-                <Button Classes="glass-ctrl" Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="glass-ctrl" Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" />
+                    <!-- Every enabled profile in one code; each row's QR button does just that one. -->
+                    <Button Classes="glass-ctrl" Content="Set up phone..." Click="OnShowSetupQrClick" IsEnabled="{Binding HasShareableProfiles}"
+                            ToolTip.Tip="Show a QR code the Android app can scan to copy these profiles, passwords included" />
+                </StackPanel>
                 <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" Foreground="{StaticResource GlassTextBrush}" />
                 <ItemsControl ItemsSource="{Binding Profiles}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:ProfileSource">
                             <Border BorderBrush="{StaticResource GlassBorderBrush}" BorderThickness="0,0,0,1" Padding="0,8">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
                                     <!-- Disabled profiles are dimmed rather than given an extra "Disabled" line, so
                                          toggling doesn't change the row's height and shift everything below it. -->
                                     <Grid.Styles>
@@ -187,10 +192,17 @@
                                             Command="{Binding #RootControl.DataContext.DeleteProfileCommand}"
                                             CommandParameter="{Binding}"
                                             IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}" />
+                                    <!-- Disabled (not hidden) for Local Folder profiles, whose Windows paths mean nothing
+                                         on a phone, so the row's buttons stay lined up with every other row's. -->
+                                    <Button Classes="glass-nav" Grid.Column="4" Content="QR" Margin="8,0,0,0"
+                                            Click="OnShowSetupQrClick"
+                                            CommandParameter="{Binding}"
+                                            ToolTip.Tip="Show a QR code to set this profile up on the Android app"
+                                            IsEnabled="{Binding SourceType, Converter={x:Static converters:ObjectConverters.NotEqual}, ConverterParameter={x:Static models:ProfileSourceType.LocalFolder}}" />
                                     <!-- One of these two is visible at a time, showing the current state (full circle =
                                          enabled, empty circle = disabled) - the command flips and saves IsEnabled, then reloads
                                          the list. Sized square to the row's Edit button so it matches the text buttons' height. -->
-                                    <Button Classes="glass-nav" Grid.Column="4" Margin="8,0,0,0"
+                                    <Button Classes="glass-nav" Grid.Column="5" Margin="8,0,0,0"
                                             Width="{Binding #EditButton.Bounds.Height}" Height="{Binding #EditButton.Bounds.Height}" Padding="0" VerticalAlignment="Center"
                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                             ToolTip.Tip="Enabled - click to disable (hides this profile from every page)"
@@ -200,7 +212,7 @@
                                             IsEnabled="{Binding #RootControl.DataContext.IsBusy, Converter={x:Static converters:BoolConverters.Not}}">
                                         <Ellipse Width="12" Height="12" StrokeThickness="1.5" Stroke="{Binding $parent[Button].Foreground}" Fill="{Binding $parent[Button].Foreground}" />
                                     </Button>
-                                    <Button Classes="glass-nav" Grid.Column="4" Margin="8,0,0,0"
+                                    <Button Classes="glass-nav" Grid.Column="5" Margin="8,0,0,0"
                                             Width="{Binding #EditButton.Bounds.Height}" Height="{Binding #EditButton.Bounds.Height}" Padding="0" VerticalAlignment="Center"
                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                             ToolTip.Tip="Disabled - click to enable"

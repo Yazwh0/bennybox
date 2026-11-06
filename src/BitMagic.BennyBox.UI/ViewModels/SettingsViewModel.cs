@@ -25,6 +25,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IMetadataEnrichmentService _metadataEnrichmentService;
     private readonly DownloadManager _downloadManager;
     private readonly IUpdateCheckService _updateCheckService;
+    private readonly ICredentialProtector _credentialProtector;
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
@@ -179,6 +180,7 @@ public partial class SettingsViewModel : ViewModelBase
         IMetadataEnrichmentService metadataEnrichmentService,
         DownloadManager downloadManager,
         IUpdateCheckService updateCheckService,
+        ICredentialProtector credentialProtector,
         ILogger<SettingsViewModel> logger)
     {
         _profileRepository = profileRepository;
@@ -192,6 +194,7 @@ public partial class SettingsViewModel : ViewModelBase
         _metadataEnrichmentService = metadataEnrichmentService;
         _downloadManager = downloadManager;
         _updateCheckService = updateCheckService;
+        _credentialProtector = credentialProtector;
         _logger = logger;
 
         _ = LoadProfilesAsync();
@@ -474,6 +477,8 @@ public partial class SettingsViewModel : ViewModelBase
 
             Profiles.Add(profile);
         }
+
+        OnPropertyChanged(nameof(HasShareableProfiles));
     }
 
     private static string FormatBytes(long bytes)
@@ -487,6 +492,56 @@ public partial class SettingsViewModel : ViewModelBase
             unitIndex++;
         }
         return $"{value:0.#} {units[unitIndex]}";
+    }
+
+    // Desktop's "QR code for phone" buttons - see ProfileSetupCode. A manually entered TMDb key rides
+    // along too (an embedded one is already in every release build, so there's nothing to carry).
+    public bool HasShareableProfiles => Profiles.Any(ProfileSetupCode.CanShare);
+
+    public string BuildSetupCode(ProfileSource? onlyProfile = null)
+    {
+        var profiles = onlyProfile is not null ? [onlyProfile] : Profiles.Where(p => p.IsEnabled).ToList();
+        return ProfileSetupCode.Encode(profiles, _credentialProtector, HasEmbeddedTmdbKey ? null : TmdbApiKey);
+    }
+
+    // Android's "Scan QR code" (and its paste fallback). Profiles this device already has (same server
+    // and username) are skipped, so scanning the same code twice doesn't create duplicates.
+    [RelayCommand]
+    private async Task ImportSetupCodeAsync(string? code)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        if (!ProfileSetupCode.TryDecode(code, _credentialProtector, out var setup, out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
+        if (setup.TmdbApiKey is { } tmdbKey && !HasEmbeddedTmdbKey && string.IsNullOrWhiteSpace(TmdbApiKey))
+        {
+            TmdbApiKey = tmdbKey;
+        }
+
+        var results = new List<string>();
+        foreach (var profile in setup.Profiles)
+        {
+            if (Profiles.Any(existing => ProfileSetupCode.IsSameAccount(existing, profile)))
+            {
+                results.Add($"'{profile.Name}' is already set up.");
+                continue;
+            }
+
+            await AddProfileAsync(profile);
+            if (StatusMessage is { } message)
+            {
+                results.Add(message);
+            }
+        }
+
+        StatusMessage = results.Count > 0 ? string.Join(Environment.NewLine, results) : "Setup code applied.";
     }
 
     public async Task AddProfileAsync(ProfileSource profile)

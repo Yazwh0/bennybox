@@ -1,5 +1,11 @@
+using System.IO;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using QRCoder;
 using Avalonia.Platform.Storage;
 using FluentAvalonia.UI.Controls;
 using BitMagic.BennyBox.ViewModels;
@@ -81,6 +87,69 @@ public partial class SettingsView : UserControl
         {
             await viewModel.AddProfileAsync(builtProfile);
         }
+    }
+
+    // "Set up phone..." (every enabled profile) or a row's "QR" button (just that one) - see
+    // ProfileSetupCode for what's inside. The Android app's "Scan QR code" button reads it.
+    private async void OnShowSetupQrClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel viewModel)
+        {
+            return;
+        }
+
+        var onlyProfile = (sender as Button)?.CommandParameter as ProfileSource;
+        var code = viewModel.BuildSetupCode(onlyProfile);
+
+        using var generator = new QRCodeGenerator();
+        var data = generator.CreateQrCode(code, QRCodeGenerator.ECCLevel.M);
+        using var stream = new MemoryStream(new PngByteQRCode(data).GetGraphic(10));
+        var bitmap = new Bitmap(stream);
+
+        var content = new StackPanel { Spacing = 12, MaxWidth = 380 };
+        content.Children.Add(new Border
+        {
+            Background = Brushes.White,
+            Padding = new Thickness(8),
+            CornerRadius = new CornerRadius(4),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Child = new Image { Source = bitmap, Width = 340, Height = 340 }
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = "On the phone, open Benny Box → Settings → Scan QR code.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = "This code contains your passwords - don't screenshot or share it.",
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.7,
+            FontSize = 12
+        });
+
+        var dialog = new FAContentDialog
+        {
+            Title = onlyProfile is null ? "Set up phone" : $"Set up '{onlyProfile.Name}' on phone",
+            Content = content,
+            PrimaryButtonText = "Copy as text",
+            CloseButtonText = "Done",
+            DefaultButton = FAContentDialogButton.Close
+        };
+
+        // For a phone that can't scan (or the emulator) - its Settings has a "Paste code" fallback.
+        dialog.PrimaryButtonClick += async (_, args) =>
+        {
+            args.Cancel = true;
+            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(code);
+                dialog.PrimaryButtonText = "Copied";
+            }
+        };
+
+        await dialog.ShowAsync();
+        bitmap.Dispose();
     }
 
     private async void OnEditProfileClick(object? sender, RoutedEventArgs e)

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using FluentAvalonia.UI.Controls;
@@ -76,6 +77,64 @@ public partial class SettingsView : UserControl
         if (result == FAContentDialogResult.Primary && builtProfile is not null)
         {
             await viewModel.AddProfileAsync(builtProfile);
+        }
+    }
+
+    private async void OnScanSetupQrClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel viewModel)
+        {
+            return;
+        }
+
+        string? code;
+        try
+        {
+            code = await global::BitMagic.BennyBox.Android.Services.QrCodeScanner.ScanAsync();
+        }
+        catch (Exception ex)
+        {
+            // Play services downloads its scanner on first use (see the manifest's barcode_ui hint) - that
+            // shows up here as "Waiting for the Barcode UI module to be downloaded".
+            viewModel.StatusMessage = ex.Message.Contains("download", StringComparison.OrdinalIgnoreCase)
+                ? "The scanner is still being downloaded by Google Play services - try again in a moment, or use Paste code."
+                : $"Couldn't open the scanner ({ex.Message}). Use Paste code instead.";
+            return;
+        }
+
+        if (code is not null)
+        {
+            await viewModel.ImportSetupCodeCommand.ExecuteAsync(code);
+        }
+    }
+
+    private async void OnPasteSetupCodeClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel viewModel)
+        {
+            return;
+        }
+
+        var textBox = new TextBox { Watermark = "BENNYBOX1:...", AcceptsReturn = false, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxHeight = 160 };
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard &&
+            await clipboard.TryGetTextAsync() is { } clipboardText &&
+            clipboardText.TrimStart().StartsWith(BitMagic.BennyBox.Core.Services.ProfileSetupCode.Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            textBox.Text = clipboardText.Trim();
+        }
+
+        var dialog = new FAContentDialog
+        {
+            Title = "Paste setup code",
+            Content = textBox,
+            PrimaryButtonText = "Set up",
+            CloseButtonText = "Cancel",
+            DefaultButton = FAContentDialogButton.Primary
+        };
+
+        if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
+        {
+            await viewModel.ImportSetupCodeCommand.ExecuteAsync(textBox.Text);
         }
     }
 
