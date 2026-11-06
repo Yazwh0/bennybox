@@ -74,6 +74,10 @@ taken from the emulator with the demo playlist below in dark theme, then cropped
 (Play rejects screenshots whose long side is more than twice the short side). The player isn't shown:
 the emulator's video surface captures as black.
 
+**Tablet screenshots** (7-inch and 10-inch slots; the same images work for both) are in
+`docs/play-store/screenshots/tablet/`: 2560×1600 landscape from a Pixel Tablet emulator
+(`BennyBoxTablet` AVD), demo playlist, dark theme. No cropping needed at 16:10.
+
 **Demo playlist:** `docs/play-store/demo/demo.m3u` has 12 made-up channels with generated logos,
 pointing at openly licensed test streams (Blender's Big Buck Bunny and Tears of Steel, Apple's and
 Akamai's HLS test streams). Once pushed it's reachable at

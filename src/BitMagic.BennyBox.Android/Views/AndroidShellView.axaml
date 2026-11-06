@@ -17,10 +17,12 @@
                  tab highlighting mirrors desktop's ActiveTagToBackgroundConverter/
                  ActiveTagToFontWeightConverter (see ActiveTabConverters.cs for why this needed its own
                  copy rather than reusing those - they're desktop-only). Horizontally scrollable rather
-                 than trying to fit all 9 tabs in one fixed-width row on a phone screen. -->
+                 than trying to fit all 9 tabs in one fixed-width row on a phone screen, and centred when
+                 the screen is wider than the row (tablets). Padding is kept small so the longest label
+                 ("Downloads") fits inside the fixed 64px tab. -->
             <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel Orientation="Horizontal" Margin="4">
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Search" Margin="2" Padding="10,6" Width="64"
+                <StackPanel Orientation="Horizontal" Margin="4" HorizontalAlignment="Center">
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Search" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Search}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Find" FontSize="16" HorizontalAlignment="Center" />
@@ -28,7 +30,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Search}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=LiveTv}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Video" FontSize="16" HorizontalAlignment="Center" />
@@ -36,7 +38,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=LiveTv}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Guide" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Guide" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Guide}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="CalendarDay" FontSize="16" HorizontalAlignment="Center" />
@@ -44,7 +46,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Guide}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Series}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="List" FontSize="16" HorizontalAlignment="Center" />
@@ -52,7 +54,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Series}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Movies" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Movies" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Movies}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Library" FontSize="16" HorizontalAlignment="Center" />
@@ -60,7 +62,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Movies}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Clips" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Clips" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Clips}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Flag" FontSize="16" HorizontalAlignment="Center" />
@@ -68,7 +70,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Clips}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Downloads" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Downloads" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Downloads}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Download" FontSize="16" HorizontalAlignment="Center" />
@@ -76,7 +78,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Downloads}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Favorites}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Star" FontSize="16" HorizontalAlignment="Center" />
@@ -84,7 +86,7 @@
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Favorites}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Settings" Margin="2" Padding="10,6" Width="64"
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Settings" Margin="2" Padding="4,6" Width="64"
                             Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Settings}">
                         <StackPanel Spacing="2" HorizontalAlignment="Center">
                             <ui:FASymbolIcon Symbol="Settings" FontSize="16" HorizontalAlignment="Center" />
