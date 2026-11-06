@@ -10,7 +10,7 @@ namespace BitMagic.BennyBox.Android;
 [Activity(
     Label = "Benny Box",
     Theme = "@style/MyTheme.NoActionBar",
-    Icon = "@drawable/icon",
+    Icon = "@mipmap/icon",
     MainLauncher = true,
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
 public class MainActivity : AvaloniaMainActivity

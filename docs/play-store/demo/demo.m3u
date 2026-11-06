@@ -1,0 +1,25 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="harbour-news" tvg-name="Harbour News 24" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/harbour-news.png" group-title="News",Harbour News 24
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8
+#EXTINF:-1 tvg-id="world-desk" tvg-name="World Desk" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/world-desk.png" group-title="News",World Desk
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+#EXTINF:-1 tvg-id="open-movies" tvg-name="Open Movie Channel" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/open-movies.png" group-title="Movies",Open Movie Channel
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="scifi-shorts" tvg-name="Sci-Fi Shorts" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/scifi-shorts.png" group-title="Movies",Sci-Fi Shorts
+https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8
+#EXTINF:-1 tvg-id="cartoon-corner" tvg-name="Cartoon Corner" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/cartoon-corner.png" group-title="Kids",Cartoon Corner
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="wild-planet" tvg-name="Wild Planet" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/wild-planet.png" group-title="Documentary",Wild Planet
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8
+#EXTINF:-1 tvg-id="science-today" tvg-name="Science Today" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/science-today.png" group-title="Documentary",Science Today
+https://test-streams.mux.dev/tos_ismc/main.m3u8
+#EXTINF:-1 tvg-id="kitchen-table" tvg-name="Kitchen Table" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/kitchen-table.png" group-title="Lifestyle",Kitchen Table
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+#EXTINF:-1 tvg-id="travel-notes" tvg-name="Travel Notes" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/travel-notes.png" group-title="Lifestyle",Travel Notes
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8
+#EXTINF:-1 tvg-id="retro-hits" tvg-name="Retro Hits" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/retro-hits.png" group-title="Music",Retro Hits
+https://test-streams.mux.dev/tos_ismc/main.m3u8
+#EXTINF:-1 tvg-id="track-field" tvg-name="Track and Field TV" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/track-field.png" group-title="Sports",Track and Field TV
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8
+#EXTINF:-1 tvg-id="test-pattern" tvg-name="Test Pattern" tvg-logo="https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/logos/test-pattern.png" group-title="Test",Test Pattern
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8

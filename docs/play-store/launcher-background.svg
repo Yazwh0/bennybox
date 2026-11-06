@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432">
+  <!-- Adaptive launcher icon background - same purple and glow as the Play icon (icon-512.svg). -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#170a33"/>
+      <stop offset="70%" stop-color="#3a1460"/>
+      <stop offset="100%" stop-color="#6a2468"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="52%" r="50%">
+      <stop offset="0%" stop-color="#ff7bb0" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#ff7bb0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="432" height="432" fill="url(#bgGrad)"/>
+  <circle cx="216" cy="225" r="200" fill="url(#glow)"/>
+</svg>

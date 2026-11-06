@@ -67,7 +67,17 @@ upload**: once an app is on Play, its app signing key can't be swapped for this 
 >
 > This product uses the TMDb API but is not endorsed or certified by TMDb.
 
-**Graphics needed:** 512×512 icon, 1024×500 feature graphic, at least 2 phone screenshots.
+**Graphics:** the 512×512 icon and the 1024×500 feature graphic are in `docs/play-store/`
+(`icon-512.png`, `feature-graphic.png`, with their SVG sources; re-render with
+`magick icon-512.svg -alpha remove icon-512.png`). Phone screenshots are in `docs/play-store/screenshots/`,
+taken from the emulator with the demo playlist below in dark theme, then cropped/padded to 1101×2202
+(Play rejects screenshots whose long side is more than twice the short side). The player isn't shown:
+the emulator's video surface captures as black.
+
+**Demo playlist:** `docs/play-store/demo/demo.m3u` has 12 made-up channels with generated logos,
+pointing at openly licensed test streams (Blender's Big Buck Bunny and Tears of Steel, Apple's and
+Akamai's HLS test streams). Once pushed it's reachable at
+<https://raw.githubusercontent.com/Yazwh0/bennybox/main/docs/play-store/demo/demo.m3u>.
 
 **Screenshots:** use a test playlist with neutral channel names. No real broadcaster logos, film
 posters or channel brands. Google pulls IPTV apps that look like they provide content.
@@ -86,9 +96,9 @@ posters or channel brands. Google pulls IPTV apps that look like they provide co
   isn't rated by the app.
 - **Target audience:** 18+ (avoids the Families policy, since the app can play anything the user
   adds).
-- **App access:** reviewers need a working source to see past the empty state. Give them a public,
-  legal M3U in the review instructions (for example an iptv-org country playlist), not your own
-  provider's login.
+- **App access:** reviewers need a working source to see past the empty state. In the review
+  instructions, tell them to open Settings → Add Profile → M3U and enter the demo playlist URL above.
+  Never give them your own provider's login.
 - **News app / government app / financial features:** no.
 
 ## 5. Uploading

@@ -16,12 +16,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <AndroidResource Include="Resources\drawable\icon.png">
-      <Link>Resources\drawable\icon.png</Link>
-    </AndroidResource>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500" width="1024" height="500">
+  <!-- Google Play feature graphic (1024x500). Same synthwave palette as the app icon's screen. -->
+  <defs>
+    <linearGradient id="woodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c17a45"/>
+      <stop offset="55%" stop-color="#9a5a30"/>
+      <stop offset="100%" stop-color="#6b3a1f"/>
+    </linearGradient>
+    <linearGradient id="woodGradInner" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d99a5f"/>
+      <stop offset="100%" stop-color="#a8623a"/>
+    </linearGradient>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2b1055"/>
+      <stop offset="45%" stop-color="#7c2f6b"/>
+      <stop offset="75%" stop-color="#d6417c"/>
+      <stop offset="100%" stop-color="#ff9d3d"/>
+    </linearGradient>
+    <linearGradient id="sunGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff1a6"/>
+      <stop offset="50%" stop-color="#ffcf5c"/>
+      <stop offset="100%" stop-color="#ff7b3d"/>
+    </linearGradient>
+    <linearGradient id="brassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0c76e"/>
+      <stop offset="100%" stop-color="#b8823a"/>
+    </linearGradient>
+    <clipPath id="screenClip">
+      <rect x="44" y="84" width="168" height="86" rx="8" ry="8"/>
+    </clipPath>
+    <linearGradient id="bgSky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#140830"/>
+      <stop offset="55%" stop-color="#3a1460"/>
+      <stop offset="78%" stop-color="#8a2f6e"/>
+      <stop offset="100%" stop-color="#2b1055"/>
+    </linearGradient>
+    <linearGradient id="bigSun" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffcf5c" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ff4f8a" stop-opacity="0.9"/>
+    </linearGradient>
+    <clipPath id="aboveHorizon"><rect x="0" y="0" width="1024" height="390"/></clipPath>
+    <clipPath id="sunDisc"><circle cx="720" cy="390" r="190"/></clipPath>
+    <linearGradient id="floorFade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff6fae" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ff6fae" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#bgSky)"/>
+
+  <!-- setting sun behind the title, striped like the icon's -->
+  <g clip-path="url(#aboveHorizon)" opacity="0.55">
+    <circle cx="720" cy="390" r="190" fill="url(#bigSun)"/>
+    <g clip-path="url(#sunDisc)">
+    <rect x="500" y="300" width="440" height="10" fill="#3a1460"/>
+    <rect x="500" y="325" width="440" height="14" fill="#3a1460"/>
+    <rect x="500" y="352" width="440" height="18" fill="#3a1460"/>
+    </g>
+  </g>
+
+  <!-- horizon and perspective grid -->
+  <rect x="0" y="388" width="1024" height="3" fill="#ffe9c7" opacity="0.85"/>
+  <rect x="0" y="391" width="1024" height="109" fill="#1a0a36"/>
+  <g stroke="url(#floorFade)" stroke-width="2" fill="none">
+    <line x1="0" y1="410" x2="1024" y2="410"/>
+    <line x1="0" y1="436" x2="1024" y2="436"/>
+    <line x1="0" y1="470" x2="1024" y2="470"/>
+    <line x1="512" y1="391" x2="512" y2="500"/>
+    <line x1="512" y1="391" x2="352" y2="500"/>
+    <line x1="512" y1="391" x2="672" y2="500"/>
+    <line x1="512" y1="391" x2="192" y2="500"/>
+    <line x1="512" y1="391" x2="832" y2="500"/>
+    <line x1="512" y1="391" x2="32" y2="500"/>
+    <line x1="512" y1="391" x2="992" y2="500"/>
+    <line x1="512" y1="391" x2="-200" y2="500"/>
+    <line x1="512" y1="391" x2="1224" y2="500"/>
+  </g>
+
+  <!-- the TV, standing on the horizon -->
+  <g transform="translate(90 40) scale(1.42)">
+
+  <!-- antenna -->
+  <line x1="128" y1="50" x2="98" y2="10" stroke="#3a2a1a" stroke-width="6" stroke-linecap="round"/>
+  <line x1="128" y1="50" x2="158" y2="10" stroke="#3a2a1a" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="98" cy="10" r="7" fill="#3a2a1a"/>
+  <circle cx="158" cy="10" r="7" fill="#3a2a1a"/>
+
+  <!-- feet -->
+  <rect x="34" y="226" width="24" height="18" rx="5" fill="#3a2213"/>
+  <rect x="198" y="226" width="24" height="18" rx="5" fill="#3a2213"/>
+
+  <!-- cabinet -->
+  <rect x="10" y="48" width="236" height="180" rx="26" ry="26" fill="url(#woodGrad)" stroke="#3a2213" stroke-width="6"/>
+  <rect x="22" y="58" width="212" height="12" rx="6" fill="url(#woodGradInner)" opacity="0.6"/>
+
+  <!-- screen bezel -->
+  <rect x="32" y="72" width="192" height="110" rx="14" ry="14" fill="#1c140f"/>
+
+  <!-- screen content (synthwave sunset), clipped to rounded screen -->
+  <g clip-path="url(#screenClip)">
+    <rect x="44" y="84" width="168" height="86" fill="url(#skyGrad)"/>
+    <circle cx="128" cy="140" r="34" fill="url(#sunGrad)"/>
+    <rect x="98" y="128" width="60" height="5" fill="#2b1055" opacity="0.55"/>
+    <rect x="98" y="138" width="60" height="5" fill="#2b1055" opacity="0.55"/>
+    <rect x="98" y="148" width="60" height="5" fill="#2b1055" opacity="0.55"/>
+    <rect x="44" y="157" width="168" height="2" fill="#ffe9c7" opacity="0.8"/>
+    <!-- play triangle -->
+    <polygon points="115,112 115,142 141,127" fill="#fff6e6" opacity="0.92"/>
+  </g>
+  <rect x="32" y="72" width="192" height="110" rx="14" ry="14" fill="none" stroke="#0c0805" stroke-width="3.5"/>
+
+  <!-- knobs -->
+  <circle cx="210" cy="205" r="13" fill="url(#brassGrad)" stroke="#5a3d17" stroke-width="2.5"/>
+  <circle cx="210" cy="205" r="3.5" fill="#5a3d17"/>
+  <circle cx="180" cy="205" r="9" fill="url(#brassGrad)" stroke="#5a3d17" stroke-width="2.5"/>
+  <circle cx="180" cy="205" r="2.8" fill="#5a3d17"/>
+
+  <!-- speaker grille dots -->
+  <circle cx="42" cy="197" r="3" fill="#3a2213"/>
+  <circle cx="42" cy="209" r="3" fill="#3a2213"/>
+  <circle cx="52" cy="197" r="3" fill="#3a2213"/>
+  <circle cx="52" cy="209" r="3" fill="#3a2213"/>
+  <circle cx="62" cy="197" r="3" fill="#3a2213"/>
+  <circle cx="62" cy="209" r="3" fill="#3a2213"/>
+  </g>
+
+  <text x="486" y="210" font-family="Segoe UI" font-weight="bold" font-size="88" fill="#fff6e6">Benny Box</text>
+  <text x="490" y="266" font-family="Segoe UI" font-size="34" fill="#ffd9ec">Your playlists. Your servers.</text>
+  <text x="490" y="308" font-family="Segoe UI" font-size="34" fill="#ffd9ec">One player.</text>
+</svg>
