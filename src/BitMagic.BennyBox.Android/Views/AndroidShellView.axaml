@@ -79,6 +79,44 @@
         <Style Selector="Button.transport.accent:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
         </Style>
+
+        <!-- Simple picture mode's player buttons: big rounded tiles with an icon over one word. -->
+        <Style Selector="Button.simple-control">
+            <Setter Property="Background" Value="#33FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="24" />
+            <Setter Property="Margin" Value="6,0" />
+            <Setter Property="Padding" Value="4,12" />
+            <Setter Property="MinHeight" Value="96" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.simple-control:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.simple-control:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#66FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.simple-control:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1AFFFFFF" />
+            <Setter Property="Foreground" Value="#66FFFFFF" />
+        </Style>
+        <Style Selector="Button.simple-control.play">
+            <Setter Property="Background" Value="{DynamicResource M3PrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource M3OnPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.simple-control.play:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource M3PrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource M3OnPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.simple-control.play:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource M3PrimaryContainerBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource M3OnPrimaryContainerBrush}" />
+        </Style>
     </UserControl.Styles>
     <Panel Background="{DynamicResource M3SurfaceBrush}">
         <Grid RowDefinitions="*,Auto" IsVisible="{Binding !Settings.IsSimpleMode}">
@@ -227,7 +265,7 @@
         <!-- Simple picture mode replaces the tabbed app entirely (see SimpleHomeView); the player
              overlay below still covers it when something plays. -->
         <Panel IsVisible="{Binding Settings.IsSimpleMode}">
-            <views:SimpleHomeView DataContext="{Binding Favorites}" />
+            <views:SimpleHomeView />
         </Panel>
 
         <!-- Fullscreen player overlay - shown whenever something is playing, matching desktop's
@@ -248,17 +286,45 @@
                 <views:ExoPlayerHostControl IsVisible="{Binding !Player.ShowLoadingOverlay}" />
 
                 <Border Background="Black" IsVisible="{Binding Player.ShowLoadingOverlay}">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-                        <TextBlock Text="{Binding Player.StatusText}" Foreground="White" HorizontalAlignment="Center" />
-                        <Button Content="Retry" Command="{Binding Player.RetryCommand}" IsVisible="{Binding Player.HasPlaybackError}" HorizontalAlignment="Center" />
-                    </StackPanel>
+                    <Panel>
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding !Settings.IsSimpleMode}">
+                            <TextBlock Text="{Binding Player.StatusText}" Foreground="White" HorizontalAlignment="Center" />
+                            <Button Content="Retry" Command="{Binding Player.RetryCommand}" IsVisible="{Binding Player.HasPlaybackError}" HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Simple picture mode: a big spinner with the status (e.g. "Buffering (45%)") in large
+                             type while loading; if it fails, a warning picture and one big "Try again" instead of
+                             the error text (Back is in the bar below). -->
+                        <Panel IsVisible="{Binding Settings.IsSimpleMode}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" IsVisible="{Binding !Player.HasPlaybackError}">
+                                <ui:FAProgressRing Width="80" Height="80" IsActive="{Binding Player.ShowLoadingOverlay}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="24" IsVisible="{Binding Player.HasPlaybackError}">
+                                <ui:FASymbolIcon Symbol="Important" FontSize="72" Foreground="White" HorizontalAlignment="Center" />
+                                <Button Classes="accent" Command="{Binding Player.RetryCommand}" Click="OnSimpleControlClick" Holding="OnSimpleRetryHolding"
+                                        MinHeight="80" Padding="32,12" CornerRadius="40" HorizontalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="16">
+                                        <ui:FASymbolIcon Symbol="Refresh" FontSize="32" />
+                                        <TextBlock Text="Try again" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Panel>
+                    </Panel>
                 </Border>
 
                 <!-- Small, unobtrusive - matches ShowBufferingBadge's "don't hide the video for a
                      brief re-buffer" behavior on desktop. -->
                 <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="12" Background="#AA000000" CornerRadius="4" Padding="8,4"
                         IsVisible="{Binding Player.ShowBufferingBadge}">
-                    <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="12" />
+                    <Panel>
+                        <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="12" IsVisible="{Binding !Settings.IsSimpleMode}" />
+                        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Settings.IsSimpleMode}">
+                            <ui:FAProgressRing Width="28" Height="28" IsActive="{Binding Player.ShowBufferingBadge}" />
+                            <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Panel>
                 </Border>
 
                 <!-- Tap-to-reveal catcher for ExitFullscreenButton below - only present while
@@ -293,7 +359,13 @@
                  an icon-only button sized by MinWidth grows/shrinks as whichever bound glyph is
                  currently showing changes advance width, e.g. PlayFilled vs PauseFilled, and the whole
                  row visibly reflows every toggle). -->
-            <StackPanel Grid.Row="1" Background="#CC000000" Spacing="4" IsVisible="{Binding !Player.IsFullscreen}">
+            <StackPanel Grid.Row="1" Background="#CC000000" Spacing="4">
+                <StackPanel.IsVisible>
+                    <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                        <Binding Path="!Player.IsFullscreen" />
+                        <Binding Path="!Settings.IsSimpleMode" />
+                    </MultiBinding>
+                </StackPanel.IsVisible>
                 <TextBlock Text="{Binding Player.NowPlayingChannelName}" Foreground="White" FontWeight="Bold" Margin="12,8,12,0" TextWrapping="Wrap" />
                 <TextBlock Margin="12,0,12,4" Foreground="White" Opacity="0.7" FontSize="12">
                     <Run Text="{Binding Player.PositionLabel}" /><Run Text=" / " /><Run Text="{Binding Player.DurationLabel}" />
@@ -323,6 +395,46 @@
                     </Button>
                 </StackPanel>
             </StackPanel>
+
+            <!-- Simple picture mode's controls (see SimpleHomeView): just Back, Play/Pause, Quieter and
+                 Louder, big and always visible, each with a picture and one word. No skip, mute or
+                 fullscreen: those are easy to hit by accident and hard to undo without reading.
+                 Quieter/Louder move the phone's own media volume (with its usual volume bar), see
+                 OnSimpleVolumeClick. Press and hold any of them to hear its name. -->
+            <Grid Grid.Row="1" Background="#E6000000" IsVisible="{Binding Settings.IsSimpleMode}"
+                  RowDefinitions="Auto,Auto" Margin="0">
+                <TextBlock Grid.Row="0" Text="{Binding Player.NowPlayingChannelName}" Foreground="White" FontSize="20" FontWeight="SemiBold"
+                           Margin="20,14,20,4" TextTrimming="CharacterEllipsis" MaxLines="1" />
+                <UniformGrid Grid.Row="1" Columns="4" Margin="12,8,12,20">
+                    <Button Classes="simple-control" Tag="Back" Command="{Binding Player.StopCommand}" Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
+                        <StackPanel Spacing="6">
+                            <ui:FASymbolIcon Symbol="Back" FontSize="36" HorizontalAlignment="Center" />
+                            <TextBlock Text="Back" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="simple-control" Tag="Quieter" Click="OnSimpleVolumeClick" Holding="OnSimpleControlHolding">
+                        <StackPanel Spacing="6">
+                            <ui:FASymbolIcon Symbol="Speaker1" FontSize="36" HorizontalAlignment="Center" />
+                            <TextBlock Text="Quieter" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="simple-control play" Tag="Play" Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}"
+                            Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
+                        <StackPanel Spacing="6">
+                            <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}"
+                                             FontSize="40" HorizontalAlignment="Center" />
+                            <TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Text="{Binding Player.IsPaused, Converter={x:Static views:SimpleModeConverters.PlayPauseLabel}}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="simple-control" Tag="Louder" Click="OnSimpleVolumeClick" Holding="OnSimpleControlHolding">
+                        <StackPanel Spacing="6">
+                            <ui:FASymbolIcon Symbol="Speaker2" FontSize="36" HorizontalAlignment="Center" />
+                            <TextBlock Text="Louder" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </UniformGrid>
+            </Grid>
         </Grid>
     </Panel>
 </UserControl>

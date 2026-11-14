@@ -29,11 +29,11 @@
                             <TextBlock Text="Theme" Opacity="0.7" FontSize="12" />
                             <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch" />
                         </StackPanel>
-                        <!-- See SimpleHomeView. Leaving it again is a 3-second hold on its faint top-right icon. -->
+                        <!-- See SimpleHomeView. Leaving it again is a 2-second hold on its "Normal mode" tile. -->
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel VerticalAlignment="Center" Spacing="2">
                                 <TextBlock Text="Simple picture mode" />
-                                <TextBlock Text="Big pictures of favourites, no menus or typing. To leave, hold the top-right corner for 3 seconds."
+                                <TextBlock Text="Everything as big pictures, with no menus or typing. To leave, hold the Normal mode tile at the bottom of its home screen for 2 seconds."
                                            Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsSimpleMode}" />

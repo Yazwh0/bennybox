@@ -73,6 +73,68 @@ public partial class AndroidShellView : UserControl
         TabBar.Columns = wide ? 9 : 5;
     }
 
+    // Simple picture mode's player buttons (see the simple-control bar in the XAML). A press-and-hold
+    // reads the button's name aloud; the release that ends the hold mustn't then also press it, so
+    // Click marks itself handled, which stops Button running its Command.
+    private bool _suppressNextSimpleClick;
+
+    private void OnSimpleControlHolding(object? sender, Avalonia.Input.HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState != Avalonia.Input.HoldingState.Started || sender is not Avalonia.Controls.Button button)
+        {
+            return;
+        }
+
+        _suppressNextSimpleClick = true;
+        var label = button.Tag as string;
+        if (label == "Play" && _player is { IsPaused: false })
+        {
+            label = "Pause";
+        }
+
+        Services.ReadAloud.Speak(label);
+    }
+
+    private void OnSimpleRetryHolding(object? sender, Avalonia.Input.HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState == Avalonia.Input.HoldingState.Started)
+        {
+            _suppressNextSimpleClick = true;
+            Services.ReadAloud.Speak("Try again");
+        }
+    }
+
+    private void OnSimpleControlClick(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressNextSimpleClick)
+        {
+            _suppressNextSimpleClick = false;
+            e.Handled = true;
+        }
+    }
+
+    // Quieter/Louder step the phone's own media volume and show its usual volume bar, so the change is
+    // visible. Louder also unmutes, since simple mode has no mute button to undo a mute set elsewhere.
+    private void OnSimpleVolumeClick(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressNextSimpleClick)
+        {
+            _suppressNextSimpleClick = false;
+            return;
+        }
+
+        var louder = (sender as Avalonia.Controls.Button)?.Tag as string == "Louder";
+        if (louder && _player is { IsMuted: true })
+        {
+            _player.ToggleMuteCommand.Execute(null);
+        }
+
+        var audio = global::Android.App.Application.Context.GetSystemService(global::Android.Content.Context.AudioService) as global::Android.Media.AudioManager;
+        audio?.AdjustStreamVolume(global::Android.Media.Stream.Music,
+            louder ? global::Android.Media.Adjust.Raise : global::Android.Media.Adjust.Lower,
+            global::Android.Media.VolumeNotificationFlags.ShowUi);
+    }
+
     private void OnMoreItemClick(object? sender, RoutedEventArgs e)
     {
         MoreTab.Flyout?.Hide();

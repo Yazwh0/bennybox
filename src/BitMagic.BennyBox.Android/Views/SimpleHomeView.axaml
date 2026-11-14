@@ -1,22 +1,22 @@
-<!-- Simple picture mode (Settings > Simple picture mode): replaces the whole tabbed app with one page of
-     big picture tiles, for someone who recognises pictures more easily than words (e.g. aphasia) and
-     should be able to use the app alone once it's set up. Rules it follows:
-     - Pictures carry the meaning; labels are short and only back them up. No typing anywhere.
-     - One tap plays (channels start, films and "Keep watching" resume). Nothing opens a text-heavy page.
-     - Press and hold any tile or heading to hear its name read aloud (ReadAloud).
-     - No delete/edit/settings. Leaving the mode needs a 3-second hold on the faint top-right icon, so
-       it can't happen by accident.
-     Content is FavoritesViewModel's: someone sets up favourites in the normal app first. Shows (series)
-     are left out until tapping one can resume the next episode directly. -->
+<!-- Simple picture mode (Settings > Simple picture mode): the whole app as big picture tiles, for someone
+     who recognises pictures more easily than words (e.g. aphasia) and should be able to use it alone.
+     - Home: Keep watching, then big tiles for Favourites, TV, Films, Shows and Videos, then "Normal mode".
+     - TV/Films/Shows/Videos: category tiles, then a picture grid. One tap plays (shows resume their
+       next unwatched episode). Nothing opens a text-heavy page, and there's no typing anywhere.
+     - The same big Back button at the top of every screen except Home.
+     - Press and hold any tile to hear its name read aloud (ReadAloud).
+     - "Normal mode" is a visible tile you hold for 2 seconds (a bar fills while holding), so it's easy to
+       find but not something a stray tap triggers.
+     DataContext is the shell, for its page view models (LiveTv, Movies, Series, Clips, Favorites). -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:BitMagic.BennyBox.ViewModels"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
              xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:views="using:BitMagic.BennyBox.Android.Views"
+             xmlns:vm="using:BitMagic.BennyBox.Android.ViewModels"
              x:Class="BitMagic.BennyBox.Android.Views.SimpleHomeView"
-             x:DataType="vm:FavoritesViewModel"
+             x:DataType="vm:AndroidShellViewModel"
              x:Name="Root">
     <UserControl.Styles>
         <Style Selector="Button.simple-tile">
@@ -39,114 +39,135 @@
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="MaxLines" Value="2" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <!-- Always two lines tall, so tiles in a row line up whatever their names. -->
+            <Setter Property="Height" Value="54" />
+            <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceBrush}" />
         </Style>
-        <Style Selector="Border.initials">
+        <Style Selector="Border.picture-backing">
             <Setter Property="Background" Value="{DynamicResource M3PrimaryContainerBrush}" />
             <Setter Property="CornerRadius" Value="12" />
         </Style>
-        <Style Selector="Border.initials > TextBlock">
+        <Style Selector="Border.picture-backing > TextBlock">
             <Setter Property="FontSize" Value="48" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{DynamicResource M3OnPrimaryContainerBrush}" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <!-- Fluent gives progress bars a 200px minimum width, wider than a phone tile. -->
+        <Style Selector="ProgressBar">
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBoxItem:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <!-- The carer's way out: faint and small on purpose, and only after a 3-second hold. -->
-        <Border Grid.Row="0" x:Name="ExitCorner" HorizontalAlignment="Right" Width="56" Height="56" Background="Transparent"
-                PointerPressed="OnExitPressed" PointerReleased="OnExitReleased" PointerCaptureLost="OnExitCaptureLost">
-            <ui:FASymbolIcon Symbol="Settings" FontSize="18" Opacity="0.25" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        </Border>
+        <!-- Top bar: the big Back button (every screen but Home) and the screen's name. -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="16,12,16,4" MinHeight="64">
+            <Button x:Name="BackButton" Classes="accent" Click="OnBackClick" Holding="OnBackHolding"
+                    MinHeight="64" Padding="24,8" CornerRadius="32" Margin="0,0,16,0" IsVisible="False">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ui:FASymbolIcon Symbol="Back" FontSize="28" />
+                    <TextBlock Text="Back" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <ui:FASymbolIcon x:Name="TitleIcon" Symbol="Home" FontSize="30" />
+                <TextBlock x:Name="TitleText" Text="Home" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Grid>
 
-        <StackPanel Grid.Row="1" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
-                    IsVisible="{Binding HasNoFavorites}">
+        <ListBox Grid.Row="1" x:Name="RowsList" Background="Transparent" SelectionMode="Single" Padding="16,0,16,24"
+                 SizeChanged="OnListSizeChanged">
+            <ListBox.DataTemplates>
+                <DataTemplate DataType="views:SimpleHeader">
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="4,16,4,8" Background="Transparent">
+                        <ui:FASymbolIcon Symbol="{Binding Icon}" FontSize="26" />
+                        <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </DataTemplate>
+
+                <DataTemplate DataType="views:SimpleTileRow">
+                    <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,0,0,12">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="12" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.DataTemplates>
+                            <DataTemplate DataType="views:SimpleTile">
+                                <Button Classes="simple-tile" Width="{Binding #Root.TileWidth}" Click="OnTileClick" Holding="OnTileHolding">
+                                    <StackPanel Spacing="8">
+                                        <Panel Height="{Binding #Root.TileImageHeight}">
+                                            <!-- Places and categories: a big icon on a coloured square. -->
+                                            <Border Classes="picture-backing" IsVisible="{Binding HasIcon}">
+                                                <ui:FASymbolIcon Symbol="{Binding Icon}" FontSize="64"
+                                                                 Foreground="{DynamicResource M3OnPrimaryContainerBrush}"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <!-- Items: the picture, or big initials when there isn't one. -->
+                                            <Panel IsVisible="{Binding HasPicture}">
+                                                <Border Classes="picture-backing" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
+                                                    <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
+                                                </Border>
+                                                <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
+                                                                           TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                                            </Panel>
+                                        </Panel>
+                                        <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="1" Height="6" CornerRadius="3"
+                                                     IsVisible="{Binding HasProgress}" />
+                                        <TextBlock Classes="tile-label" Text="{Binding Title}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+
+                            <DataTemplate DataType="views:SimpleExitTile">
+                                <Border Background="{DynamicResource M3SurfaceContainerHighBrush}" CornerRadius="20" Padding="12"
+                                        Width="{Binding #Root.TileWidth}"
+                                        PointerPressed="OnExitPressed" PointerReleased="OnExitReleased" PointerCaptureLost="OnExitCaptureLost">
+                                    <StackPanel Spacing="8">
+                                        <Border Height="{Binding #Root.TileImageHeight}" CornerRadius="12" Background="{DynamicResource M3SecondaryContainerBrush}">
+                                            <StackPanel VerticalAlignment="Center" Spacing="8">
+                                                <ui:FASymbolIcon Symbol="Settings" FontSize="56" HorizontalAlignment="Center"
+                                                                 Foreground="{DynamicResource M3OnSecondaryContainerBrush}" />
+                                                <TextBlock Text="Hold" FontSize="18" HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource M3OnSecondaryContainerBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="1" Height="6" CornerRadius="3" />
+                                        <TextBlock Classes="tile-label" Text="Normal mode" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.DataTemplates>
+                    </ItemsControl>
+                </DataTemplate>
+            </ListBox.DataTemplates>
+        </ListBox>
+
+        <StackPanel Grid.Row="1" x:Name="EmptyMessage" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
+                    IsVisible="False">
             <ui:FASymbolIcon Symbol="Star" FontSize="64" HorizontalAlignment="Center" />
             <TextBlock Text="Nothing here yet" FontSize="24" HorizontalAlignment="Center" />
-            <TextBlock Text="To set up: hold the top-right corner for 3 seconds, mark favourites in the normal app, then turn simple mode back on in Settings."
-                       FontSize="14" Opacity="0.7" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320" />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" SizeChanged="OnContentSizeChanged">
-            <ItemsControl x:Name="TilesList" Margin="16,0,16,24">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel ItemSpacing="12" LineSpacing="12" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.DataTemplates>
-                    <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <Border Background="Transparent" Width="{Binding #Root.ContentWidth}" Padding="4,16,4,4"
-                                Holding="OnHeaderHolding">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <ui:FASymbolIcon Symbol="{Binding Name, Converter={x:Static views:SimpleModeConverters.SectionIcon}}" FontSize="30" />
-                                <TextBlock Text="{Binding Name, Converter={x:Static views:SimpleModeConverters.SectionLabel}}"
-                                           FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-
-                    <DataTemplate DataType="vm:WatchProgressItemViewModel">
-                        <Button Classes="simple-tile" Width="{Binding #Root.TileWidth}" Click="OnTileClick" Holding="OnTileHolding">
-                            <StackPanel Spacing="8">
-                                <Panel Height="{Binding #Root.TileImageHeight}">
-                                    <Border Classes="initials" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
-                                        <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
-                                    </Border>
-                                    <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding CoverUrl}" Stretch="Uniform" />
-                                </Panel>
-                                <ProgressBar Value="{Binding ProgressFraction}" Minimum="0" Maximum="1" Height="6" CornerRadius="3" />
-                                <TextBlock Classes="tile-label" Text="{Binding Title}" />
-                            </StackPanel>
-                        </Button>
-                    </DataTemplate>
-
-                    <DataTemplate DataType="vm:ChannelListItemViewModel">
-                        <Button Classes="simple-tile" Width="{Binding #Root.TileWidth}" Click="OnTileClick" Holding="OnTileHolding">
-                            <StackPanel Spacing="8">
-                                <Panel Height="{Binding #Root.TileImageHeight}">
-                                    <Border Classes="initials" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
-                                        <TextBlock Text="{Binding Name, Converter={x:Static views:SimpleModeConverters.Initials}}" />
-                                    </Border>
-                                    <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding Channel.LogoUrl}" FallbackLogoUrl="{Binding FallbackLogoUrl}"
-                                                               TmdbFallbackTitle="{Binding Name}" Stretch="Uniform" />
-                                </Panel>
-                                <TextBlock Classes="tile-label" Text="{Binding Name}" />
-                            </StackPanel>
-                        </Button>
-                    </DataTemplate>
-
-                    <DataTemplate DataType="vm:MovieListItemViewModel">
-                        <Button Classes="simple-tile" Width="{Binding #Root.TileWidth}" Click="OnTileClick" Holding="OnTileHolding">
-                            <StackPanel Spacing="8">
-                                <Panel Height="{Binding #Root.TileImageHeight}">
-                                    <Border Classes="initials" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
-                                        <TextBlock Text="{Binding Name, Converter={x:Static views:SimpleModeConverters.Initials}}" />
-                                    </Border>
-                                    <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding CoverUrl}" Stretch="Uniform" />
-                                </Panel>
-                                <TextBlock Classes="tile-label" Text="{Binding Name}" />
-                            </StackPanel>
-                        </Button>
-                    </DataTemplate>
-
-                    <DataTemplate DataType="vm:ClipListItemViewModel">
-                        <Button Classes="simple-tile" Width="{Binding #Root.TileWidth}" Click="OnTileClick" Holding="OnTileHolding">
-                            <StackPanel Spacing="8">
-                                <Panel Height="{Binding #Root.TileImageHeight}">
-                                    <Border Classes="initials" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
-                                        <TextBlock Text="{Binding Name, Converter={x:Static views:SimpleModeConverters.Initials}}" />
-                                    </Border>
-                                    <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding CoverUrl}" Stretch="Uniform" />
-                                </Panel>
-                                <TextBlock Classes="tile-label" Text="{Binding Name}" />
-                            </StackPanel>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.DataTemplates>
-            </ItemsControl>
-        </ScrollViewer>
+        <!-- While a show's episode list loads before playing its next episode. -->
+        <Border Grid.Row="0" Grid.RowSpan="2" x:Name="BusyOverlay" Background="#66000000" IsVisible="False">
+            <ui:FAProgressRing IsActive="{Binding #BusyOverlay.IsVisible}" Width="64" Height="64" />
+        </Border>
     </Grid>
 </UserControl>
