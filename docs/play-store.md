@@ -11,7 +11,7 @@ repo submits anything to Google; every step below is done by hand in Play Consol
   (`BennyBox-<version>-android-play`) for uploading to Play by hand.
 - **versionCode** comes from the tag (`major*10000 + minor*100 + patch`), so every release is
   higher than the last, as Play requires.
-- **Target SDK 36**, min SDK 23. All native libraries are 16 KB page aligned (checked on 6 Nov 2026).
+- **Target SDK 36**, min SDK 24 (Play automatic protection needs 24+). All native libraries are 16 KB page aligned (checked on 6 Nov 2026).
 - **Update check:** a Play install hides the GitHub update check and says updates come from Play
   (`PlayAwareUpdateCheckService`); a sideloaded APK keeps it. Same build, decided at runtime.
 - **Permissions:** only INTERNET, ACCESS_NETWORK_STATE and WAKE_LOCK. The QR scanner uses Google
@@ -88,7 +88,8 @@ posters or channel brands. Google pulls IPTV apps that look like they provide co
 
 **Category:** Video Players & Editors.
 
-**Privacy policy URL:** <https://github.com/Yazwh0/bennybox/blob/main/PRIVACY.md>
+**Privacy policy URL:** <https://bitmagic.org/bennybox/privacy> (source in BitMagic.Documentation,
+`BennyBox/Privacy.md`; deliberately not linked from the site's nav)
 
 ## 4. App content forms
 
