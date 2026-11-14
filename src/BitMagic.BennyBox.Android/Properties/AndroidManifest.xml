@@ -6,4 +6,11 @@
 		     the first tap of Settings' "Scan QR code" (see QrCodeScanner). -->
 		<meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />
 	</application>
+	<!-- Android 11+ hides other apps' services unless declared; simple mode's read-aloud (ReadAloud)
+	     needs to find the phone's text-to-speech engine. -->
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.TTS_SERVICE" />
+		</intent>
+	</queries>
 </manifest>

@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.Messages;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.ViewModels;
@@ -26,6 +27,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly DownloadManager _downloadManager;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly ICredentialProtector _credentialProtector;
+    private readonly FavoritesTransfer _favoritesTransfer;
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
@@ -35,6 +37,7 @@ public partial class SettingsViewModel : ViewModelBase
     private bool _isApplyingSavedRemoteKeyMode;
     private bool _isApplyingSavedTmdbApiKey;
     private bool _isApplyingSavedCheckForUpdates;
+    private bool _isApplyingSavedSimpleMode;
 
     public string Title => "Settings";
 
@@ -184,8 +187,10 @@ public partial class SettingsViewModel : ViewModelBase
         DownloadManager downloadManager,
         IUpdateCheckService updateCheckService,
         ICredentialProtector credentialProtector,
+        FavoritesTransfer favoritesTransfer,
         ILogger<SettingsViewModel> logger)
     {
+        _favoritesTransfer = favoritesTransfer;
         _profileRepository = profileRepository;
         _importService = importService;
         _epgImportService = epgImportService;
@@ -209,6 +214,7 @@ public partial class SettingsViewModel : ViewModelBase
         _ = LoadTmdbApiKeyAsync();
         _ = LoadDownloadsSectionAsync();
         _ = LoadCheckForUpdatesAsync();
+        _ = LoadSimpleModeAsync();
     }
 
     private async Task LoadDownloadsSectionAsync()
@@ -413,6 +419,28 @@ public partial class SettingsViewModel : ViewModelBase
         _ = _settingsStore.SetAsync("RemoteKeyFixed", value ? "true" : "false");
     }
 
+    // "Simple picture mode" (Android): a pictures-first home screen with no menus, for people who
+    // find reading or typing hard (e.g. aphasia). See SimpleHomeView. Off unless explicitly turned on.
+    [ObservableProperty]
+    private bool _isSimpleMode;
+
+    private async Task LoadSimpleModeAsync()
+    {
+        _isApplyingSavedSimpleMode = true;
+        IsSimpleMode = await _settingsStore.GetAsync("SimpleMode") == "true";
+        _isApplyingSavedSimpleMode = false;
+    }
+
+    partial void OnIsSimpleModeChanged(bool value)
+    {
+        if (_isApplyingSavedSimpleMode)
+        {
+            return;
+        }
+
+        _ = _settingsStore.SetAsync("SimpleMode", value ? "true" : "false");
+    }
+
     private async Task LoadCheckForUpdatesAsync()
     {
         _isApplyingSavedCheckForUpdates = true;
@@ -544,7 +572,81 @@ public partial class SettingsViewModel : ViewModelBase
             }
         }
 
+        // Favourites after profiles: they can only match content that's been imported, which for a
+        // code that also carries sources means the AddProfileAsync imports just above.
+        if (setup.Favorites.Count > 0)
+        {
+            try
+            {
+                var (added, notFound) = await _favoritesTransfer.ImportAsync(setup.Favorites);
+                results.Add(notFound > 0
+                    ? $"Added {added} favourites ({notFound} not found on this device)."
+                    : $"Added {added} favourites.");
+                WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
+            }
+            catch (Exception ex)
+            {
+                results.Add($"Couldn't add favourites: {ex.Message}");
+                _logger.LogError(ex, "Failed to import favourites from a setup code");
+            }
+        }
+
+        // Settings last, so a code that turns on simple picture mode only switches into it once the
+        // favourites it shows are already in place.
+        if (setup.Settings is { } settings)
+        {
+            ApplySharedSettings(settings);
+            results.Add("Applied settings.");
+        }
+
         StatusMessage = results.Count > 0 ? string.Join(Environment.NewLine, results) : "Setup code applied.";
+    }
+
+    // Android's "Share setup" QR: any mix of this device's settings, favourites and sources (sources
+    // carry passwords, so the UI leaves them off by default).
+    // Finding favourites means reading every channel/film list, which can take a while on a big
+    // account - so the dialog fetches them once (ExportFavoritesAsync) and rebuilds the code from that
+    // as its switches change.
+    public Task<IReadOnlyList<SharedFavorite>> ExportFavoritesAsync() => _favoritesTransfer.ExportAsync();
+
+    public string BuildShareCode(bool includeSettings, IReadOnlyList<SharedFavorite>? favorites, bool includeSources)
+    {
+        var profiles = includeSources ? Profiles.Where(p => p.IsEnabled).ToList() : [];
+        return ProfileSetupCode.Encode(profiles, _credentialProtector,
+            includeSources && !HasEmbeddedTmdbKey ? TmdbApiKey : null,
+            includeSettings ? CaptureSharedSettings() : null,
+            favorites);
+    }
+
+    private SharedSettings CaptureSharedSettings() => new()
+    {
+        Theme = SelectedTheme,
+        SkipIntervalSeconds = SkipIntervalSeconds,
+        LoadTimeoutSeconds = LoadTimeoutSeconds,
+        StallThresholdSeconds = StallThresholdSeconds,
+        PauseReconnectThresholdSeconds = PauseReconnectThresholdSeconds,
+        PreferredAudioLanguage = PreferredAudioLanguage,
+        PreferredSubtitleLanguage = PreferredSubtitleLanguage,
+        CheckForUpdatesAutomatically = CheckForUpdatesAutomatically,
+        SimpleMode = IsSimpleMode,
+    };
+
+    // Each property's own OnChanged handler saves it, exactly as if it had been changed by hand.
+    private void ApplySharedSettings(SharedSettings s)
+    {
+        if (s.Theme is { } theme && ThemeOptions.Contains(theme))
+        {
+            SelectedTheme = theme;
+        }
+
+        if (s.SkipIntervalSeconds is { } skip) SkipIntervalSeconds = skip;
+        if (s.LoadTimeoutSeconds is { } timeout) LoadTimeoutSeconds = timeout;
+        if (s.StallThresholdSeconds is { } stall) StallThresholdSeconds = stall;
+        if (s.PauseReconnectThresholdSeconds is { } reconnect) PauseReconnectThresholdSeconds = reconnect;
+        if (s.PreferredAudioLanguage is { } audio) PreferredAudioLanguage = audio;
+        if (s.PreferredSubtitleLanguage is { } subtitles) PreferredSubtitleLanguage = subtitles;
+        if (s.CheckForUpdatesAutomatically is { } checkUpdates) CheckForUpdatesAutomatically = checkUpdates;
+        if (s.SimpleMode is { } simple) IsSimpleMode = simple;
     }
 
     public async Task AddProfileAsync(ProfileSource profile)

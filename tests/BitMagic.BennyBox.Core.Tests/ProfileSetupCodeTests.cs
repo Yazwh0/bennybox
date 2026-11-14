@@ -63,6 +63,43 @@ public class ProfileSetupCodeTests
         Assert.True(ProfileSetupCode.IsSameAccount(jellyfin, j));
     }
 
+    [Fact]
+    public void RoundTrip_SettingsAndFavouritesWithoutAnyProfiles()
+    {
+        var account = ProfileSetupCode.AccountKey(new ProfileSource
+        {
+            Name = "Provider",
+            SourceType = ProfileSourceType.XtreamCodes,
+            XtreamServerUrl = "http://Example.com:8080/",
+            XtreamUsername = "User",
+        });
+        var settings = new SharedSettings { Theme = "Dark", SimpleMode = true, SkipIntervalSeconds = 15 };
+        SharedFavorite[] favorites =
+        [
+            new(account, FavoriteKind.Channel, "101"),
+            new(account, FavoriteKind.Movie, "m-7"),
+        ];
+
+        var code = ProfileSetupCode.Encode([], Desktop, settings: settings, favorites: favorites);
+
+        Assert.True(ProfileSetupCode.TryDecode(code, Phone, out var result, out var error), error);
+        Assert.Empty(result.Profiles);
+        Assert.Equal("Dark", result.Settings?.Theme);
+        Assert.True(result.Settings?.SimpleMode);
+        Assert.Equal(15, result.Settings?.SkipIntervalSeconds);
+        Assert.Null(result.Settings?.PreferredAudioLanguage);
+        Assert.Equal(favorites, result.Favorites);
+    }
+
+    [Fact]
+    public void AccountKey_IgnoresCaseTrailingSlashAndPassword()
+    {
+        var a = new ProfileSource { Name = "A", SourceType = ProfileSourceType.XtreamCodes, XtreamServerUrl = "http://Host:80/", XtreamUsername = "Bob", XtreamPasswordEncrypted = "x" };
+        var b = new ProfileSource { Name = "B", SourceType = ProfileSourceType.XtreamCodes, XtreamServerUrl = "http://host:80", XtreamUsername = "bob" };
+
+        Assert.Equal(ProfileSetupCode.AccountKey(a), ProfileSetupCode.AccountKey(b));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("http://example.com")]

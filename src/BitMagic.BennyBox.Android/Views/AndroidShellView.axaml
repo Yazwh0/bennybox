@@ -81,7 +81,7 @@
         </Style>
     </UserControl.Styles>
     <Panel Background="{DynamicResource M3SurfaceBrush}">
-        <Grid RowDefinitions="*,Auto">
+        <Grid RowDefinitions="*,Auto" IsVisible="{Binding !Settings.IsSimpleMode}">
             <ContentControl Grid.Row="0" Content="{Binding CurrentPage}" />
 
             <!-- Bottom navigation bar, following Material Design's navigation bar guidance: 3 to 5
@@ -223,6 +223,12 @@
                 </UniformGrid>
             </Border>
         </Grid>
+
+        <!-- Simple picture mode replaces the tabbed app entirely (see SimpleHomeView); the player
+             overlay below still covers it when something plays. -->
+        <Panel IsVisible="{Binding Settings.IsSimpleMode}">
+            <views:SimpleHomeView DataContext="{Binding Favorites}" />
+        </Panel>
 
         <!-- Fullscreen player overlay - shown whenever something is playing, matching desktop's
              "NowPlayingChannelName is the source of truth for whether the video area should be

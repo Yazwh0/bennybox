@@ -24,6 +24,7 @@
     <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" />
     <PackageReference Include="Xamarin.AndroidX.Media3.UI" />
     <PackageReference Include="Xamarin.GooglePlayServices.Code.Scanner" />
+    <PackageReference Include="QRCoder" />
   </ItemGroup>
 
   <ItemGroup>

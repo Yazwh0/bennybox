@@ -18,19 +18,37 @@ namespace BitMagic.BennyBox.Core.Services;
 // and a second login under the same device id would revoke the desktop's token), Jellyfin's user id/
 // access token (the phone logs in for itself on first import), refresh/caching state, and LocalFolder
 // profiles entirely (a Windows path means nothing on a phone).
+//
+// A code can also carry app settings and favourites, with or without any profiles - so one phone
+// that's set up can hand its settings to another (e.g. turning on simple picture mode for someone
+// else). Favourites travel as (account, kind, the provider's own item id), since the local Guids
+// differ per device; they only match on a device with the same account. Older versions ignore the
+// extra fields.
 public static class ProfileSetupCode
 {
     public const string Prefix = "BENNYBOX1:";
 
     public static bool CanShare(ProfileSource profile) => profile.SourceType != ProfileSourceType.LocalFolder;
 
-    public static string Encode(IEnumerable<ProfileSource> profiles, ICredentialProtector protector, string? tmdbApiKey = null)
+    public static string Encode(IEnumerable<ProfileSource> profiles, ICredentialProtector protector, string? tmdbApiKey = null,
+        SharedSettings? settings = null, IEnumerable<SharedFavorite>? favorites = null)
     {
+        var favoriteList = favorites?.ToList() ?? [];
+        var accounts = favoriteList.Select(f => f.AccountKey).Distinct().ToList();
         var payload = new SetupPayload
         {
             TmdbApiKey = string.IsNullOrWhiteSpace(tmdbApiKey) ? null : tmdbApiKey.Trim(),
-            Profiles = profiles.Where(CanShare).Select(p => SetupProfile.From(p, protector)).ToList()
+            Profiles = profiles.Where(CanShare).Select(p => SetupProfile.From(p, protector)).ToList(),
+            Settings = settings,
+            Accounts = accounts.Count > 0 ? accounts : null,
+            Favorites = favoriteList.Count > 0
+                ? favoriteList.Select(f => new SetupFavorite { Account = accounts.IndexOf(f.AccountKey), Kind = f.Kind, SourceId = f.SourceId }).ToList()
+                : null,
         };
+        if (payload.Profiles.Count == 0)
+        {
+            payload.Profiles = null;
+        }
 
         var json = JsonSerializer.SerializeToUtf8Bytes(payload, JsonOptions);
         using var output = new MemoryStream();
@@ -45,7 +63,7 @@ public static class ProfileSetupCode
 
     public static bool TryDecode(string? code, ICredentialProtector protector, out SetupResult result, out string? error)
     {
-        result = new SetupResult([], null);
+        result = new SetupResult([], null, null, []);
         error = null;
 
         var text = code?.Trim() ?? string.Empty;
@@ -63,14 +81,20 @@ public static class ProfileSetupCode
             using var input = new MemoryStream(Convert.FromBase64String(base64));
             using var deflate = new DeflateStream(input, CompressionMode.Decompress);
             var payload = JsonSerializer.Deserialize<SetupPayload>(deflate, JsonOptions);
-            if (payload?.Profiles is not { Count: > 0 } && string.IsNullOrWhiteSpace(payload?.TmdbApiKey))
+            if (payload is null || (payload.Profiles is not { Count: > 0 } && string.IsNullOrWhiteSpace(payload.TmdbApiKey)
+                && payload.Settings is null && payload.Favorites is not { Count: > 0 }))
             {
                 error = "The setup code is empty.";
                 return false;
             }
 
-            var profiles = (payload!.Profiles ?? []).Where(p => !string.IsNullOrWhiteSpace(p.Name)).Select(p => p.ToProfile(protector)).Where(CanShare).ToList();
-            result = new SetupResult(profiles, payload.TmdbApiKey);
+            var profiles = (payload.Profiles ?? []).Where(p => !string.IsNullOrWhiteSpace(p.Name)).Select(p => p.ToProfile(protector)).Where(CanShare).ToList();
+            var accounts = payload.Accounts ?? [];
+            var favorites = (payload.Favorites ?? [])
+                .Where(f => f.Account >= 0 && f.Account < accounts.Count && !string.IsNullOrEmpty(f.SourceId))
+                .Select(f => new SharedFavorite(accounts[f.Account], f.Kind, f.SourceId!))
+                .ToList();
+            result = new SetupResult(profiles, payload.TmdbApiKey, payload.Settings, favorites);
             return true;
         }
         catch (Exception ex) when (ex is FormatException or InvalidDataException or JsonException)
@@ -101,7 +125,24 @@ public static class ProfileSetupCode
         };
     }
 
-    public sealed record SetupResult(IReadOnlyList<ProfileSource> Profiles, string? TmdbApiKey);
+    // A stable, password-free identity for the account a profile points at - the same fields
+    // IsSameAccount compares - so favourites can be matched to the right profile on another device.
+    public static string AccountKey(ProfileSource profile)
+    {
+        static string N(string? value) => value?.Trim().TrimEnd('/').ToLowerInvariant() ?? string.Empty;
+
+        return profile.SourceType switch
+        {
+            ProfileSourceType.M3u => $"m|{N(profile.M3uUrl)}",
+            ProfileSourceType.XtreamCodes => $"x|{N(profile.XtreamServerUrl)}|{N(profile.XtreamUsername)}",
+            ProfileSourceType.Sftp => $"s|{N(profile.SftpHost)}|{profile.SftpPort}|{N(profile.SftpUsername)}",
+            ProfileSourceType.Jellyfin => $"j|{N(profile.JellyfinServerUrl)}|{N(profile.JellyfinUsername)}",
+            _ => $"?|{profile.Id}",
+        };
+    }
+
+    public sealed record SetupResult(IReadOnlyList<ProfileSource> Profiles, string? TmdbApiKey,
+        SharedSettings? Settings, IReadOnlyList<SharedFavorite> Favorites);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -114,6 +155,16 @@ public static class ProfileSetupCode
     {
         [JsonPropertyName("t")] public string? TmdbApiKey { get; set; }
         [JsonPropertyName("p")] public List<SetupProfile>? Profiles { get; set; }
+        [JsonPropertyName("st")] public SharedSettings? Settings { get; set; }
+        [JsonPropertyName("ac")] public List<string>? Accounts { get; set; }
+        [JsonPropertyName("f")] public List<SetupFavorite>? Favorites { get; set; }
+    }
+
+    private sealed class SetupFavorite
+    {
+        [JsonPropertyName("a")] public int Account { get; set; }
+        [JsonPropertyName("k")] public FavoriteKind Kind { get; set; }
+        [JsonPropertyName("i")] public string? SourceId { get; set; }
     }
 
     private sealed class SetupProfile

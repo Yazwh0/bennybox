@@ -29,6 +29,15 @@
                             <TextBlock Text="Theme" Opacity="0.7" FontSize="12" />
                             <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch" />
                         </StackPanel>
+                        <!-- See SimpleHomeView. Leaving it again is a 3-second hold on its faint top-right icon. -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="Simple picture mode" />
+                                <TextBlock Text="Big pictures of favourites, no menus or typing. To leave, hold the top-right corner for 3 seconds."
+                                           Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsSimpleMode}" />
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -128,12 +137,14 @@
                 <Border Classes="card" Padding="16">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Profiles" Classes="title" />
-                        <!-- Scan reads the code from desktop's "Set up phone..."/row "QR" buttons; Paste takes the
+                        <!-- Scan reads a code from desktop's "Set up phone..."/row "QR" buttons or another phone's "Share
+                             setup..." (settings, favourites, optionally sources); Paste takes the
                              same code as text (desktop's "Copy as text"), for when the camera scanner isn't available. -->
                         <WrapPanel ItemSpacing="8" LineSpacing="8">
                             <Button Classes="accent" Content="Scan QR code" Click="OnScanSetupQrClick" IsEnabled="{Binding !IsBusy}" />
                             <Button Content="Paste code" Click="OnPasteSetupCodeClick" IsEnabled="{Binding !IsBusy}" />
                             <Button Content="Add Profile" Click="OnAddProfileClick" IsEnabled="{Binding !IsBusy}" />
+                            <Button Content="Share setup..." Click="OnShareSetupClick" IsEnabled="{Binding !IsBusy}" />
                         </WrapPanel>
                         <TextBlock Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" TextWrapping="Wrap" />
                         <ItemsControl ItemsSource="{Binding Profiles}">
