@@ -17,6 +17,7 @@ public sealed class SharedSettings
     [JsonPropertyName("sl")] public string? PreferredSubtitleLanguage { get; set; }
     [JsonPropertyName("cu")] public bool? CheckForUpdatesAutomatically { get; set; }
     [JsonPropertyName("sm")] public bool? SimpleMode { get; set; }
+    [JsonPropertyName("pp")] public string? PriorityPrefixes { get; set; }
 }
 
 public enum FavoriteKind

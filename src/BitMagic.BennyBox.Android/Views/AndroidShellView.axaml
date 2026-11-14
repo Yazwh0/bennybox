@@ -349,6 +349,37 @@
                         IsVisible="False">
                     <ui:FASymbolIcon Symbol="Dismiss" FontSize="20" />
                 </Button>
+
+                <!-- Simple picture mode's fullscreen controls, shown instead of the small exit button above:
+                     tap the video to show them, tap again to hide. No timer, so there's no rush. -->
+                <Border x:Name="SimpleFullscreenControls" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16,0,16,24"
+                        Background="#B3000000" CornerRadius="32" Padding="12" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Classes="simple-control" Tag="Small screen" Width="120" Command="{Binding Player.ToggleFullscreenCommand}"
+                                Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
+                            <StackPanel Spacing="6">
+                                <ui:FASymbolIcon Symbol="FullScreenMinimize" FontSize="36" HorizontalAlignment="Center" />
+                                <TextBlock Text="Small" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="simple-control play" Tag="Play" Width="120" Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}"
+                                Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
+                            <StackPanel Spacing="6">
+                                <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}"
+                                                 FontSize="40" HorizontalAlignment="Center" />
+                                <TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                           Text="{Binding Player.IsPaused, Converter={x:Static views:SimpleModeConverters.PlayPauseLabel}}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="simple-control" Tag="Back" Width="120" Command="{Binding Player.StopCommand}"
+                                Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
+                            <StackPanel Spacing="6">
+                                <ui:FASymbolIcon Symbol="Back" FontSize="36" HorizontalAlignment="Center" />
+                                <TextBlock Text="Back" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <!-- Hidden while fullscreen - matches desktop's TransportBar (see MainWindow.axaml, same
@@ -401,11 +432,16 @@
                  fullscreen: those are easy to hit by accident and hard to undo without reading.
                  Quieter/Louder move the phone's own media volume (with its usual volume bar), see
                  OnSimpleVolumeClick. Press and hold any of them to hear its name. -->
-            <Grid Grid.Row="1" Background="#E6000000" IsVisible="{Binding Settings.IsSimpleMode}"
-                  RowDefinitions="Auto,Auto" Margin="0">
+            <Grid Grid.Row="1" Background="#E6000000" RowDefinitions="Auto,Auto">
+                  <Grid.IsVisible>
+                      <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                          <Binding Path="Settings.IsSimpleMode" />
+                          <Binding Path="!Player.IsFullscreen" />
+                      </MultiBinding>
+                  </Grid.IsVisible>
                 <TextBlock Grid.Row="0" Text="{Binding Player.NowPlayingChannelName}" Foreground="White" FontSize="20" FontWeight="SemiBold"
                            Margin="20,14,20,4" TextTrimming="CharacterEllipsis" MaxLines="1" />
-                <UniformGrid Grid.Row="1" Columns="4" Margin="12,8,12,20">
+                <UniformGrid Grid.Row="1" Columns="5" Margin="8,8,8,20">
                     <Button Classes="simple-control" Tag="Back" Command="{Binding Player.StopCommand}" Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
                             <ui:FASymbolIcon Symbol="Back" FontSize="36" HorizontalAlignment="Center" />
@@ -431,6 +467,12 @@
                         <StackPanel Spacing="6">
                             <ui:FASymbolIcon Symbol="Speaker2" FontSize="36" HorizontalAlignment="Center" />
                             <TextBlock Text="Louder" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="simple-control" Tag="Big screen" Command="{Binding Player.ToggleFullscreenCommand}" Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
+                        <StackPanel Spacing="6">
+                            <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="36" HorizontalAlignment="Center" />
+                            <TextBlock Text="Big" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </UniformGrid>

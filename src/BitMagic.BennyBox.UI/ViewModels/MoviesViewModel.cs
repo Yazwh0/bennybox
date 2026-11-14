@@ -7,12 +7,14 @@ using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.Messages;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.ViewModels;
 
 public partial class MoviesViewModel : ViewModelBase
 {
+    private readonly ContentPriority _contentPriority;
     private const string AllCategoriesLabel = "All Categories";
     private const string AllSourcesLabel = "All Sources";
     private const string LastRefreshSecondsKey = "Movies.LastRefreshSeconds";
@@ -114,6 +116,7 @@ public partial class MoviesViewModel : ViewModelBase
         ISettingsStore settingsStore,
         DownloadManager downloadManager,
         IDownloadRepository downloadRepository,
+        ContentPriority contentPriority,
         ILogger<MoviesViewModel> logger)
     {
         Player = player;
@@ -126,6 +129,7 @@ public partial class MoviesViewModel : ViewModelBase
         _downloadManager = downloadManager;
         _downloadRepository = downloadRepository;
         _logger = logger;
+        _contentPriority = contentPriority;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadMoviesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
@@ -577,6 +581,8 @@ public partial class MoviesViewModel : ViewModelBase
 
             // Grouping/sorting/object-construction can be real CPU work for a large library - keep it
             // off the UI thread, same rationale as LiveTvViewModel.
+            await _contentPriority.EnsureLoadedAsync();
+            var rank = _contentPriority.Ranker();
             _allGroups = await Task.Run(() =>
             {
                 var groups = new List<MovieCategoryGroupViewModel>();
@@ -605,7 +611,7 @@ public partial class MoviesViewModel : ViewModelBase
                     }
                 }
 
-                return groups.OrderBy(g => g.Name).ToList();
+                return groups.OrderBy(g => rank(g.Name)).ThenBy(g => g.Name).ToList();
             });
 
             if (requestId != _loadRequestId)

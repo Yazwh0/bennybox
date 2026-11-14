@@ -28,6 +28,8 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IUpdateCheckService _updateCheckService;
     private readonly ICredentialProtector _credentialProtector;
     private readonly FavoritesTransfer _favoritesTransfer;
+    private readonly ContentPriority _contentPriority;
+    private bool _isApplyingSavedPriorityPrefixes;
     private readonly ILogger<SettingsViewModel> _logger;
 
     private bool _isApplyingSavedTheme;
@@ -188,9 +190,11 @@ public partial class SettingsViewModel : ViewModelBase
         IUpdateCheckService updateCheckService,
         ICredentialProtector credentialProtector,
         FavoritesTransfer favoritesTransfer,
+        ContentPriority contentPriority,
         ILogger<SettingsViewModel> logger)
     {
         _favoritesTransfer = favoritesTransfer;
+        _contentPriority = contentPriority;
         _profileRepository = profileRepository;
         _importService = importService;
         _epgImportService = epgImportService;
@@ -215,6 +219,7 @@ public partial class SettingsViewModel : ViewModelBase
         _ = LoadDownloadsSectionAsync();
         _ = LoadCheckForUpdatesAsync();
         _ = LoadSimpleModeAsync();
+        _ = LoadPriorityPrefixesAsync();
     }
 
     private async Task LoadDownloadsSectionAsync()
@@ -424,6 +429,37 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSimpleMode;
 
+    // "Show first": comma-separated name prefixes (e.g. "UK, US") whose categories and channels sort to
+    // the top of TV, Guide, Films, Shows and Videos - see PriorityOrder/ContentPriority. Bound with
+    // UpdateSourceTrigger=LostFocus, so the pages reload once when editing finishes, not per keystroke.
+    [ObservableProperty]
+    private string _priorityPrefixes = string.Empty;
+
+    private async Task LoadPriorityPrefixesAsync()
+    {
+        _isApplyingSavedPriorityPrefixes = true;
+        PriorityPrefixes = await _settingsStore.GetAsync(PriorityOrder.SettingKey) ?? string.Empty;
+        _isApplyingSavedPriorityPrefixes = false;
+    }
+
+    partial void OnPriorityPrefixesChanged(string value)
+    {
+        if (_isApplyingSavedPriorityPrefixes)
+        {
+            return;
+        }
+
+        var normalised = string.Join(", ", PriorityOrder.Parse(value));
+        _ = SavePriorityPrefixesAsync(normalised);
+    }
+
+    private async Task SavePriorityPrefixesAsync(string value)
+    {
+        await _settingsStore.SetAsync(PriorityOrder.SettingKey, value);
+        _contentPriority.Set(value);
+        WeakReferenceMessenger.Default.Send(new ChannelsUpdatedMessage());
+    }
+
     private async Task LoadSimpleModeAsync()
     {
         _isApplyingSavedSimpleMode = true;
@@ -629,6 +665,7 @@ public partial class SettingsViewModel : ViewModelBase
         PreferredSubtitleLanguage = PreferredSubtitleLanguage,
         CheckForUpdatesAutomatically = CheckForUpdatesAutomatically,
         SimpleMode = IsSimpleMode,
+        PriorityPrefixes = PriorityPrefixes,
     };
 
     // Each property's own OnChanged handler saves it, exactly as if it had been changed by hand.
@@ -646,6 +683,7 @@ public partial class SettingsViewModel : ViewModelBase
         if (s.PreferredAudioLanguage is { } audio) PreferredAudioLanguage = audio;
         if (s.PreferredSubtitleLanguage is { } subtitles) PreferredSubtitleLanguage = subtitles;
         if (s.CheckForUpdatesAutomatically is { } checkUpdates) CheckForUpdatesAutomatically = checkUpdates;
+        if (s.PriorityPrefixes is { } prefixes) PriorityPrefixes = prefixes;
         if (s.SimpleMode is { } simple) IsSimpleMode = simple;
     }
 

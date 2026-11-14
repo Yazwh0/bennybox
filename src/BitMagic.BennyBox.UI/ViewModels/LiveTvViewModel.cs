@@ -7,12 +7,14 @@ using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.Messages;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.ViewModels;
 
 public partial class LiveTvViewModel : ViewModelBase
 {
+    private readonly ContentPriority _contentPriority;
     private const string AllCategoriesLabel = "All Categories";
     private const string LastRefreshSecondsKey = "LiveTv.LastRefreshSeconds";
 
@@ -92,6 +94,7 @@ public partial class LiveTvViewModel : ViewModelBase
         PlaylistImportService playlistImportService,
         EpgImportService epgImportService,
         ISettingsStore settingsStore,
+        ContentPriority contentPriority,
         ILogger<LiveTvViewModel> logger)
     {
         Player = player;
@@ -104,6 +107,7 @@ public partial class LiveTvViewModel : ViewModelBase
         _epgImportService = epgImportService;
         _settingsStore = settingsStore;
         _logger = logger;
+        _contentPriority = contentPriority;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadChannelsAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
@@ -401,6 +405,8 @@ public partial class LiveTvViewModel : ViewModelBase
 
             // Grouping/sorting/object-construction over tens of thousands of channels is real CPU
             // work - keep it off the UI thread so it can't hitch typing, scrolling, or playback.
+            await _contentPriority.EnsureLoadedAsync();
+            var rank = _contentPriority.Ranker();
             _allGroups = await Task.Run(() =>
             {
                 var groups = new List<CategoryGroupViewModel>();
@@ -409,7 +415,10 @@ public partial class LiveTvViewModel : ViewModelBase
                     var channelsByCategory = channels.ToLookup(c => c.CategoryId);
                     foreach (var category in categories)
                     {
+                        // "Show first" channels lead their category; the rest keep the provider's order
+                        // (OrderBy is stable).
                         var categoryChannels = channelsByCategory[category.Id]
+                            .OrderBy(c => rank(c.Name))
                             .Select(c => new ChannelListItemViewModel(c, GetNowTitle(c, nowNext), favoriteIds.Contains(c.Id),
                                 ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, c.Name)))
                             .ToList();
@@ -422,7 +431,7 @@ public partial class LiveTvViewModel : ViewModelBase
                     }
                 }
 
-                return groups.OrderBy(g => g.Name).ToList();
+                return groups.OrderBy(g => rank(g.Name)).ThenBy(g => g.Name).ToList();
             });
 
             if (requestId != _loadRequestId)

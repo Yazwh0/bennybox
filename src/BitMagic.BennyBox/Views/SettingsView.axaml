@@ -99,6 +99,19 @@
             </StackPanel>
         </Border>
 
+        <!-- See PriorityOrder. LostFocus so the lists reload once when editing finishes. -->
+        <Border Classes="glass-card" Padding="16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Ordering" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />
+                <TextBlock Text="Categories and channels whose names start with these come first, in this order (e.g. &quot;UK, US&quot;). Separate with commas; leave blank for plain A to Z."
+                           Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Show first" VerticalAlignment="Center" Width="160" Foreground="{StaticResource GlassTextBrush}" />
+                    <TextBox Text="{Binding PriorityPrefixes, UpdateSourceTrigger=LostFocus}" Watermark="e.g. UK, US" Width="300" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <Border Classes="glass-card" Padding="16">
             <StackPanel Spacing="12">
                 <TextBlock Text="Remote control" FontSize="18" Foreground="{StaticResource GlassTextBrush}" />

@@ -54,12 +54,24 @@ public partial class AndroidShellView : UserControl
         // second fullscreen session in the same player-overlay lifetime could start with the button
         // still showing from wherever the user last left it tap-toggled to.
         ExitFullscreenButton.IsVisible = false;
+        SimpleFullscreenControls.IsVisible = false;
     }
 
     // Tap-to-reveal for ExitFullscreenButton (hidden by default while fullscreen - see its own
     // IsVisible) - the tap-catcher Border this is wired to only exists while Player.IsFullscreen, so
     // there's no need to re-check that here.
-    private void OnVideoTapped(object? sender, RoutedEventArgs e) => ExitFullscreenButton.IsVisible = !ExitFullscreenButton.IsVisible;
+    // In simple picture mode the tap shows/hides its big fullscreen controls instead.
+    private void OnVideoTapped(object? sender, RoutedEventArgs e)
+    {
+        if ((DataContext as AndroidShellViewModel)?.Settings.IsSimpleMode == true)
+        {
+            SimpleFullscreenControls.IsVisible = !SimpleFullscreenControls.IsVisible;
+        }
+        else
+        {
+            ExitFullscreenButton.IsVisible = !ExitFullscreenButton.IsVisible;
+        }
+    }
 
     // Material's breakpoint between compact (phone) and medium (tablet/foldable) widths.
     private const double WideTabBarWidth = 600;

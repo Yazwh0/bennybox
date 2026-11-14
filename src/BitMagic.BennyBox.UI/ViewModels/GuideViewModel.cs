@@ -7,12 +7,14 @@ using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.Messages;
 using BitMagic.BennyBox.Core.Models;
 using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.UI.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BitMagic.BennyBox.ViewModels;
 
 public partial class GuideViewModel : ViewModelBase
 {
+    private readonly ContentPriority _contentPriority;
     private const double PixelsPerMinuteValue = 4;
     private const string AllCategoriesLabel = "All Categories";
     private const string LastRefreshSecondsKey = "Guide.LastRefreshSeconds";
@@ -134,6 +136,7 @@ public partial class GuideViewModel : ViewModelBase
         EpgImportService epgImportService,
         ISettingsStore settingsStore,
         PlayerViewModel player,
+        ContentPriority contentPriority,
         ILogger<GuideViewModel> logger)
     {
         _profileRepository = profileRepository;
@@ -147,6 +150,7 @@ public partial class GuideViewModel : ViewModelBase
         _settingsStore = settingsStore;
         Player = player;
         _logger = logger;
+        _contentPriority = contentPriority;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
@@ -506,6 +510,8 @@ public partial class GuideViewModel : ViewModelBase
 
             // Grouping programmes/channels and building a GuideRowViewModel per channel is real CPU
             // work over potentially thousands of rows - keep it off the UI thread.
+            await _contentPriority.EnsureLoadedAsync();
+            var rank = _contentPriority.Ranker();
             var (categoryNames, rows) = await Task.Run(() =>
             {
                 var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -567,7 +573,7 @@ public partial class GuideViewModel : ViewModelBase
             var selectedCategory = SelectedCategory;
             Categories.Clear();
             Categories.Add(AllCategoriesLabel);
-            foreach (var name in categoryNames)
+            foreach (var name in categoryNames.OrderBy(n => rank(n)))
             {
                 Categories.Add(name);
             }
@@ -579,7 +585,7 @@ public partial class GuideViewModel : ViewModelBase
             SelectedCategory = selectedCategory;
             ApplyCategoryFilter();
 
-            _allRows = rows.OrderBy(r => r.ChannelName).ToList();
+            _allRows = rows.OrderBy(r => rank(r.ChannelName)).ThenBy(r => r.ChannelName).ToList();
             ApplyRowFilter();
 
             // ApplyRowFilter swaps Rows to a brand-new collection (see its own comment), which the two

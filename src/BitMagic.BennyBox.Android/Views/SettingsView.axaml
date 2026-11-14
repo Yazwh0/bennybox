@@ -41,6 +41,19 @@
                     </StackPanel>
                 </Border>
 
+                <!-- See PriorityOrder. LostFocus so the lists reload once when editing finishes. -->
+                <Border Classes="card" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Ordering" Classes="title" />
+                        <TextBlock Text="Categories and channels whose names start with these come first, in this order. Separate with commas."
+                                   Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Show first" Opacity="0.7" FontSize="12" />
+                            <TextBox Text="{Binding PriorityPrefixes, UpdateSourceTrigger=LostFocus}" Watermark="e.g. UK, US" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <Border Classes="card" Padding="16">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Updates" Classes="title" />
