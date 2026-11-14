@@ -6,96 +6,222 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="BitMagic.BennyBox.Android.Views.AndroidShellView"
              x:DataType="vm:AndroidShellViewModel">
-    <Panel>
+    <!-- Every :pointerover/:pressed below sets the ContentPresenter's Background explicitly: Fluent's
+         own grey hover/press states otherwise flash through (see CLAUDE.md's styling notes). -->
+    <UserControl.Styles>
+        <Style Selector="Button.tab">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="64" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.tab:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.tab:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.pill">
+            <Setter Property="Width" Value="56" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <!-- M3 navigation bar: the active destination's icon sits in a secondary-container pill. -->
+        <Style Selector="Border.pill.active">
+            <Setter Property="Background" Value="{DynamicResource M3SecondaryContainerBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource M3OnSecondaryContainerBrush}" />
+        </Style>
+        <Style Selector="TextBlock.tab-label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.more-item">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="MinHeight" Value="52" />
+        </Style>
+
+        <Style Selector="Button.transport">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="24" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#33FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.transport:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#55FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.transport:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#77FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.transport:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22FFFFFF" />
+            <Setter Property="Foreground" Value="#66FFFFFF" />
+        </Style>
+        <!-- Play/pause keeps FluentAvalonia's own accent fill (the theme accent, as on checkboxes);
+             these just stop the white transport wash above replacing it on hover/press. -->
+        <Style Selector="Button.transport.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Button.transport.accent:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+    <Panel Background="{DynamicResource M3SurfaceBrush}">
         <Grid RowDefinitions="*,Auto">
             <ContentControl Grid.Row="0" Content="{Binding CurrentPage}" />
 
-            <!-- Bottom tab bar - phone-appropriate equivalent of the desktop icon-row NavBar (see
-                 MainWindow.axaml): same FASymbolIcon glyphs desktop uses per tag (see MainWindow.axaml's
-                 NavBar), but stacked with a text label underneath each icon rather than relying on
-                 ToolTip.Tip for the name - a phone has no hover state to reveal a tooltip from. Active-
-                 tab highlighting mirrors desktop's ActiveTagToBackgroundConverter/
-                 ActiveTagToFontWeightConverter (see ActiveTabConverters.cs for why this needed its own
-                 copy rather than reusing those - they're desktop-only). Horizontally scrollable rather
-                 than trying to fit all 9 tabs in one fixed-width row on a phone screen, and centred when
-                 the screen is wider than the row (tablets). Padding is kept small so the longest label
-                 ("Downloads") fits inside the fixed 64px tab. -->
-            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel Orientation="Horizontal" Margin="4" HorizontalAlignment="Center">
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Search" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Search}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Find" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Search" FontSize="10" HorizontalAlignment="Center"
+            <!-- Bottom navigation bar, following Material Design's navigation bar guidance: 3 to 5
+                 destinations on a phone, each a 24dp icon in a pill-shaped active indicator with a 12sp
+                 label, and at least 48dp tall to tap. Nine tabs don't fit a phone's width, so on narrow
+                 screens Search, Clips, Downloads, Favorites and Settings move into the "More" menu
+                 (OnTabBarSizeChanged decides which tabs show; the x:Name'd ones are the overflow set).
+                 Wide screens (600dp and up, i.e. tablets) show all nine and no More. Active-tab
+                 highlighting mirrors desktop's ActiveTagToBackgroundConverter (see ActiveTabConverters.cs);
+                 More's parameter lists every overflow tag so it lights up when one of those is open. -->
+            <Border Grid.Row="1" Background="{DynamicResource M3SurfaceContainerBrush}">
+                <UniformGrid x:Name="TabBar" Rows="1" Margin="0,6" SizeChanged="OnTabBarSizeChanged">
+                    <Button Classes="tab" x:Name="SearchTab" Command="{Binding NavigateCommand}" CommandParameter="Search">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Search}">
+                                <ui:FASymbolIcon Symbol="Find" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Search"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Search}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="LiveTv" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=LiveTv}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Video" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Live TV" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" Command="{Binding NavigateCommand}" CommandParameter="LiveTv">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=LiveTv}">
+                                <ui:FASymbolIcon Symbol="Video" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Live TV"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=LiveTv}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Guide" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Guide}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="CalendarDay" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Guide" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" Command="{Binding NavigateCommand}" CommandParameter="Guide">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Guide}">
+                                <ui:FASymbolIcon Symbol="CalendarDay" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Guide"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Guide}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Series" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Series}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="List" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Series" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" Command="{Binding NavigateCommand}" CommandParameter="Series">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Series}">
+                                <ui:FASymbolIcon Symbol="List" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Series"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Series}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Movies" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Movies}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Library" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Movies" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" Command="{Binding NavigateCommand}" CommandParameter="Movies">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Movies}">
+                                <ui:FASymbolIcon Symbol="Library" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Movies"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Movies}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Clips" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Clips}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Flag" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Clips" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" x:Name="ClipsTab" Command="{Binding NavigateCommand}" CommandParameter="Clips">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Clips}">
+                                <ui:FASymbolIcon Symbol="Flag" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Clips"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Clips}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Downloads" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Downloads}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Download" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Downloads" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" x:Name="DownloadsTab" Command="{Binding NavigateCommand}" CommandParameter="Downloads">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Downloads}">
+                                <ui:FASymbolIcon Symbol="Download" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Downloads"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Downloads}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Favorites" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Favorites}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Star" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Favorites" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" x:Name="FavoritesTab" Command="{Binding NavigateCommand}" CommandParameter="Favorites">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Favorites}">
+                                <ui:FASymbolIcon Symbol="Star" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Favorites"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Favorites}" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="Settings" Margin="2" Padding="4,6" Width="64"
-                            Background="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBackgroundConverter.Instance}, ConverterParameter=Settings}">
-                        <StackPanel Spacing="2" HorizontalAlignment="Center">
-                            <ui:FASymbolIcon Symbol="Settings" FontSize="16" HorizontalAlignment="Center" />
-                            <TextBlock Text="Settings" FontSize="10" HorizontalAlignment="Center"
+                    <Button Classes="tab" x:Name="SettingsTab" Command="{Binding NavigateCommand}" CommandParameter="Settings">
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Settings}">
+                                <ui:FASymbolIcon Symbol="Settings" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="Settings"
                                        FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Settings}" />
                         </StackPanel>
                     </Button>
-                </StackPanel>
-            </ScrollViewer>
+                    <Button Classes="tab" x:Name="MoreTab">
+                        <Button.Flyout>
+                            <Flyout Placement="TopEdgeAlignedRight">
+                                <StackPanel Width="220">
+                                    <Button Classes="more-item" Tag="Search" Click="OnMoreItemClick">
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <ui:FASymbolIcon Symbol="Find" FontSize="22" />
+                                            <TextBlock Text="Search" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="more-item" Tag="Favorites" Click="OnMoreItemClick">
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <ui:FASymbolIcon Symbol="Star" FontSize="22" />
+                                            <TextBlock Text="Favorites" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="more-item" Tag="Clips" Click="OnMoreItemClick">
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <ui:FASymbolIcon Symbol="Flag" FontSize="22" />
+                                            <TextBlock Text="Clips" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="more-item" Tag="Downloads" Click="OnMoreItemClick">
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <ui:FASymbolIcon Symbol="Download" FontSize="22" />
+                                            <TextBlock Text="Downloads" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="more-item" Tag="Settings" Click="OnMoreItemClick">
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <ui:FASymbolIcon Symbol="Settings" FontSize="22" />
+                                            <TextBlock Text="Settings" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                        <StackPanel Spacing="4">
+                            <Border Classes="pill" Classes.active="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToBoolConverter.Instance}, ConverterParameter=Search|Favorites|Clips|Downloads|Settings}">
+                                <ui:FASymbolIcon Symbol="More" FontSize="22" />
+                            </Border>
+                            <TextBlock Classes="tab-label" Text="More"
+                                       FontWeight="{Binding CurrentPageTag, Converter={x:Static views:ActiveTabToFontWeightConverter.Instance}, ConverterParameter=Search|Favorites|Clips|Downloads|Settings}" />
+                        </StackPanel>
+                    </Button>
+                </UniformGrid>
+            </Border>
         </Grid>
 
         <!-- Fullscreen player overlay - shown whenever something is playing, matching desktop's
@@ -146,12 +272,10 @@
                      Avalonia's BackRequested event) and reliably backgrounded the whole app on this
                      Android version instead of just exiting fullscreen, even with the event confirmed
                      handled - see MainActivity.SetImmersiveFullscreen's comment. -->
-                <Button x:Name="ExitFullscreenButton" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12"
-                        Background="#AA000000" Padding="8" Width="36" Height="36"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                <Button x:Name="ExitFullscreenButton" Classes="transport" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12"
                         Command="{Binding Player.ToggleFullscreenCommand}"
                         IsVisible="False">
-                    <ui:FASymbolIcon Symbol="Dismiss" Foreground="White" FontSize="16" />
+                    <ui:FASymbolIcon Symbol="Dismiss" FontSize="20" />
                 </Button>
             </Grid>
 
@@ -168,30 +292,28 @@
                 <TextBlock Margin="12,0,12,4" Foreground="White" Opacity="0.7" FontSize="12">
                     <Run Text="{Binding Player.PositionLabel}" /><Run Text=" / " /><Run Text="{Binding Player.DurationLabel}" />
                 </TextBlock>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" Margin="0,0,0,12">
-                    <Button Command="{Binding Player.StopCommand}" Width="40" Height="40" Padding="0"
-                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                        <ui:FASymbolIcon Symbol="StopFilled" FontSize="16" />
+                <!-- All the same "transport" style (round, white icon on a translucent wash) so the icons
+                     read as one set; play/pause gets the theme accent fill. Skip back/forward are drawn as
+                     PathIcons rather than the ⏪/⏩ characters desktop uses: Android renders those as
+                     full-colour emoji, which clashed with the monochrome FASymbolIcons around them. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,4,0,16">
+                    <Button Classes="transport" Command="{Binding Player.StopCommand}">
+                        <ui:FASymbolIcon Symbol="StopFilled" FontSize="20" />
                     </Button>
-                    <Button Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}"
-                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                        <TextBlock Text="&#9194;" FontSize="16" />
+                    <Button Classes="transport" Command="{Binding Player.SkipBackwardCommand}" IsVisible="{Binding Player.IsSeekable}">
+                        <PathIcon Width="20" Height="20" Data="M11,5 L2,12 L11,19 Z M22,5 L13,12 L22,19 Z" />
                     </Button>
-                    <Button Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}"
-                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                        <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}" FontSize="16" />
+                    <Button Classes="transport accent" Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}">
+                        <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}" FontSize="20" />
                     </Button>
-                    <Button Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}"
-                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                        <TextBlock Text="&#9193;" FontSize="16" />
+                    <Button Classes="transport" Command="{Binding Player.SkipForwardCommand}" IsVisible="{Binding Player.IsSeekable}">
+                        <PathIcon Width="20" Height="20" Data="M2,5 L11,12 L2,19 Z M13,5 L22,12 L13,19 Z" />
                     </Button>
-                    <Button Command="{Binding Player.ToggleFullscreenCommand}"
-                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                        <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="16" />
+                    <Button Classes="transport" Command="{Binding Player.ToggleFullscreenCommand}">
+                        <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="20" />
                     </Button>
-                    <Button Command="{Binding Player.ToggleMuteCommand}"
-                            Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                        <ui:FASymbolIcon Symbol="{Binding Player.IsMuted, Converter={x:Static views:MutedToSymbolConverter.Instance}}" FontSize="16" />
+                    <Button Classes="transport" Command="{Binding Player.ToggleMuteCommand}">
+                        <ui:FASymbolIcon Symbol="{Binding Player.IsMuted, Converter={x:Static views:MutedToSymbolConverter.Instance}}" FontSize="20" />
                     </Button>
                 </StackPanel>
             </StackPanel>

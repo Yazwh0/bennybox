@@ -1,7 +1,7 @@
 <!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
      comment for why. Same list/detail two-mode structure as desktop's MoviesView.axaml, adapted to
      plain controls (no glass-* classes/source-badge - Android has neither, see App.axaml) and the
-     row-card look already established in LiveTvView.axaml (#22000000 card background). -->
+     row-card look already established in LiveTvView.axaml (Classes="card", see Theming/Material3.axaml). -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
@@ -19,7 +19,7 @@
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search movies..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="18" Height="18" Margin="6,0,0,0" />
                 <Button Grid.Column="2" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0"
-                        Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        Width="48" Height="48" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                     <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
                 </Button>
             </Grid>
@@ -69,7 +69,7 @@
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:MovieListItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -84,20 +84,20 @@
                                 </Button>
                                 <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
                                 </Button>
                                 <Button Grid.Column="2" ToolTip.Tip="Toggle watched"
                                         Command="{Binding #RootControl.DataContext.ToggleWatchedCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="{Binding IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
                                 </Button>
                                 <Button Grid.Column="3" ToolTip.Tip="Download to this device"
                                         Command="{Binding #RootControl.DataContext.DownloadCommand}" CommandParameter="{Binding}"
                                         IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="{Binding DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="16" />
                                 </Button>
@@ -125,12 +125,12 @@
                                    IsVisible="{Binding SelectedMovie.HasPlot}" />
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
                             <Button Content="&#9654; Play" Command="{Binding PlayMovieCommand}" CommandParameter="{Binding SelectedMovie}" />
-                            <Button ToolTip.Tip="Toggle watched" Width="40" Height="40" Padding="0"
+                            <Button ToolTip.Tip="Toggle watched" Width="48" Height="48" Padding="0"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                     Command="{Binding ToggleWatchedCommand}" CommandParameter="{Binding SelectedMovie}">
                                 <ui:FASymbolIcon Symbol="{Binding SelectedMovie.IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
                             </Button>
-                            <Button ToolTip.Tip="Download to this device" Width="40" Height="40" Padding="0"
+                            <Button ToolTip.Tip="Download to this device" Width="48" Height="48" Padding="0"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                     Command="{Binding DownloadCommand}" CommandParameter="{Binding SelectedMovie}"
                                     IsEnabled="{Binding SelectedMovie.CanDownload}" IsVisible="{Binding !SelectedMovie.IsFromDownloadsProfile}">

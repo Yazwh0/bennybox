@@ -11,6 +11,7 @@
 
     <Application.Styles>
         <styling:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://BitMagic.BennyBox.Android/Theming/Material3.axaml" />
     </Application.Styles>
 
 </Application>

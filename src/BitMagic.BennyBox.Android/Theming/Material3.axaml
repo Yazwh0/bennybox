@@ -1,0 +1,97 @@
+<!-- Material Design 3 shapes, sizes and type for the Android app. Colours come from MaterialTheme.cs,
+     which fills FluentAvalonia's own resource keys from the M3 colour scheme (wallpaper colours on
+     Android 12+), so most controls need no template changes here, only M3 shapes and sizes.
+
+     Sizes: M3's minimum touch target is 48dp; Fluent's defaults are sized for a mouse (32px). MinHeight
+     rather than Height so multi-line content can still grow. Local Width/Height/Padding on icon buttons
+     (fixed 48x48, Padding="0") still win over the setters here. -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!-- The device's own UI font (Roboto, or the manufacturer's replacement), as native apps use. -->
+        <FontFamily x:Key="ContentControlThemeFontFamily">sans-serif</FontFamily>
+        <!-- M3 shape scale: small (8) for menus and text-field-like controls' popups, extra large
+             (28) for dialogs; text fields themselves are extra small (4). -->
+        <CornerRadius x:Key="ControlCornerRadius">4</CornerRadius>
+        <CornerRadius x:Key="OverlayCornerRadius">16</CornerRadius>
+    </Styles.Resources>
+
+    <!-- Buttons: fully rounded (M3 "full" shape). Plain Buttons are filled tonal; add
+         Classes="accent" for the one main action in a group (filled, primary colour). -->
+    <Style Selector="Button">
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="Padding" Value="24,8" />
+        <Setter Property="CornerRadius" Value="24" />
+    </Style>
+    <!-- M3 "text" buttons, for lower-emphasis actions (e.g. a row's Edit/Refresh/Delete): no fill,
+         primary-coloured label, a pressed tint as the only feedback. The ContentPresenter states are
+         set explicitly or Fluent's own hover/pressed fills flash through (see CLAUDE.md). -->
+    <Style Selector="Button.text">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource M3PrimaryBrush}" />
+        <Setter Property="Padding" Value="12,8" />
+    </Style>
+    <Style Selector="Button.text:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource M3PrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.text:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource M3PressedOverlayBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource M3PrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.text:disabled /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- Switches sit at the end of a row with the label as a separate TextBlock, so no On/Off text. -->
+    <Style Selector="ToggleSwitch">
+        <Setter Property="OnContent" Value="{x:Null}" />
+        <Setter Property="OffContent" Value="{x:Null}" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="48" />
+    </Style>
+
+    <Style Selector="ToggleButton">
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="CornerRadius" Value="24" />
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="MinHeight" Value="52" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox">
+        <!-- Height from padding rather than MinHeight: Fluent's ComboBox template pins its content to
+             the top, so extra MinHeight just leaves the text sitting high. -->
+        <Setter Property="Padding" Value="16,15,8,15" />
+    </Style>
+    <Style Selector="NumericUpDown">
+        <Setter Property="MinHeight" Value="52" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="Padding" Value="16,8" />
+    </Style>
+
+    <!-- Cards: M3 filled cards (surface container, medium 12dp corners). -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource M3SurfaceContainerBrush}" />
+        <Setter Property="CornerRadius" Value="12" />
+    </Style>
+
+    <Style Selector="Expander">
+        <Setter Property="CornerRadius" Value="12" />
+    </Style>
+
+    <!-- M3 type scale: section titles inside cards are "title medium" (16sp, medium weight), helper
+         text is "body small" in the on-surface-variant colour. -->
+    <Style Selector="TextBlock.title">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="TextBlock.headline">
+        <Setter Property="FontSize" Value="24" />
+    </Style>
+</Styles>

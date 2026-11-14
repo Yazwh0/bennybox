@@ -39,7 +39,7 @@
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:WatchProgressItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -54,7 +54,7 @@
                                 </Button>
                                 <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveWatchProgressCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="Dismiss" FontSize="16" />
                                 </Button>
@@ -62,7 +62,7 @@
                         </Border>
                     </DataTemplate>
                     <DataTemplate DataType="vm:ChannelListItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -78,7 +78,7 @@
                                 </Button>
                                 <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
                                 </Button>
@@ -86,7 +86,7 @@
                         </Border>
                     </DataTemplate>
                     <DataTemplate DataType="vm:SeriesListItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -98,7 +98,7 @@
                                 </Button>
                                 <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveSeriesFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
                                 </Button>
@@ -106,7 +106,7 @@
                         </Border>
                     </DataTemplate>
                     <DataTemplate DataType="vm:MovieListItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -118,7 +118,7 @@
                                 </Button>
                                 <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveMovieFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
                                 </Button>
@@ -126,7 +126,7 @@
                         </Border>
                     </DataTemplate>
                     <DataTemplate DataType="vm:ClipListItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -138,7 +138,7 @@
                                 </Button>
                                 <Button Grid.Column="1"
                                         Command="{Binding #RootControl.DataContext.RemoveClipFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="36" Height="36" Padding="0"
+                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
                                     <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
                                 </Button>

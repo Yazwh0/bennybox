@@ -29,6 +29,9 @@ public partial class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Before any view exists, so the first frame already has the Material colours.
+        Theming.MaterialTheme.Apply(this, global::Android.App.Application.Context!);
+
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddSingleton<IAppPaths, AndroidAppPaths>();
         builder.Services.AddSingleton<ICredentialProtector, AndroidCredentialProtector>();

@@ -60,4 +60,25 @@ public partial class AndroidShellView : UserControl
     // IsVisible) - the tap-catcher Border this is wired to only exists while Player.IsFullscreen, so
     // there's no need to re-check that here.
     private void OnVideoTapped(object? sender, RoutedEventArgs e) => ExitFullscreenButton.IsVisible = !ExitFullscreenButton.IsVisible;
+
+    // Material's breakpoint between compact (phone) and medium (tablet/foldable) widths.
+    private const double WideTabBarWidth = 600;
+
+    // Phones show four tabs plus More; wide screens show all nine. See the tab bar's comment.
+    private void OnTabBarSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        var wide = e.NewSize.Width >= WideTabBarWidth;
+        SearchTab.IsVisible = ClipsTab.IsVisible = DownloadsTab.IsVisible = FavoritesTab.IsVisible = SettingsTab.IsVisible = wide;
+        MoreTab.IsVisible = !wide;
+        TabBar.Columns = wide ? 9 : 5;
+    }
+
+    private void OnMoreItemClick(object? sender, RoutedEventArgs e)
+    {
+        MoreTab.Flyout?.Hide();
+        if (sender is Avalonia.Controls.Button { Tag: string tag } && DataContext is AndroidShellViewModel shell)
+        {
+            shell.NavigateCommand.Execute(tag);
+        }
+    }
 }

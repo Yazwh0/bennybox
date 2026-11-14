@@ -238,7 +238,7 @@
                            Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
                 <TextBlock Text="This product uses the TMDb API but is not endorsed or certified by TMDb."
                            Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
-                <TextBlock Text="Privacy policy: github.com/Yazwh0/bennybox/blob/main/PRIVACY.md"
+                <TextBlock Text="Privacy policy: bitmagic.org/bennybox/privacy"
                            Foreground="{StaticResource GlassTextDimBrush}" FontSize="12" TextWrapping="Wrap" />
             </StackPanel>
         </Border>

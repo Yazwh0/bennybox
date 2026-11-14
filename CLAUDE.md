@@ -83,8 +83,8 @@ advance widths), so sibling buttons in the same row visibly shift as state chang
 clipping if a glyph is wider than the box (emoji in particular render larger than plain Unicode
 symbols like `★`/`✓`).
 
-**Buttons sharing a row must have uniform heights, widths, and gaps.** (Settings' profile rows, in
-`SettingsView.axaml` on both desktop and Android, are the reference.)
+**Buttons sharing a row must have uniform heights, widths, and gaps.** (Settings' profile rows in
+desktop's `SettingsView.axaml` are the reference.)
 - *Height:* every button in a row is the same height. When an icon button sits next to text
   buttons, don't hard-code `34` (that size is for rows made only of icon buttons). Size it square to
   a sibling text button instead, e.g. `x:Name="EditButton"` on one of them and
@@ -110,3 +110,23 @@ Padding="0"`, and one or more fixed-size `Button Classes="glass-nav"` icon butto
 right via `Grid.Column`. All buttons live *inside* the one card - don't give the action buttons
 their own separate bordered box next to the card, and don't nest a second bordered `glass-ctrl`
 button inside the card for the select area (use the borderless `flat` variant).
+
+## Android styling (Material Design 3)
+
+The Android app follows Google's Material Design 3 rather than the desktop glass look, and the
+glass-* classes above don't exist there.
+
+- **Colours** come from `src/BitMagic.BennyBox.Android/Theming/MaterialTheme.cs`. It fills
+  FluentAvalonia's own resource keys (ButtonBackground, TextControlBorderBrushFocused and so on) from
+  an M3 colour scheme: the wallpaper's Material You colours on Android 12+, M3's baseline purple
+  otherwise. Use the `M3*Brush` resources (`M3SurfaceContainerBrush`, `M3PrimaryBrush`...) as
+  `DynamicResource`, never hard-coded colours, so light/dark and wallpaper changes follow.
+- **Shapes and sizes** are in `Theming/Material3.axaml`. Everything tappable is at least 48dp.
+  Icon-only buttons are 48x48 with `Padding="0"`.
+- **Buttons:** plain `Button` is M3 filled tonal; `Classes="accent"` is filled (one main action per
+  group); `Classes="text"` is a text button for low-emphasis row actions (Edit/Refresh/Delete).
+- **Cards:** `Border Classes="card"`. Section titles inside cards: `TextBlock Classes="title"`.
+- **Toggles:** an M3 switch at the end of the row (`Grid ColumnDefinitions="*,Auto"` with a
+  TextBlock label and a `ToggleSwitch`), not a CheckBox.
+- **Navigation:** the bottom bar shows 4 tabs plus More on phones and all 9 on screens 600dp and
+  wider (`AndroidShellView.OnTabBarSizeChanged`).

@@ -20,7 +20,7 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels..." />
                 <Button Grid.Column="1" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0"
-                        Width="40" Height="40" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        Width="48" Height="48" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                     <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
                 </Button>
             </Grid>
@@ -43,7 +43,7 @@
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="12,12,12,4" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:ChannelListItemViewModel">
-                        <Border Margin="8,4" Padding="10" Background="#22000000" CornerRadius="6">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0"
                                         Padding="0"

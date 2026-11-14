@@ -28,7 +28,7 @@
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
                     </DataTemplate>
                     <DataTemplate DataType="vm:DownloadItemViewModel">
-                        <Border Background="#22000000" CornerRadius="6" Margin="8,4" Padding="10">
+                        <Border Classes="card" Margin="8,4" Padding="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -51,13 +51,13 @@
                                             IsVisible="{Binding !IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0">
                                     <Button ToolTip.Tip="Retry"
                                             Command="{Binding #RootControl.DataContext.RetryCommand}" CommandParameter="{Binding}"
-                                            IsVisible="{Binding IsFailedOrCanceled}" Width="36" Height="36" Padding="0"
+                                            IsVisible="{Binding IsFailedOrCanceled}" Width="48" Height="48" Padding="0"
                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
                                     </Button>
                                     <Button ToolTip.Tip="Delete"
                                             Command="{Binding #RootControl.DataContext.DeleteCommand}" CommandParameter="{Binding}"
-                                            Width="36" Height="36" Padding="0"
+                                            Width="48" Height="48" Padding="0"
                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <ui:FASymbolIcon Symbol="Dismiss" FontSize="16" />
                                     </Button>
