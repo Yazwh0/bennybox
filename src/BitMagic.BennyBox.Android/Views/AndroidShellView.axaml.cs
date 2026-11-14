@@ -13,6 +13,7 @@ public partial class AndroidShellView : UserControl
     public AndroidShellView()
     {
         InitializeComponent();
+        VideoHost.VideoTapped += OnVideoTapped;
 
         // DataContext is set after construction (see App.axaml.cs), not passed in via constructor
         // like desktop's MainWindow gets PlayerViewModel injected directly - so Player can only be
@@ -42,6 +43,11 @@ public partial class AndroidShellView : UserControl
     // exit fullscreen from.
     private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(PlayerViewModel.NowPlayingChannelName) or nameof(PlayerViewModel.IsPaused))
+        {
+            UpdateKeepScreenOn();
+        }
+
         if (e.PropertyName is not (nameof(PlayerViewModel.IsFullscreen) or nameof(PlayerViewModel.NowPlayingChannelName)))
         {
             return;
@@ -49,27 +55,52 @@ public partial class AndroidShellView : UserControl
 
         var shouldBeImmersive = _player is { IsFullscreen: true, NowPlayingChannelName: not null };
         MainActivity.Instance?.SetImmersiveFullscreen(shouldBeImmersive);
-
-        // Reset to hidden every time fullscreen is (re)entered/exited, not just once - otherwise a
-        // second fullscreen session in the same player-overlay lifetime could start with the button
-        // still showing from wherever the user last left it tap-toggled to.
-        ExitFullscreenButton.IsVisible = false;
-        SimpleFullscreenControls.IsVisible = false;
     }
 
-    // Tap-to-reveal for ExitFullscreenButton (hidden by default while fullscreen - see its own
-    // IsVisible) - the tap-catcher Border this is wired to only exists while Player.IsFullscreen, so
-    // there's no need to re-check that here.
-    // In simple picture mode the tap shows/hides its big fullscreen controls instead.
-    private void OnVideoTapped(object? sender, RoutedEventArgs e)
+    // Like any video player: the screen stays on while something is playing, and goes back to the
+    // phone's normal timeout when it's paused or stopped.
+    private void UpdateKeepScreenOn()
     {
-        if ((DataContext as AndroidShellViewModel)?.Settings.IsSimpleMode == true)
+        var window = MainActivity.Instance?.Window;
+        if (window is null)
         {
-            SimpleFullscreenControls.IsVisible = !SimpleFullscreenControls.IsVisible;
+            return;
+        }
+
+        if (_player is { NowPlayingChannelName: not null, IsPaused: false })
+        {
+            window.AddFlags(global::Android.Views.WindowManagerFlags.KeepScreenOn);
         }
         else
         {
-            ExitFullscreenButton.IsVisible = !ExitFullscreenButton.IsVisible;
+            window.ClearFlags(global::Android.Views.WindowManagerFlags.KeepScreenOn);
+        }
+    }
+
+    // A tap on the video in fullscreen shows or hides the control bar below it (see
+    // AndroidShellViewModel.ShowFullscreenControls). Comes from the native video view itself - see
+    // ExoPlayerHostControl.VideoTapped for why nothing is laid over the picture.
+    //
+    // One tap can arrive twice - from the native video view and from the Avalonia area underneath
+    // (both get the touch) - so taps within a short window count once, or the bar would show and
+    // immediately hide again.
+    private static readonly TimeSpan VideoTapDebounce = TimeSpan.FromMilliseconds(400);
+    private DateTime _lastVideoTap;
+
+    private void OnVideoAreaTapped(object? sender, RoutedEventArgs e) => OnVideoTapped(sender, EventArgs.Empty);
+
+    private void OnVideoTapped(object? sender, EventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastVideoTap < VideoTapDebounce)
+        {
+            return;
+        }
+
+        _lastVideoTap = now;
+        if (DataContext is AndroidShellViewModel { Player.IsFullscreen: true } shell)
+        {
+            shell.ShowFullscreenControls = !shell.ShowFullscreenControls;
         }
     }
 

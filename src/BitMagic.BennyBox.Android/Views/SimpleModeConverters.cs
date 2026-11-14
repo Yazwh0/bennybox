@@ -9,6 +9,12 @@ public static class SimpleModeConverters
     // The word under the simple player's play/pause button: what pressing it will do.
     public static readonly IValueConverter PlayPauseLabel = new FuncValueConverter<bool, string>(paused => paused ? "Play" : "Pause");
 
+    // The simple player's fullscreen button: "Big" to go fullscreen, "Small" to come back out.
+    public static readonly IValueConverter FullscreenLabel = new FuncValueConverter<bool, string>(full => full ? "Small" : "Big");
+
+    public static readonly IValueConverter FullscreenIcon = new FuncValueConverter<bool, FluentAvalonia.UI.Controls.FASymbol>(full =>
+        full ? FluentAvalonia.UI.Controls.FASymbol.FullScreenMinimize : FluentAvalonia.UI.Controls.FASymbol.FullScreenMaximize);
+
     // Up to two letters, from the first two words ("BBC One" -> "BO", "Alias" -> "A"), shown on a
     // coloured tile when something has no picture, so there's never a blank square.
     public static readonly IValueConverter Initials = new FuncValueConverter<string?, string>(name =>

@@ -40,6 +40,19 @@ public partial class AndroidShellViewModel : ViewModelBase
     public SettingsViewModel Settings { get; }
     public PlayerViewModel Player { get; }
 
+    // Fullscreen controls are the normal control bar shown *below* the video, never drawn over it: on a
+    // real phone the native video surface draws on top of the app's own layer, so anything overlaid
+    // on the picture is hidden behind it. Tapping the video toggles this (see AndroidShellView).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowPlayerBar), nameof(ShowSimplePlayerBar))]
+    private bool _showFullscreenControls;
+
+    private bool BarAllowed => !Player.IsFullscreen || ShowFullscreenControls;
+
+    public bool ShowPlayerBar => BarAllowed && !Settings.IsSimpleMode;
+
+    public bool ShowSimplePlayerBar => BarAllowed && Settings.IsSimpleMode;
+
     public string CurrentPageTag => CurrentPage switch
     {
         SearchViewModel => "Search",
@@ -79,6 +92,26 @@ public partial class AndroidShellViewModel : ViewModelBase
         Settings = settings;
         Player = player;
         _currentPage = liveTv;
+
+        player.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PlayerViewModel.IsFullscreen))
+            {
+                // Simple mode starts fullscreen with its big controls showing, so they're never hidden
+                // unless he chooses to hide them; the normal player starts with just the video.
+                ShowFullscreenControls = Settings.IsSimpleMode;
+                OnPropertyChanged(nameof(ShowPlayerBar));
+                OnPropertyChanged(nameof(ShowSimplePlayerBar));
+            }
+        };
+        settings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SettingsViewModel.IsSimpleMode))
+            {
+                OnPropertyChanged(nameof(ShowPlayerBar));
+                OnPropertyChanged(nameof(ShowSimplePlayerBar));
+            }
+        };
 
         // Mirrors MainWindowViewModel's same three registrations - without these, tapping a series/
         // movie/clip result on Search, Favorites, or Downloads (all of which only send one of these

@@ -282,8 +282,10 @@
              silently doing nothing while it visually overlapped the native surface's bounds. -->
         <Grid RowDefinitions="*,Auto" Background="Black"
               IsVisible="{Binding Player.NowPlayingChannelName, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
-            <Grid Grid.Row="0">
-                <views:ExoPlayerHostControl IsVisible="{Binding !Player.ShowLoadingOverlay}" />
+            <!-- Tapped: the same fullscreen show/hide as ExoPlayerHostControl.VideoTapped, for taps that land
+                 on the loading/error screen instead of the video itself. -->
+            <Grid Grid.Row="0" Background="Black" Tapped="OnVideoAreaTapped">
+                <views:ExoPlayerHostControl x:Name="VideoHost" IsVisible="{Binding !Player.ShowLoadingOverlay}" />
 
                 <Border Background="Black" IsVisible="{Binding Player.ShowLoadingOverlay}">
                     <Panel>
@@ -327,62 +329,10 @@
                     </Panel>
                 </Border>
 
-                <!-- Tap-to-reveal catcher for ExitFullscreenButton below - only present while
-                     fullscreen, transparent (Background="Transparent" is still hit-testable, unlike
-                     null/unset). Toggled rather than "tap to show, auto-hide after N seconds" for now -
-                     see OnVideoTapped. Despite sitting in the same Grid cell as ExoPlayerHostControl
-                     (a NativeControlHost), this does receive taps fine - unlike desktop's LibVLC
-                     VideoView, Android's embedded video surface doesn't appear to always-win hit-testing
-                     the way that comment on ExoPlayerHostControl-adjacent desktop code describes; confirmed
-                     empirically (ExitFullscreenButton itself already received taps correctly while
-                     overlapping the playing video, before this catcher was added). -->
-                <Border Background="Transparent" IsVisible="{Binding Player.IsFullscreen}" Tapped="OnVideoTapped" />
-
-                <!-- Hidden by default, shown only via OnVideoTapped (see above) - "only the video
-                     visible" until you tap. Top-left so it doesn't collide with the buffering badge's
-                     top-right corner. Not the hardware/gesture back action: that was tried first (via
-                     Avalonia's BackRequested event) and reliably backgrounded the whole app on this
-                     Android version instead of just exiting fullscreen, even with the event confirmed
-                     handled - see MainActivity.SetImmersiveFullscreen's comment. -->
-                <Button x:Name="ExitFullscreenButton" Classes="transport" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12"
-                        Command="{Binding Player.ToggleFullscreenCommand}"
-                        IsVisible="False">
-                    <ui:FASymbolIcon Symbol="Dismiss" FontSize="20" />
-                </Button>
-
-                <!-- Simple picture mode's fullscreen controls, shown instead of the small exit button above:
-                     tap the video to show them, tap again to hide. No timer, so there's no rush. -->
-                <Border x:Name="SimpleFullscreenControls" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16,0,16,24"
-                        Background="#B3000000" CornerRadius="32" Padding="12" IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <Button Classes="simple-control" Tag="Small screen" Width="120" Command="{Binding Player.ToggleFullscreenCommand}"
-                                Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
-                            <StackPanel Spacing="6">
-                                <ui:FASymbolIcon Symbol="FullScreenMinimize" FontSize="36" HorizontalAlignment="Center" />
-                                <TextBlock Text="Small" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                        <Button Classes="simple-control play" Tag="Play" Width="120" Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}"
-                                Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
-                            <StackPanel Spacing="6">
-                                <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}"
-                                                 FontSize="40" HorizontalAlignment="Center" />
-                                <TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"
-                                           Text="{Binding Player.IsPaused, Converter={x:Static views:SimpleModeConverters.PlayPauseLabel}}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Classes="simple-control" Tag="Back" Width="120" Command="{Binding Player.StopCommand}"
-                                Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
-                            <StackPanel Spacing="6">
-                                <ui:FASymbolIcon Symbol="Back" FontSize="36" HorizontalAlignment="Center" />
-                                <TextBlock Text="Back" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Border>
             </Grid>
 
-            <!-- Hidden while fullscreen - matches desktop's TransportBar (see MainWindow.axaml, same
+            <!-- In fullscreen, shown only after tapping the video (ShowPlayerBar - never drawn over the
+                 picture, see AndroidShellViewModel.ShowFullscreenControls). Desktop's TransportBar (see MainWindow.axaml, same
                  !Player.IsFullscreen binding), so fullscreen really is "just the video" (plus the small
                  exit button above). Icon-only buttons (matching desktop's icon-only transport bar - see
                  MainWindow.axaml) instead of the wide text-label buttons this started with - fixed
@@ -390,13 +340,7 @@
                  an icon-only button sized by MinWidth grows/shrinks as whichever bound glyph is
                  currently showing changes advance width, e.g. PlayFilled vs PauseFilled, and the whole
                  row visibly reflows every toggle). -->
-            <StackPanel Grid.Row="1" Background="#CC000000" Spacing="4">
-                <StackPanel.IsVisible>
-                    <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
-                        <Binding Path="!Player.IsFullscreen" />
-                        <Binding Path="!Settings.IsSimpleMode" />
-                    </MultiBinding>
-                </StackPanel.IsVisible>
+            <StackPanel Grid.Row="1" Background="#CC000000" Spacing="4" IsVisible="{Binding ShowPlayerBar}">
                 <TextBlock Text="{Binding Player.NowPlayingChannelName}" Foreground="White" FontWeight="Bold" Margin="12,8,12,0" TextWrapping="Wrap" />
                 <TextBlock Margin="12,0,12,4" Foreground="White" Opacity="0.7" FontSize="12">
                     <Run Text="{Binding Player.PositionLabel}" /><Run Text=" / " /><Run Text="{Binding Player.DurationLabel}" />
@@ -419,7 +363,7 @@
                         <PathIcon Width="20" Height="20" Data="M2,5 L11,12 L2,19 Z M13,5 L22,12 L13,19 Z" />
                     </Button>
                     <Button Classes="transport" Command="{Binding Player.ToggleFullscreenCommand}">
-                        <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="20" />
+                        <ui:FASymbolIcon Symbol="{Binding Player.IsFullscreen, Converter={x:Static views:SimpleModeConverters.FullscreenIcon}}" FontSize="20" />
                     </Button>
                     <Button Classes="transport" Command="{Binding Player.ToggleMuteCommand}">
                         <ui:FASymbolIcon Symbol="{Binding Player.IsMuted, Converter={x:Static views:MutedToSymbolConverter.Instance}}" FontSize="20" />
@@ -432,13 +376,7 @@
                  fullscreen: those are easy to hit by accident and hard to undo without reading.
                  Quieter/Louder move the phone's own media volume (with its usual volume bar), see
                  OnSimpleVolumeClick. Press and hold any of them to hear its name. -->
-            <Grid Grid.Row="1" Background="#E6000000" RowDefinitions="Auto,Auto">
-                  <Grid.IsVisible>
-                      <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
-                          <Binding Path="Settings.IsSimpleMode" />
-                          <Binding Path="!Player.IsFullscreen" />
-                      </MultiBinding>
-                  </Grid.IsVisible>
+            <Grid Grid.Row="1" Background="#E6000000" RowDefinitions="Auto,Auto" IsVisible="{Binding ShowSimplePlayerBar}">
                 <TextBlock Grid.Row="0" Text="{Binding Player.NowPlayingChannelName}" Foreground="White" FontSize="20" FontWeight="SemiBold"
                            Margin="20,14,20,4" TextTrimming="CharacterEllipsis" MaxLines="1" />
                 <UniformGrid Grid.Row="1" Columns="5" Margin="8,8,8,20">
@@ -471,8 +409,8 @@
                     </Button>
                     <Button Classes="simple-control" Tag="Big screen" Command="{Binding Player.ToggleFullscreenCommand}" Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
-                            <ui:FASymbolIcon Symbol="FullScreenMaximize" FontSize="36" HorizontalAlignment="Center" />
-                            <TextBlock Text="Big" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <ui:FASymbolIcon Symbol="{Binding Player.IsFullscreen, Converter={x:Static views:SimpleModeConverters.FullscreenIcon}}" FontSize="36" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding Player.IsFullscreen, Converter={x:Static views:SimpleModeConverters.FullscreenLabel}}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </UniformGrid>

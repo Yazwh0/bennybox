@@ -18,6 +18,12 @@ public class ExoPlayerHostControl : NativeControlHost
 {
     private readonly Media3PlayerEngine _engine = App.Services!.GetRequiredService<Media3PlayerEngine>();
 
+    // Raised when the video itself is tapped. Taps are taken from the native view rather than from an
+    // Avalonia element laid over it: on a real phone the video surface draws above the Avalonia layer,
+    // so anything overlaid is hidden behind the picture (it only looked fine on the emulator, which
+    // renders no video).
+    public event EventHandler? VideoTapped;
+
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         var context = (parent as AndroidViewControlHandle)?.View?.Context ?? Application.Context!;
@@ -30,6 +36,7 @@ public class ExoPlayerHostControl : NativeControlHost
             // video surface only; all playback UI lives in Avalonia.
             UseController = false
         };
+        playerView.Click += (_, _) => VideoTapped?.Invoke(this, EventArgs.Empty);
         return new AndroidViewControlHandle(playerView);
     }
 }
