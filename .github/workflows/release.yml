@@ -99,6 +99,9 @@ jobs:
     # multiple jobs since it updates an existing release for the tag rather than erroring if one
     # already exists.
     runs-on: ubuntu-latest
+    env:
+      # Secrets can't be tested in a step's `if:` directly, so expose whether one is set.
+      PLAY_UPLOAD_ENABLED: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
 
     steps:
       - name: Checkout
@@ -175,8 +178,8 @@ jobs:
           --output publish/android
 
       # Same build, two packages, both signed with the same key: the APK is for installing directly
-      # (attached to the GitHub Release), the AAB is what Google Play wants. The AAB is only kept as a
-      # workflow artifact for uploading to Play Console by hand - nothing here publishes to Play.
+      # (attached to the GitHub Release), the AAB is what Google Play wants. The AAB is kept as a
+      # workflow artifact and, once PLAY_SERVICE_ACCOUNT_JSON is set, uploaded to Play below.
       - name: Collect signed APK and AAB
         shell: bash
         run: |
@@ -202,3 +205,19 @@ jobs:
         with:
           files: apk-output/*.apk
           generate_release_notes: true
+
+      # Uploads the AAB to Play's internal testing track (after the GitHub Release, so a Play hiccup
+      # never holds up the direct-install APK). Skipped entirely until the PLAY_SERVICE_ACCOUNT_JSON
+      # secret exists - see docs/play-store.md "Automatic uploads". Lands as a draft by default (Play
+      # only accepts drafts from the API until the app's first review is through); set the repository
+      # variable PLAY_RELEASE_STATUS to "completed" to have it go straight out to testers instead.
+      - name: Upload to Google Play (internal testing)
+        if: github.event_name == 'push' && env.PLAY_UPLOAD_ENABLED == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.bitmagic.bennybox
+          releaseFiles: aab-output/*.aab
+          releaseName: ${{ steps.version.outputs.version }}
+          track: internal
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}

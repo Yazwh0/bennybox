@@ -111,3 +111,22 @@ posters or channel brands. Google pulls IPTV apps that look like they provide co
 1. Run the Release workflow (tag push, or workflow_dispatch with a version).
 2. Download the `BennyBox-<version>-android-play` artifact and upload the `.aab` to a testing track.
 3. Promote to production when ready.
+
+## Automatic uploads
+
+Every tag's AAB is uploaded to the **internal testing** track by the release workflow once the
+`PLAY_SERVICE_ACCOUNT_JSON` repository secret exists (the step is skipped without it).
+
+One-off setup:
+
+1. Google Cloud Console: a project with the **Google Play Android Developer API** enabled, and a
+   service account in it with a JSON key. No billing needed.
+2. Play Console → Users and permissions → invite the service account's email, with Benny Box and
+   "Release to testing tracks".
+3. GitHub → repo Settings → Secrets and variables → Actions: secret `PLAY_SERVICE_ACCOUNT_JSON` = the
+   whole JSON key file. Then delete the local copy.
+
+Uploads land as a **draft** (press Publish in Play Console), because Play only accepts drafts from the
+API until the app's first review is done. After that, set the repository **variable**
+`PLAY_RELEASE_STATUS` to `completed` and each tag goes straight out to internal testers. Promoting to
+production is still done by hand.
