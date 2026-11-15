@@ -567,7 +567,18 @@ public partial class SimpleHomeView : UserControl
                 channel.IsFavorite = add;
                 break;
             case SeriesListItemViewModel series:
-                await (add ? repository.AddSeriesAsync(series.Series.ProfileId, series.Series.Id) : repository.RemoveSeriesAsync(series.Series.Id));
+                if (add)
+                {
+                    await repository.AddSeriesAsync(series.Series.ProfileId, series.Series.Id);
+                }
+                else
+                {
+                    foreach (var part in series.Parts)
+                    {
+                        await repository.RemoveSeriesAsync(part.Id);
+                    }
+                }
+
                 series.IsFavorite = add;
                 break;
             case MovieListItemViewModel movie:

@@ -161,7 +161,7 @@ public partial class SeriesViewModel : ViewModelBase
             }
 
             var match = Episodes.OfType<EpisodeListItemViewModel>().FirstOrDefault(e =>
-                ContentKeys.ForEpisode(SelectedSeries.Series.SourceSeriesId, e.Episode.SourceEpisodeId) == download.OriginalSourceId);
+                ContentKeys.ForEpisode(e.Series.SourceSeriesId, e.Episode.SourceEpisodeId) == download.OriginalSourceId);
             if (match is null)
             {
                 return;
@@ -188,7 +188,7 @@ public partial class SeriesViewModel : ViewModelBase
         episode.DownloadState = DownloadUiState.Queued;
         try
         {
-            await _downloadManager.QueueEpisodeDownloadAsync(profile, SelectedSeries.Series, episode.Episode);
+            await _downloadManager.QueueEpisodeDownloadAsync(profile, episode.Series, episode.Episode);
         }
         catch (Exception ex)
         {
@@ -218,7 +218,7 @@ public partial class SeriesViewModel : ViewModelBase
             episode.DownloadState = DownloadUiState.Queued;
             try
             {
-                await _downloadManager.QueueEpisodeDownloadAsync(profile, SelectedSeries.Series, episode.Episode);
+                await _downloadManager.QueueEpisodeDownloadAsync(profile, episode.Series, episode.Episode);
             }
             catch (Exception ex)
             {
@@ -244,7 +244,7 @@ public partial class SeriesViewModel : ViewModelBase
             episode.DownloadState = DownloadUiState.Queued;
             try
             {
-                await _downloadManager.QueueEpisodeDownloadAsync(profile, SelectedSeries.Series, episode.Episode);
+                await _downloadManager.QueueEpisodeDownloadAsync(profile, episode.Series, episode.Episode);
             }
             catch (Exception ex)
             {
@@ -361,7 +361,12 @@ public partial class SeriesViewModel : ViewModelBase
 
         if (item.IsFavorite)
         {
-            await _favoriteRepository.RemoveSeriesAsync(item.Series.Id);
+            // Every part, in case one was made a favourite before the show was merged.
+            foreach (var part in item.Parts)
+            {
+                await _favoriteRepository.RemoveSeriesAsync(part.Id);
+            }
+
             item.IsFavorite = false;
         }
         else
@@ -383,7 +388,7 @@ public partial class SeriesViewModel : ViewModelBase
         {
             foreach (var series in group.Series)
             {
-                series.IsFavorite = favoriteIds.Contains(series.Series.Id);
+                series.IsFavorite = series.Parts.Any(p => favoriteIds.Contains(p.Id));
             }
         }
     }
@@ -418,7 +423,7 @@ public partial class SeriesViewModel : ViewModelBase
 
             foreach (var episode in Episodes.OfType<EpisodeListItemViewModel>())
             {
-                episode.IsWatched = episodeWatchedKeys.Contains(ContentKeys.ForEpisode(SelectedSeries.Series.SourceSeriesId, episode.Episode.SourceEpisodeId));
+                episode.IsWatched = episodeWatchedKeys.Contains(ContentKeys.ForEpisode(episode.Series.SourceSeriesId, episode.Episode.SourceEpisodeId));
             }
 
             // Recomputed last so it's authoritative for the currently-open series specifically - it
@@ -436,12 +441,25 @@ public partial class SeriesViewModel : ViewModelBase
             return;
         }
 
+        // Opened from Favorites/Search, which only know the one source entry - use the merged show it
+        // belongs to, so every season is there.
+        if (series.Parts.Count == 1 && FindMergedShow(series.Series.Id) is { } merged)
+        {
+            series = merged;
+        }
+
         SelectedSeries = series;
         Episodes.Clear();
         IsLoadingEpisodes = true;
         try
         {
-            var episodes = await _seriesImportService.GetEpisodesAsync(profile, series.Series);
+            // A merged show (see SeriesGrouping) gathers the episodes of every part, each remembering
+            // which part it came from, then everything is laid out by season as usual.
+            var episodes = new List<(Episode Episode, Series Part)>();
+            foreach (var part in series.Parts)
+            {
+                episodes.AddRange((await _seriesImportService.GetEpisodesAsync(profile, part)).Select(e => (e, part)));
+            }
             var watchedKeys = (await _watchedItemRepository.GetAllAsync())
                 .Where(w => w.ContentType == WatchProgressContentType.Episode && w.ProfileId == profile.Id)
                 .Select(w => w.ContentKey)
@@ -459,17 +477,18 @@ public partial class SeriesViewModel : ViewModelBase
                 .ToList();
 
             var rows = new List<object>();
-            foreach (var seasonGroup in episodes.GroupBy(e => e.Season).OrderBy(g => g.Key))
+            foreach (var seasonGroup in episodes.GroupBy(x => x.Episode.Season).OrderBy(g => g.Key))
             {
                 rows.Add(new SeasonHeaderRow($"Season {seasonGroup.Key}", seasonGroup.Key));
-                rows.AddRange(seasonGroup.Select(e =>
+                rows.AddRange(seasonGroup.OrderBy(x => x.Episode.EpisodeNumber).Select(x =>
                 {
+                    var (e, part) = x;
                     var item = new EpisodeListItemViewModel(
-                        e, watchedKeys.Contains(ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId)), isFromDownloadsProfile);
+                        e, part, watchedKeys.Contains(ContentKeys.ForEpisode(part.SourceSeriesId, e.SourceEpisodeId)), isFromDownloadsProfile);
                     var downloadedPath = downloadedEpisodeKeys.GetValueOrDefault((e.Season, e.EpisodeNumber));
                     var (state, progress) = DownloadRowSupport.ComputeState(
                         activeDownloads, downloadedPath is not null,
-                        profile.Id, WatchProgressContentType.Episode, ContentKeys.ForEpisode(series.Series.SourceSeriesId, e.SourceEpisodeId));
+                        profile.Id, WatchProgressContentType.Episode, ContentKeys.ForEpisode(part.SourceSeriesId, e.SourceEpisodeId));
                     item.DownloadState = state;
                     item.DownloadProgress = progress;
                     item.LocalFilePath = isFromDownloadsProfile ? StreamUrlToLocalPath(e.StreamUrl) : downloadedPath;
@@ -495,6 +514,9 @@ public partial class SeriesViewModel : ViewModelBase
         }
     }
 
+    private SeriesListItemViewModel? FindMergedShow(Guid seriesId) =>
+        _allGroups.SelectMany(g => g.Series).FirstOrDefault(s => s.Parts.Count > 1 && s.Parts.Any(p => p.Id == seriesId));
+
     [RelayCommand]
     private void BackToList()
     {
@@ -510,7 +532,7 @@ public partial class SeriesViewModel : ViewModelBase
             return;
         }
 
-        Player.PlayEpisode(episode.Episode, SelectedSeries.Series);
+        Player.PlayEpisode(episode.Episode, episode.Series);
     }
 
     [RelayCommand]
@@ -522,7 +544,7 @@ public partial class SeriesViewModel : ViewModelBase
         }
 
         var profileId = SelectedSeries.Series.ProfileId;
-        var contentKey = ContentKeys.ForEpisode(SelectedSeries.Series.SourceSeriesId, episode.Episode.SourceEpisodeId);
+        var contentKey = ContentKeys.ForEpisode(episode.Series.SourceSeriesId, episode.Episode.SourceEpisodeId);
 
         if (episode.IsWatched)
         {
@@ -759,8 +781,12 @@ public partial class SeriesViewModel : ViewModelBase
                     var seriesByCategory = seriesList.ToLookup(s => s.CategoryId);
                     foreach (var category in categories)
                     {
-                        var categorySeries = seriesByCategory[category.Id]
-                            .Select(s => new SeriesListItemViewModel(s, profile.Name, favoriteIds.Contains(s.Id), watchedSeriesKeys.Contains((s.ProfileId, s.SourceSeriesId))))
+                        // Same show listed more than once (e.g. a Jellyfin folder per season) becomes one entry.
+                        var categorySeries = SeriesGrouping.Merge(seriesByCategory[category.Id])
+                            .Select(g => new SeriesListItemViewModel(g.Primary, profile.Name,
+                                g.Parts.Any(p => favoriteIds.Contains(p.Id)),
+                                watchedSeriesKeys.Contains((g.Primary.ProfileId, g.Primary.SourceSeriesId)),
+                                g.Parts, g.Label))
                             .ToList();
                         if (categorySeries.Count == 0)
                         {

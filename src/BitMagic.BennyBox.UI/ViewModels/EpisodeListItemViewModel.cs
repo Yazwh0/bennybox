@@ -6,6 +6,11 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class EpisodeListItemViewModel : ObservableObject
 {
     public Episode Episode { get; }
+
+    // The source entry this episode came from - the show itself, or one of its parts when a show was
+    // merged from several entries (SeriesListItemViewModel.Parts). Playback, watched state and
+    // downloads are all keyed on this one.
+    public Series Series { get; }
     public string Title => Episode.Title;
     public string SeasonEpisodeLabel => $"S{Episode.Season:00}E{Episode.EpisodeNumber:00}";
     public string? PlotSummary => Episode.PlotSummary;
@@ -61,9 +66,10 @@ public partial class EpisodeListItemViewModel : ObservableObject
         _ => "⬇"
     };
 
-    public EpisodeListItemViewModel(Episode episode, bool isWatched = false, bool isFromDownloadsProfile = false)
+    public EpisodeListItemViewModel(Episode episode, Series series, bool isWatched = false, bool isFromDownloadsProfile = false)
     {
         Episode = episode;
+        Series = series;
         _isWatched = isWatched;
         IsFromDownloadsProfile = isFromDownloadsProfile;
     }

@@ -115,7 +115,11 @@ public partial class FavoritesViewModel : ViewModelBase
             return;
         }
 
-        await _favoriteRepository.RemoveSeriesAsync(item.Series.Id);
+        foreach (var part in item.Parts)
+        {
+            await _favoriteRepository.RemoveSeriesAsync(part.Id);
+        }
+
         WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
@@ -284,9 +288,9 @@ public partial class FavoritesViewModel : ViewModelBase
                 }
 
                 var series = await _seriesRepository.GetSeriesAsync(profile.Id);
-                seriesItems.AddRange(series
-                    .Where(s => favoriteSeriesIds.Contains(s.Id))
-                    .Select(s => new SeriesListItemViewModel(s, profile.Name, isFavorite: true)));
+                // Same show listed more than once (see SeriesGrouping) shows once here too.
+                seriesItems.AddRange(SeriesGrouping.Merge(series.Where(s => favoriteSeriesIds.Contains(s.Id)))
+                    .Select(g => new SeriesListItemViewModel(g.Primary, profile.Name, isFavorite: true, parts: g.Parts, label: g.Label)));
 
                 var movies = await _movieRepository.GetMoviesAsync(profile.Id);
                 movieItems.AddRange(movies

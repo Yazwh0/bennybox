@@ -6,7 +6,13 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class SeriesListItemViewModel : ObservableObject
 {
     public Series Series { get; }
-    public string Name => Series.Name;
+
+    // Every source entry this show was built from - usually just Series, but several when a source
+    // lists the same show more than once (see SeriesGrouping). Episodes come from all of them.
+    public IReadOnlyList<Series> Parts { get; }
+
+    // The name to show: Series.Name, plus the year when another, different show has the same name.
+    public string Name { get; }
     public string? CoverUrl => Series.CoverUrl;
     public string? Plot => Series.Plot;
     public bool HasPlot => !string.IsNullOrWhiteSpace(Plot);
@@ -35,9 +41,12 @@ public partial class SeriesListItemViewModel : ObservableObject
 
     public double ContentOpacity => IsWatched ? 0.5 : 1.0;
 
-    public SeriesListItemViewModel(Series series, string sourceName, bool isFavorite = false, bool isWatched = false)
+    public SeriesListItemViewModel(Series series, string sourceName, bool isFavorite = false, bool isWatched = false,
+        IReadOnlyList<Series>? parts = null, string? label = null)
     {
         Series = series;
+        Parts = parts ?? [series];
+        Name = label ?? series.Name;
         SourceName = sourceName;
         MetaLine = BuildMetaLine(series);
         _isFavorite = isFavorite;
