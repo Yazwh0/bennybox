@@ -33,8 +33,44 @@ public partial class LiveTvView : UserControl
             if (DataContext is LiveTvViewModel viewModel)
             {
                 _grid.Attach(viewModel.Rows);
+                viewModel.PropertyChanged += OnViewModelPropertyChanged;
             }
         };
+    }
+
+    // A channel's page opens scrolled to what's on now, with catch-up above it and what's coming up
+    // below, rather than starting days back at the top of the catch-up window.
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(LiveTvViewModel.OpenSchedule) && sender is LiveTvViewModel { OpenSchedule: { } schedule })
+        {
+            schedule.PropertyChanged += (_, change) =>
+            {
+                if (change.PropertyName == nameof(ChannelScheduleViewModel.IsLoading) && !schedule.IsLoading)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        var index = schedule.NowRow is { } now ? schedule.Rows.IndexOf(now) : -1;
+                        if (index <= 0)
+                        {
+                            return;
+                        }
+
+                        // ScrollIntoView only scrolls far enough to show it (so it lands at the bottom);
+                        // then move it up to just below the top, with the previous programme peeking.
+                        ScheduleList.ScrollIntoView(index);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            if (ScheduleList.ContainerFromIndex(index) is { } row
+                                && row.TranslatePoint(new Point(0, 0), ScheduleScroller) is { } position)
+                            {
+                                ScheduleScroller.Offset = ScheduleScroller.Offset.WithY(Math.Max(0, ScheduleScroller.Offset.Y + position.Y - 48));
+                            }
+                        }, Avalonia.Threading.DispatcherPriority.Background);
+                    }, Avalonia.Threading.DispatcherPriority.Background);
+                }
+            };
+        }
     }
 
     // Moves the "how far through" bars on once a minute while the page is showing.

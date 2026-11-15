@@ -16,6 +16,9 @@ public partial class ChannelListItemViewModel : ObservableObject
 
     public string? NowTitle { get; }
     public bool HasNowTitle => !string.IsNullOrEmpty(NowTitle);
+
+    // Has guide data to show on its own schedule page.
+    public bool HasGuide => !string.IsNullOrEmpty(Channel.TvgId);
     public string Name => Channel.Name;
 
     // A same-named Series' CoverUrl, if any - see ChannelLogoFallbackSupport. ChannelLogoImage tries

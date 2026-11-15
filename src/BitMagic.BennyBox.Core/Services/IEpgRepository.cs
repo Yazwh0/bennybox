@@ -11,4 +11,7 @@ public interface IEpgRepository
     Task<IReadOnlyDictionary<string, EpgNowNext>> GetNowNextAsync(Guid profileId, DateTime nowUtc, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<EpgProgramme>> GetProgrammesInRangeAsync(Guid profileId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default);
+
+    // One channel's programmes overlapping a time range, in start order - for a channel's own schedule page.
+    Task<IReadOnlyList<EpgProgramme>> GetChannelProgrammesAsync(Guid profileId, string channelTvgId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default);
 }

@@ -16,6 +16,7 @@
              xmlns:controls="using:BitMagic.BennyBox.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:BitMagic.BennyBox.Android.Views"
+             xmlns:conv="using:Avalonia.Data.Converters"
              x:Class="BitMagic.BennyBox.Views.LiveTvView"
              x:DataType="vm:LiveTvViewModel"
              x:Name="RootControl">
@@ -66,7 +67,7 @@
                             <ItemsControl.DataTemplates>
                                 <DataTemplate DataType="vm:ChannelListItemViewModel">
                                     <Border Classes="card" Width="{Binding #RootControl.ColumnWidth}" Padding="8,4,4,4" MinHeight="64">
-                                        <Grid ColumnDefinitions="*,Auto">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
                                             <Button Grid.Column="0" Padding="0" Background="Transparent" BorderThickness="0"
                                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                     Command="{Binding #RootControl.DataContext.SelectChannelCommand}" CommandParameter="{Binding Channel}">
@@ -91,7 +92,12 @@
                                                     </StackPanel>
                                                 </Grid>
                                             </Button>
-                                            <Button Grid.Column="1" Classes="icon" ToolTip.Tip="Favourite"
+                                            <!-- The channel's own page: what's coming up and what can be watched again. -->
+                                            <Button Grid.Column="1" Classes="icon" ToolTip.Tip="Schedule and catch-up" IsVisible="{Binding HasGuide}"
+                                                    Command="{Binding #RootControl.DataContext.OpenScheduleCommand}" CommandParameter="{Binding}">
+                                                <ui:FASymbolIcon Symbol="Calendar" FontSize="18" />
+                                            </Button>
+                                            <Button Grid.Column="2" Classes="icon" ToolTip.Tip="Favourite"
                                                     Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}">
                                                 <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="18" />
                                             </Button>
@@ -105,6 +111,77 @@
             </ItemsControl>
         </ScrollViewer>
 
+
+        <!-- One channel's page (ChannelScheduleViewModel): watch live, what's coming up, and earlier
+             programmes to watch again where the provider keeps catch-up. -->
+        <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,Auto,*" Background="{DynamicResource M3SurfaceBrush}"
+              IsVisible="{Binding #RootControl.DataContext.OpenSchedule, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+              DataContext="{Binding #RootControl.DataContext.OpenSchedule}" x:DataType="vm:ChannelScheduleViewModel">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="4,4,12,0" MinHeight="56">
+                <Button Classes="icon" Command="{Binding #RootControl.DataContext.CloseScheduleCommand}" ToolTip.Tip="Back to channels">
+                    <ui:FASymbolIcon Symbol="Back" FontSize="20" />
+                </Button>
+                <Border Grid.Column="1" Width="40" Height="40" CornerRadius="8" ClipToBounds="True" Margin="4,0,12,0" VerticalAlignment="Center"
+                        Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                    <controls:ChannelLogoImage LogoUrl="{Binding Channel.Channel.LogoUrl}" FallbackLogoUrl="{Binding Channel.FallbackLogoUrl}"
+                                               TmdbFallbackTitle="{Binding Channel.Name}" Margin="2" />
+                </Border>
+                <TextBlock Grid.Column="2" Text="{Binding Channel.Name}" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Grid>
+            <StackPanel Grid.Row="1" Margin="16,8,16,4" Spacing="8">
+                <Button Classes="accent" Command="{Binding WatchLiveCommand}" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:FASymbolIcon Symbol="PlayFilled" FontSize="16" />
+                        <TextBlock Text="Watch live" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Text="{Binding CatchupNote}" FontSize="13" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <ui:FAProgressRing Grid.Row="2" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="32" Height="32"
+                               VerticalAlignment="Top" Margin="0,32,0,0" />
+            <TextBlock Grid.Row="2" Text="No programme information for this channel." Margin="16" Opacity="0.7" TextWrapping="Wrap"
+                       IsVisible="{Binding HasNoGuide}" />
+            <ScrollViewer Grid.Row="2" x:Name="ScheduleScroller" IsVisible="{Binding !IsLoading}">
+                <ItemsControl x:Name="ScheduleList" ItemsSource="{Binding Rows}" Margin="12,0,12,12" MaxWidth="760" HorizontalAlignment="Left">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.DataTemplates>
+                        <DataTemplate DataType="vm:ScheduleDayHeader">
+                            <TextBlock Classes="title" Text="{Binding Name}" Margin="4,16,0,8" />
+                        </DataTemplate>
+                        <DataTemplate DataType="vm:ScheduleProgrammeViewModel">
+                            <Button Classes="poster" HorizontalAlignment="Stretch" Margin="0,2" Opacity="{Binding Opacity}"
+                                    IsHitTestVisible="{Binding CanPlay}"
+                                    Command="{Binding #RootControl.DataContext.OpenSchedule.PlayProgrammeCommand}" CommandParameter="{Binding}">
+                                <Border Classes="card" Padding="12,8" Classes.now="{Binding IsNow}">
+                                    <Grid ColumnDefinitions="56,*,Auto">
+                                        <TextBlock Text="{Binding TimeLabel}" FontWeight="SemiBold" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{Binding Title}" FontSize="15" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Description}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" MaxLines="2"
+                                                       TextTrimming="CharacterEllipsis" IsVisible="{Binding HasDescription}" />
+                                            <ProgressBar Value="{Binding NowProgress}" Minimum="0" Maximum="1" Height="3" MinWidth="0" Margin="0,4,0,0"
+                                                         IsVisible="{Binding IsNow}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                    IsVisible="{Binding CanPlay}">
+                                            <TextBlock Text="{Binding Status}" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource M3PrimaryBrush}" />
+                                            <ui:FASymbolIcon Symbol="PlayFilled" FontSize="16" Foreground="{DynamicResource M3PrimaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.DataTemplates>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
         <views:CategoryPickerSheet Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" FallbackPicture="Tv"
                                    Categories="{Binding FilteredCategories}" FilterText="{Binding CategoryFilterText}"
                                    Picked="OnCategoryPicked" />

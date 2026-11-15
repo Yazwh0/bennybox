@@ -100,9 +100,11 @@ public partial class LiveTvViewModel : ViewModelBase
         EpgImportService epgImportService,
         ISettingsStore settingsStore,
         ContentPriority contentPriority,
+        TimeshiftUrlService timeshiftUrlService,
         ILogger<LiveTvViewModel> logger)
     {
         Player = player;
+        _timeshiftUrlService = timeshiftUrlService;
         _profileRepository = profileRepository;
         _channelRepository = channelRepository;
         _epgRepository = epgRepository;
@@ -213,6 +215,28 @@ public partial class LiveTvViewModel : ViewModelBase
             }
         }
     }
+
+    private readonly TimeshiftUrlService _timeshiftUrlService;
+
+    // A channel's own page (schedule and catch-up) when one is open - see ChannelScheduleViewModel.
+    [ObservableProperty]
+    private ChannelScheduleViewModel? _openSchedule;
+
+    [RelayCommand]
+    private async Task OpenScheduleAsync(ChannelListItemViewModel? channel)
+    {
+        if (channel is null)
+        {
+            return;
+        }
+
+        var schedule = new ChannelScheduleViewModel(channel, Player, _epgRepository, _timeshiftUrlService, _logger);
+        OpenSchedule = schedule;
+        await schedule.LoadAsync();
+    }
+
+    [RelayCommand]
+    private void CloseSchedule() => OpenSchedule = null;
 
     [RelayCommand]
     private void SelectChannel(Channel? channel)

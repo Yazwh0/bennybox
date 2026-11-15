@@ -94,4 +94,14 @@ public class SqliteEpgRepository : IEpgRepository
                 new { profileId, startUtc, endUtc });
             return (IReadOnlyList<EpgProgramme>)rows.ToList();
         }, cancellationToken);
+
+    public Task<IReadOnlyList<EpgProgramme>> GetChannelProgrammesAsync(Guid profileId, string channelTvgId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var rows = connection.Query<EpgProgramme>(
+                "SELECT * FROM EpgProgramme WHERE ProfileId = @profileId AND ChannelTvgId = @channelTvgId AND StartUtc < @endUtc AND EndUtc > @startUtc ORDER BY StartUtc",
+                new { profileId, channelTvgId, startUtc, endUtc });
+            return (IReadOnlyList<EpgProgramme>)rows.ToList();
+        }, cancellationToken);
 }

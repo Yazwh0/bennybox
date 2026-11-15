@@ -145,6 +145,10 @@
         <Setter Property="Background" Value="{DynamicResource M3SurfaceContainerBrush}" />
         <Setter Property="CornerRadius" Value="12" />
     </Style>
+    <!-- The card for whatever is on now in a schedule. -->
+    <Style Selector="Border.card.now">
+        <Setter Property="Background" Value="{DynamicResource M3SecondaryContainerBrush}" />
+    </Style>
 
     <Style Selector="Expander">
         <Setter Property="CornerRadius" Value="12" />

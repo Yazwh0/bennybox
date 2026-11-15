@@ -91,6 +91,9 @@ public class EpgImportServiceTests
         public Task<IReadOnlyList<EpgProgramme>> GetProgrammesInRangeAsync(Guid profileId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<EpgProgramme>>([]);
 
+        public Task<IReadOnlyList<EpgProgramme>> GetChannelProgrammesAsync(Guid profileId, string channelTvgId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<EpgProgramme>>([]);
+
         private static async Task<List<EpgProgramme>> ToListAsync(IAsyncEnumerable<EpgProgramme> source)
         {
             var list = new List<EpgProgramme>();
