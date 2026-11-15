@@ -135,11 +135,17 @@
                                             <views:SimplePictureIcon Picture="{Binding Icon, TargetNullValue=Home}" CornerRadius="12" IsVisible="{Binding HasIcon}" />
                                             <!-- Items: the picture, or big initials when there isn't one. -->
                                             <Panel IsVisible="{Binding HasPicture}">
-                                                <Border Classes="picture-backing" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
-                                                    <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
-                                                </Border>
-                                                <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
-                                                                           TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                                                <Panel Opacity="{Binding PictureOpacity}">
+                                                    <Border Classes="picture-backing" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
+                                                        <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
+                                                    </Border>
+                                                    <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
+                                                                               TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                                                </Panel>
+                                                <!-- Didn't work last time: a big red "no" sign over the greyed picture. -->
+                                                <views:SimplePictureIcon Picture="NotWorking" IsVisible="{Binding DidNotWork}"
+                                                                         Width="64" Height="64" CornerRadius="32"
+                                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 <views:SimplePictureIcon Picture="Favourite" IsVisible="{Binding IsFavourite}"
                                                                          Width="36" Height="36" CornerRadius="18"
                                                                          HorizontalAlignment="Right" VerticalAlignment="Top" />

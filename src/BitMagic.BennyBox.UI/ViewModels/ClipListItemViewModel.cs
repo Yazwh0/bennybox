@@ -9,6 +9,14 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class ClipListItemViewModel : ObservableObject
 {
     public Movie Clip { get; }
+
+    // True when this stream didn't play the last time it was tried (see StreamHealth) - shown as a
+    // warning so dead streams can be skipped without tapping them. RefreshHealth re-reads it after
+    // a StreamHealthChangedMessage.
+    public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Clip.StreamUrl) ?? false;
+
+    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+
     public string Name => Clip.Name;
     public string? CoverUrl => Clip.CoverUrl;
 

@@ -93,6 +93,7 @@ public partial class SearchViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, m) => BitMagic.BennyBox.UI.Services.StreamHealth.Refresh(Rows, m.StreamUrl));
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
         _downloadManager.DownloadChanged += OnDownloadChanged;
 

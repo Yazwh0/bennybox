@@ -78,7 +78,11 @@
                                                                     TmdbFallbackTitle="{Binding Name}"
                                                                     Width="44" Height="44" VerticalAlignment="Center" />
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource GlassTextBrush}" />
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
+                                                           ToolTip.Tip="Didn't work last time" />
+                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource GlassTextBrush}" />
+                                            </DockPanel>
                                             <TextBlock Text="{Binding NowTitle}"
                                                         FontSize="11" Foreground="{StaticResource GlassTextDimBrush}"
                                                         IsVisible="{Binding HasNowTitle}" />
@@ -132,7 +136,11 @@
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
                                                                     Width="44" Height="44" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
+                                                       ToolTip.Tip="Didn't work last time" />
+                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
+                                        </DockPanel>
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="glass-nav flat" Grid.Column="1"
@@ -157,7 +165,11 @@
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
                                                                     Width="44" Height="44" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
+                                                       ToolTip.Tip="Didn't work last time" />
+                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource GlassTextBrush}" />
+                                        </DockPanel>
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="glass-nav flat" Grid.Column="1"

@@ -58,7 +58,11 @@
                                                                     TmdbFallbackTitle="{Binding Name}"
                                                                     Width="48" Height="48" VerticalAlignment="Center" />
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontSize="16" />
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
+                                                           ToolTip.Tip="Didn't work last time" />
+                                                <TextBlock Text="{Binding Name}" FontSize="16" />
+                                            </DockPanel>
                                             <TextBlock Text="{Binding NowTitle}" FontSize="12" Opacity="0.7" IsVisible="{Binding HasNowTitle}" />
                                         </StackPanel>
                                     </StackPanel>

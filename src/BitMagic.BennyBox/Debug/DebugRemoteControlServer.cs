@@ -35,6 +35,7 @@ namespace BitMagic.BennyBox.Debug;
 //   POST /vm/{vm}/set            body {"property":"X","value":"Y"}          - set a public writable property
 //   POST /vm/{vm}/invoke          body {"command":"X","parameter":"Y"?}     - execute an ICommand property
 //                                 or   {"command":"X","parameterFromCollection":{"property":"Rows","match":"Name","equals":"Y"}}
+//                                 ("select":"Channel" inside parameterFromCollection passes that property of the row)
 //                                      - same, but the parameter is looked up from another collection
 //                                        property on this vm (first item whose named property equals
 //                                        the given string) - for commands wanting a row ViewModel
@@ -303,6 +304,13 @@ public sealed class DebugRemoteControlServer : IDisposable
                 if (parameter is null)
                 {
                     return (404, Error($"No item in '{collectionPropName}' with {matchPropName} == '{equalsValue}'"));
+                }
+
+                // Optional "select": pass a property of the found row instead of the row itself (e.g.
+                // a ChannelListItemViewModel's Channel, for SelectChannelCommand).
+                if (pfc.TryGetProperty("select", out var selectEl) && selectEl.GetString() is { } selectProp)
+                {
+                    parameter = parameter.GetType().GetProperty(selectProp, BindingFlags.Public | BindingFlags.Instance)?.GetValue(parameter);
                 }
             }
             else

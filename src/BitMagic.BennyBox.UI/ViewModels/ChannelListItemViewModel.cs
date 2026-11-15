@@ -6,6 +6,14 @@ namespace BitMagic.BennyBox.ViewModels;
 public partial class ChannelListItemViewModel : ObservableObject
 {
     public Channel Channel { get; }
+
+    // True when this stream didn't play the last time it was tried (see StreamHealth) - shown as a
+    // warning so dead streams can be skipped without tapping them. RefreshHealth re-reads it after
+    // a StreamHealthChangedMessage.
+    public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Channel.StreamUrl) ?? false;
+
+    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+
     public string? NowTitle { get; }
     public bool HasNowTitle => !string.IsNullOrEmpty(NowTitle);
     public string Name => Channel.Name;

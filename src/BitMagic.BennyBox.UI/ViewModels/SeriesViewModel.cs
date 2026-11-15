@@ -143,6 +143,7 @@ public partial class SeriesViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadSeriesAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, m) => BitMagic.BennyBox.UI.Services.StreamHealth.Refresh(Episodes, m.StreamUrl));
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
         _downloadManager.DownloadChanged += OnDownloadChanged;
 
@@ -772,6 +773,7 @@ public partial class SeriesViewModel : ViewModelBase
             // Grouping/sorting/object-construction can be real CPU work for a large library - keep it
             // off the UI thread, same rationale as LiveTvViewModel.
             await _contentPriority.EnsureLoadedAsync();
+            await (BitMagic.BennyBox.UI.Services.StreamHealth.Current?.EnsureLoadedAsync() ?? Task.CompletedTask);
             var rank = _contentPriority.Ranker();
             _allGroups = await Task.Run(() =>
             {

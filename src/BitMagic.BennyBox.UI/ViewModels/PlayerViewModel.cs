@@ -66,6 +66,23 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private bool _audioPreferenceApplied;
     private bool _subtitlePreferenceApplied;
     private string? _currentUrl;
+
+    // Learns which streams work from what happens when they're played - see StreamHealth.
+    private readonly StreamHealth _streamHealth;
+
+    // True once a frame has actually been drawn for the current stream. "Playing" alone isn't proof:
+    // some dead streams report Playing and then end without a single frame.
+    private bool _streamConfirmed;
+
+    // A stream that never showed a picture (error or timeout before the first frame) is remembered as
+    // not working; one that shows a frame is remembered as working again.
+    private void RecordStreamResult(bool worked)
+    {
+        if (_currentUrl is not null)
+        {
+            _streamHealth.Record(_currentUrl, worked);
+        }
+    }
     private bool _isApplyingSavedSidebarWidth;
     private bool _isApplyingSavedVolume;
     private bool _isUserSeeking;
@@ -182,9 +199,10 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public string SkipBackwardLabel => $"⏪ {(int)_skipInterval.TotalSeconds}s";
     public string SkipForwardLabel => $"{(int)_skipInterval.TotalSeconds}s ⏩";
 
-    public PlayerViewModel(IPlayerEngine engine, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, DownloadPlaybackResolver downloadPlaybackResolver, ILogger<PlayerViewModel> logger)
+    public PlayerViewModel(IPlayerEngine engine, ISettingsStore settingsStore, IWatchProgressRepository watchProgressRepository, IWatchedItemRepository watchedItemRepository, DownloadPlaybackResolver downloadPlaybackResolver, StreamHealth streamHealth, ILogger<PlayerViewModel> logger)
     {
         Engine = engine;
+        _streamHealth = streamHealth;
         _settingsStore = settingsStore;
         _watchProgressRepository = watchProgressRepository;
         _watchedItemRepository = watchedItemRepository;
@@ -489,6 +507,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         IsPaused = false;
         HasPlaybackError = false;
         _hasShownFrame = false;
+        _streamConfirmed = false;
         _audioPreferenceApplied = false;
         _subtitlePreferenceApplied = false;
         IsBuffering = true;
@@ -505,6 +524,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 StatusText = "Channel unavailable (timed out)";
                 IsBuffering = false;
                 HasPlaybackError = true;
+                RecordStreamResult(worked: false);
                 _logger.LogWarning("Stream load timed out: {Url}", url);
                 Engine.Stop();
             }
@@ -556,6 +576,12 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             var displayed = Engine.RenderedFrameCount;
             if (displayed > _lastDisplayedPictures)
             {
+                if (!_streamConfirmed)
+                {
+                    _streamConfirmed = true;
+                    RecordStreamResult(worked: true);
+                }
+
                 _lastDisplayedPictures = displayed;
                 _lastDisplayedPicturesChangeUtc = DateTime.UtcNow;
                 return;
@@ -777,6 +803,10 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             IsBuffering = false;
             HasPlaybackError = true;
             StatusText = "Error playing channel";
+            if (!_streamConfirmed)
+            {
+                RecordStreamResult(worked: false);
+            }
             _logger.LogError("MediaPlayer encountered an error playing {Url}", _currentUrl);
         });
 
@@ -796,6 +826,23 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                     "EndReached fired well short of the known duration ({Time}ms of {Duration}ms) - treating as an interrupted stream, not a finished one: {Url}",
                     Engine.PositionMs, DurationSeconds * 1000, _currentUrl);
                 HandlePlaybackStalled();
+                return;
+            }
+
+            // Some dead streams (seen on Xtream "PPV EVENT" channels) connect and then end straight
+            // away without ever showing a picture. That's a stream that doesn't work, not one that's
+            // been watched to the end.
+            if (!_streamConfirmed)
+            {
+                CancelLoadTimeout();
+                CancelStallWatchdog();
+                IsPlaying = false;
+                IsPaused = false;
+                IsBuffering = false;
+                HasPlaybackError = true;
+                StatusText = "Channel unavailable";
+                RecordStreamResult(worked: false);
+                _logger.LogWarning("Stream ended before showing anything: {Url}", _currentUrl);
                 return;
             }
 

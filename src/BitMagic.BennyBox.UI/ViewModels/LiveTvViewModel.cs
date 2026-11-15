@@ -116,6 +116,7 @@ public partial class LiveTvViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadChannelsAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, m) => BitMagic.BennyBox.UI.Services.StreamHealth.Refresh(Rows, m.StreamUrl));
 
         _ = LoadChannelsAsync();
         _ = LoadLastRefreshSecondsAsync();
@@ -411,6 +412,7 @@ public partial class LiveTvViewModel : ViewModelBase
             // Grouping/sorting/object-construction over tens of thousands of channels is real CPU
             // work - keep it off the UI thread so it can't hitch typing, scrolling, or playback.
             await _contentPriority.EnsureLoadedAsync();
+            await (BitMagic.BennyBox.UI.Services.StreamHealth.Current?.EnsureLoadedAsync() ?? Task.CompletedTask);
             var rank = _contentPriority.Ranker();
             _allGroups = await Task.Run(() =>
             {
@@ -424,6 +426,8 @@ public partial class LiveTvViewModel : ViewModelBase
                         // (OrderBy is stable).
                         var categoryChannels = channelsByCategory[category.Id]
                             .OrderBy(c => rank(c.Name))
+                            // Channels that didn't play last time go to the bottom of their category (StreamHealth).
+                            .ThenBy(c => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(c.StreamUrl) ?? false)
                             .Select(c => new ChannelListItemViewModel(c, GetNowTitle(c, nowNext), favoriteIds.Contains(c.Id),
                                 ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, c.Name)))
                             .ToList();

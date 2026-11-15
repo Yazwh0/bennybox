@@ -83,7 +83,11 @@
                                         <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}"
                                                                     Width="44" Height="44" VerticalAlignment="Center" />
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
+                                                           ToolTip.Tip="Didn't work last time" />
+                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                                            </DockPanel>
                                             <Border Classes="source-badge" HorizontalAlignment="Left">
                                                 <TextBlock Classes="source-badge-text" Text="{Binding SourceName}" />
                                             </Border>

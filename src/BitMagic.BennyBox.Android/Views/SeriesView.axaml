@@ -154,7 +154,11 @@
                                             ToolTip.Tip="{Binding LocalFilePath}">
                                         <StackPanel Opacity="{Binding ContentOpacity}">
                                             <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="11" Opacity="0.7" />
-                                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
+                                                           ToolTip.Tip="Didn't work last time" />
+                                                <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                                            </DockPanel>
                                             <TextBlock Text="{Binding SourceName}" FontSize="11" Opacity="0.6" />
                                         </StackPanel>
                                     </Button>

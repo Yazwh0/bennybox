@@ -7,6 +7,13 @@ public partial class EpisodeListItemViewModel : ObservableObject
 {
     public Episode Episode { get; }
 
+    // True when this stream didn't play the last time it was tried (see StreamHealth) - shown as a
+    // warning so dead streams can be skipped without tapping them. RefreshHealth re-reads it after
+    // a StreamHealthChangedMessage.
+    public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Episode.StreamUrl) ?? false;
+
+    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+
     // The source entry this episode came from - the show itself, or one of its parts when a show was
     // merged from several entries (SeriesListItemViewModel.Parts). Playback, watched state and
     // downloads are all keyed on this one.

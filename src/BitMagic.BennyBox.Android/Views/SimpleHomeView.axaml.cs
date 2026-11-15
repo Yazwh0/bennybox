@@ -10,6 +10,7 @@ using BitMagic.BennyBox.Android.Services;
 using BitMagic.BennyBox.Android.ViewModels;
 using BitMagic.BennyBox.Core.Services;
 using BitMagic.BennyBox.Messages;
+using BitMagic.BennyBox.UI.Services;
 using BitMagic.BennyBox.ViewModels;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,6 +69,16 @@ public partial class SimpleHomeView : UserControl
     {
         InitializeComponent();
         RowsList.ItemsSource = _rows;
+
+        // A stream that just failed (or worked again) updates its tile where it is, rather than
+        // rebuilding the screen and losing the scroll position; it moves to the end next time.
+        WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, message) =>
+        {
+            foreach (var tile in _currentTiles.OfType<SimpleTile>().Where(t => t.StreamUrl == message.StreamUrl))
+            {
+                tile.DidNotWork = StreamHealth.Current?.DidNotWork(message.StreamUrl) ?? false;
+            }
+        });
 
         DataContextChanged += (_, _) =>
         {
@@ -264,7 +275,8 @@ public partial class SimpleHomeView : UserControl
                 break;
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
-                tiles.AddRange(page.Rows.Select(TileForItem).OfType<SimpleTile>());
+                // Anything that didn't play last time goes to the end (OrderBy keeps the rest in order).
+                tiles.AddRange(page.Rows.Select(TileForItem).OfType<SimpleTile>().OrderBy(tile => tile.DidNotWork));
                 break;
         }
 
@@ -316,11 +328,11 @@ public partial class SimpleHomeView : UserControl
         {
             Title = channel.Name, Payload = channel, ImageUrl = channel.Channel.LogoUrl,
             FallbackImageUrl = channel.FallbackLogoUrl, TmdbFallbackTitle = channel.Name,
-            Badge = SimplePicture.Tv, IsFavourite = channel.IsFavorite,
+            Badge = SimplePicture.Tv, IsFavourite = channel.IsFavorite, DidNotWork = channel.DidNotWork,
         },
         MovieListItemViewModel movie => new SimpleTile
         {
-            Title = movie.Name, Payload = movie, ImageUrl = movie.CoverUrl, Badge = SimplePicture.Films, IsFavourite = movie.IsFavorite,
+            Title = movie.Name, Payload = movie, ImageUrl = movie.CoverUrl, Badge = SimplePicture.Films, IsFavourite = movie.IsFavorite, DidNotWork = movie.DidNotWork,
         },
         SeriesListItemViewModel series => new SimpleTile
         {
@@ -328,7 +340,7 @@ public partial class SimpleHomeView : UserControl
         },
         ClipListItemViewModel clip => new SimpleTile
         {
-            Title = clip.Name, Payload = clip, ImageUrl = clip.CoverUrl, Badge = SimplePicture.Videos, IsFavourite = clip.IsFavorite,
+            Title = clip.Name, Payload = clip, ImageUrl = clip.CoverUrl, Badge = SimplePicture.Videos, IsFavourite = clip.IsFavorite, DidNotWork = clip.DidNotWork,
         },
         WatchProgressItemViewModel progress => TileFor(progress),
         _ => null,

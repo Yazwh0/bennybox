@@ -121,6 +121,7 @@ public partial class ClipsViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadClipsAsync());
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, m) => BitMagic.BennyBox.UI.Services.StreamHealth.Refresh(Rows, m.StreamUrl));
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
         _downloadManager.DownloadChanged += OnDownloadChanged;
 
@@ -495,6 +496,7 @@ public partial class ClipsViewModel : ViewModelBase
             _clipProfilesById = clipProfilesById;
 
             await _contentPriority.EnsureLoadedAsync();
+            await (BitMagic.BennyBox.UI.Services.StreamHealth.Current?.EnsureLoadedAsync() ?? Task.CompletedTask);
 
             var rank = _contentPriority.Ranker();
 

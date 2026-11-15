@@ -37,6 +37,23 @@ public sealed partial class SimpleTile : ObservableObject
     [ObservableProperty]
     private bool _isFavourite;
 
+    // Didn't play last time (StreamHealth): the picture is greyed out with a red "no" sign on it, and
+    // it goes to the end of the grid. It can still be tapped - it may work again.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PictureOpacity))]
+    private bool _didNotWork;
+
+    public double PictureOpacity => DidNotWork ? 0.35 : 1;
+
+    // The stream this tile plays, for matching a StreamHealthChangedMessage.
+    public string? StreamUrl => Payload switch
+    {
+        ChannelListItemViewModel channel => channel.Channel.StreamUrl,
+        MovieListItemViewModel movie => movie.Movie.StreamUrl,
+        ClipListItemViewModel clip => clip.Clip.StreamUrl,
+        _ => null,
+    };
+
     public bool HasIcon => Icon is not null;
     public bool HasCollage => Collage is not null;
     public bool HasPicture => Icon is null && Collage is null;

@@ -65,6 +65,7 @@ public partial class FavoritesViewModel : ViewModelBase
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = LoadAsync());
+        WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, m) => BitMagic.BennyBox.UI.Services.StreamHealth.Refresh(Rows, m.StreamUrl));
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadAsync());
         // Playback progress changes (a stop/switch, or completion) fire far more often than actual
         // favorite add/remove - a full LoadAsync() reload on every one flickers the whole page (see

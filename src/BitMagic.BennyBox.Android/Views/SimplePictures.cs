@@ -42,6 +42,9 @@ public enum SimplePicture
     Action,
     Crime,
     Food,
+
+    // Laid over a picture whose stream didn't play last time (StreamHealth).
+    NotWorking,
 }
 
 public static class SimplePictures
@@ -139,6 +142,9 @@ public static class SimplePictures
         [SimplePicture.Food] = new(Geometry.Parse(
             "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"),
             Color.Parse("#FF7043"), White),
+        [SimplePicture.NotWorking] = new(Geometry.Parse(
+            "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"),
+            Color.Parse("#C62828"), White),
     };
 
     public static Info Get(SimplePicture picture) => All[picture];
