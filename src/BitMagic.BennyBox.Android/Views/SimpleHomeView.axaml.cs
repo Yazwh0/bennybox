@@ -530,7 +530,7 @@ public partial class SimpleHomeView : UserControl
         tiles.Add(new SimplePlayNextTile(target,
             next is null ? "Play from the start" : "Play next",
             $"Season {target.Episode.Season}, episode {target.Episode.EpisodeNumber}",
-            ShortEpisodeTitle(target)));
+            target.ShortTitle));
 
         foreach (var row in rows)
         {
@@ -542,10 +542,10 @@ public partial class SimpleHomeView : UserControl
                 case EpisodeListItemViewModel episode:
                     tiles.Add(new SimpleTile
                     {
-                        Title = ShortEpisodeTitle(episode),
+                        Title = episode.ShortTitle,
                         Payload = episode,
                         BigText = episode.Episode.EpisodeNumber.ToString(),
-                        SpokenText = $"Episode {episode.Episode.EpisodeNumber}. {ShortEpisodeTitle(episode)}",
+                        SpokenText = $"Episode {episode.Episode.EpisodeNumber}. {episode.ShortTitle}",
                         IsWatched = episode.IsWatched,
                         // The one Play next will play gets a play badge.
                         Badge = episode == target ? SimplePicture.Play : null,
@@ -554,15 +554,6 @@ public partial class SimpleHomeView : UserControl
                     break;
             }
         }
-    }
-
-    // Providers often name episodes "Show Name - S01E02 - Title"; the tile already shows the number
-    // and the screen the show, so just the title is left (or "Episode 2" when that's all there is).
-    private static string ShortEpisodeTitle(EpisodeListItemViewModel episode)
-    {
-        var title = System.Text.RegularExpressions.Regex.Replace(episode.Title, @"^.*?\bS\d+\s*E\d+\b\s*[-:–]?\s*", "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-        return title.Length > 0 ? title : $"Episode {episode.Episode.EpisodeNumber}";
     }
 
     // Watching an episode ticks it (and moves Play next on); rebuild when that happens.

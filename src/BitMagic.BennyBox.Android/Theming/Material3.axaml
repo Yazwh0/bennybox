@@ -43,6 +43,71 @@
         <Setter Property="Background" Value="Transparent" />
     </Style>
 
+    <!-- M3 filter chips (Category / Source above a list): 32dp tall outlined pills inside a 48dp touch
+         area, showing the current choice and a drop-down arrow. -->
+    <Style Selector="Button.chip">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource M3OutlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="12,4,8,4" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceBrush}" />
+    </Style>
+    <Style Selector="Button.chip:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource M3OutlineBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceBrush}" />
+    </Style>
+    <Style Selector="Button.chip:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource M3PressedOverlayBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceBrush}" />
+    </Style>
+    <!-- A chip whose filter is in use (not "All ..."): filled, like M3's selected chip. -->
+    <Style Selector="Button.chip.selected">
+        <Setter Property="Background" Value="{DynamicResource M3SecondaryContainerBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSecondaryContainerBrush}" />
+    </Style>
+    <Style Selector="Button.chip.selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource M3SecondaryContainerBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSecondaryContainerBrush}" />
+    </Style>
+
+    <!-- M3 standard icon buttons (top-bar back arrow, row actions): 48x48, no fill. -->
+    <Style Selector="Button.icon">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="48" />
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceVariantBrush}" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceVariantBrush}" />
+    </Style>
+    <Style Selector="Button.icon:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource M3PressedOverlayBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource M3OnSurfaceVariantBrush}" />
+    </Style>
+
+    <!-- A poster in a grid (Shows, Films): the whole tile is the button, no fill of its own. -->
+    <Style Selector="Button.poster">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Button.poster:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.poster:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource M3PressedOverlayBrush}" />
+    </Style>
+
     <!-- Switches sit at the end of a row with the label as a separate TextBlock, so no On/Off text. -->
     <Style Selector="ToggleSwitch">
         <Setter Property="OnContent" Value="{x:Null}" />

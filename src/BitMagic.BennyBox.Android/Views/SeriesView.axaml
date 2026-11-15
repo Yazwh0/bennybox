@@ -1,10 +1,12 @@
 <!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
-     comment for why. Same list/detail-with-episodes structure as desktop's SeriesView.axaml, adapted
-     to plain controls (no glass-*/source-badge classes - see App.axaml) and the row-card look already
-     established in LiveTvView.axaml. The "Read full description" Button.Flyout is kept as-is - Flyouts
-     open on the click event itself (not the bound Command), so this is real touch interaction rather
-     than something the port needs to redesign, and FluentAvalonia's Flyout works the same cross-
-     platform (see CLAUDE.md's debug-bridge notes on Flyouts needing real input either way). -->
+     comment for why. Same SeriesViewModel as desktop, laid out for a phone or tablet:
+     - Browse: a search box, then Category / Source filter chips (the category chip opens a sheet with
+       the categories as pictures and a search box), then the shows as a poster grid - 3 across on a
+       phone, more as the screen gets wider (OnGridSizeChanged). Category headings stay full width
+       between rows (GridRows), so long lists still virtualise. Press and hold a poster for "Add to
+       favourites" / "Remove from favourites".
+     - Show: a top bar with a back arrow and the name, the cover and details, then the episodes by
+       season with watched / download buttons. -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
@@ -16,27 +18,42 @@
              x:DataType="vm:SeriesViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <StackPanel Grid.Row="0" Spacing="6" Margin="8"
+        <!-- Search and filters. -->
+        <StackPanel Grid.Row="0" x:Name="FilterPanel" Spacing="4" Margin="12,8,12,4" HorizontalAlignment="Left"
                     IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNull}}">
-            <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search series..." />
-                <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="18" Height="18" Margin="6,0,0,0" />
-                <Button Grid.Column="2" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0"
-                        Width="48" Height="48" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
-                </Button>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search shows" />
+                <Panel Grid.Column="1" Width="48" Height="48" Margin="4,0,0,0">
+                    <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
+                    <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
+                        <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
+                    </Button>
+                </Panel>
             </Grid>
-            <TextBox Text="{Binding CategoryFilterText}" Watermark="Filter categories..." />
-            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
-            <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" HorizontalAlignment="Stretch" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="CategoryChip" Classes="chip" Click="OnCategoryChipClick" MaxWidth="260"
+                        Classes.selected="{Binding SelectedCategory, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding SelectedCategory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200" />
+                        <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SourceChip" Classes="chip" Click="OnSourceChipClick" MaxWidth="200"
+                        Classes.selected="{Binding SelectedSource, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding SelectedSource}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
+                        <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading series...'}" Opacity="0.7" />
+            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading shows...'}" Opacity="0.7" />
         </StackPanel>
-        <TextBlock Grid.Row="1" Text="No series available yet - add an Xtream profile and refresh it in Settings."
+        <TextBlock Grid.Row="1" Text="No shows yet - add a source and refresh it in Settings."
                    Margin="16" TextWrapping="Wrap" Opacity="0.7">
             <TextBlock.IsVisible>
                 <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
@@ -54,14 +71,15 @@
             </TextBlock.IsVisible>
         </TextBlock>
 
-        <ScrollViewer Grid.Row="1">
+        <!-- The poster grid. -->
+        <ScrollViewer Grid.Row="1" x:Name="GridScroller" SizeChanged="OnGridSizeChanged">
             <ScrollViewer.IsVisible>
                 <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
                     <Binding Path="!IsLoading" />
                     <Binding Path="SelectedSeries" Converter="{x:Static conv:ObjectConverters.IsNull}" />
                 </MultiBinding>
             </ScrollViewer.IsVisible>
-            <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl x:Name="PosterRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -69,118 +87,171 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
+                        <TextBlock Classes="title" Text="{Binding Name}" Margin="0,16,0,8" />
                     </DataTemplate>
-                    <DataTemplate DataType="vm:SeriesListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectSeriesCommand}" CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
-                                            <TextBlock Text="{Binding SourceName}" FontSize="11" Opacity="0.6" />
+                    <DataTemplate DataType="views:GridRow">
+                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,12">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="{x:Static views:PosterGrid.Gap}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.DataTemplates>
+                                <DataTemplate DataType="vm:SeriesListItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="{Binding IsFavorite, Converter={x:Static views:BrowseConverters.FavouriteMenuText}}"
+                                                          Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <StackPanel Spacing="6" Opacity="{Binding ContentOpacity}">
+                                            <Border Height="{Binding #RootControl.PosterHeight}" CornerRadius="10" ClipToBounds="True"
+                                                    Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Name, Converter={x:Static views:SimpleModeConverters.Initials}}"
+                                                               FontSize="28" FontWeight="Bold" Opacity="0.6"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Stretch="UniformToFill" />
+                                                    <Border IsVisible="{Binding IsFavorite}" Width="28" Height="28" CornerRadius="14" Margin="6"
+                                                            Background="#B3000000" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                        <ui:FASymbolIcon Symbol="StarFilled" FontSize="14" Foreground="#FFCA28" />
+                                                    </Border>
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Text="{Binding Name}" FontSize="13" TextWrapping="Wrap" MaxLines="2" Height="36"
+                                                       TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.DataTemplates>
+                        </ItemsControl>
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>
 
-        <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,Auto,*"
+        <!-- One show. -->
+        <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,*"
               IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
-            <Button Grid.Row="0" Content="&#8592; Back to Series" Command="{Binding BackToListCommand}" Margin="8" HorizontalAlignment="Stretch" />
-            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="8,4">
-                <controls:ChannelLogoImage Grid.Column="0" LogoUrl="{Binding SelectedSeries.CoverUrl}" Width="110" Height="165" VerticalAlignment="Top" />
-                <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6" VerticalAlignment="Top">
-                    <TextBlock Text="{Binding SelectedSeries.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"
-                               MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedSeries.Name}" />
-                    <TextBlock Text="{Binding SelectedSeries.SourceName}" FontSize="11" Opacity="0.6" />
-                    <TextBlock Text="{Binding SelectedSeries.MetaLine}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"
-                               IsVisible="{Binding SelectedSeries.HasMetaLine}" />
-                    <TextBlock Text="{Binding SelectedSeries.Plot}" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
-                               MaxLines="6" TextTrimming="CharacterEllipsis"
-                               IsVisible="{Binding SelectedSeries.HasPlot}" ToolTip.Tip="{Binding SelectedSeries.Plot}" />
-                    <Button Content="Read full description" FontSize="11" Padding="0" Margin="0,-2,0,0"
-                            Background="Transparent" BorderThickness="0" HorizontalAlignment="Left"
-                            IsVisible="{Binding SelectedSeries.HasPlot}">
-                        <Button.Flyout>
-                            <Flyout Placement="Bottom">
-                                <ScrollViewer MaxHeight="400" MaxWidth="320">
-                                    <TextBlock Text="{Binding SelectedSeries.Plot}" TextWrapping="Wrap" Margin="8" />
-                                </ScrollViewer>
-                            </Flyout>
-                        </Button.Flyout>
-                    </Button>
-                    <Button Content="&#8595; Download All" FontSize="12" HorizontalAlignment="Left" Command="{Binding DownloadAllEpisodesCommand}" />
-                </StackPanel>
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="4,4,12,0" MinHeight="56">
+                <Button Classes="icon" Command="{Binding BackToListCommand}" ToolTip.Tip="Back to shows">
+                    <ui:FASymbolIcon Symbol="Back" FontSize="20" />
+                </Button>
+                <TextBlock Grid.Column="1" Text="{Binding SelectedSeries.Name}" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="4,0,0,0" TextTrimming="CharacterEllipsis" />
             </Grid>
-            <StackPanel Grid.Row="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoadingEpisodes}">
-                <ui:FAProgressRing IsActive="{Binding IsLoadingEpisodes}" Width="32" Height="32" />
-                <TextBlock Text="Loading episodes..." Opacity="0.7" />
-            </StackPanel>
-            <ScrollViewer Grid.Row="2" IsVisible="{Binding !IsLoadingEpisodes}">
-                <ItemsControl ItemsSource="{Binding Episodes}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <VirtualizingStackPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.DataTemplates>
-                        <DataTemplate DataType="vm:SeasonHeaderRow">
-                            <Grid ColumnDefinitions="*,Auto" Margin="8,12,8,4">
-                                <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="&#8595; Download Season" FontSize="11" Padding="8,4"
-                                        Command="{Binding #RootControl.DataContext.DownloadSeasonCommand}" CommandParameter="{Binding Season}" />
-                            </Grid>
-                        </DataTemplate>
-                        <DataTemplate DataType="vm:EpisodeListItemViewModel">
-                            <Border Classes="card" Margin="8,4" Padding="12">
-                                <Grid ColumnDefinitions="*,Auto,Auto">
-                                    <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                            Command="{Binding #RootControl.DataContext.PlayEpisodeCommand}" CommandParameter="{Binding}"
-                                            ToolTip.Tip="{Binding LocalFilePath}">
-                                        <StackPanel Opacity="{Binding ContentOpacity}">
-                                            <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="11" Opacity="0.7" />
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
-                                                           ToolTip.Tip="Didn't work last time" />
-                                                <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding SourceName}" FontSize="11" Opacity="0.6" />
+            <ScrollViewer Grid.Row="1">
+                <StackPanel Margin="12,4,12,12">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="120" Height="180" CornerRadius="10" ClipToBounds="True" VerticalAlignment="Top"
+                                Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                            <controls:ChannelLogoImage LogoUrl="{Binding SelectedSeries.CoverUrl}" Stretch="UniformToFill" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="6" VerticalAlignment="Top">
+                            <TextBlock Text="{Binding SelectedSeries.MetaLine, Converter={x:Static views:BrowseConverters.MetaLine}}"
+                                       FontSize="13" Opacity="0.7" TextWrapping="Wrap" IsVisible="{Binding SelectedSeries.HasMetaLine}" />
+                            <TextBlock Text="{Binding SelectedSeries.SourceName}" FontSize="13" Opacity="0.6" />
+                            <TextBlock Text="{Binding SelectedSeries.Plot}" FontSize="14" TextWrapping="Wrap"
+                                       MaxLines="5" TextTrimming="CharacterEllipsis" IsVisible="{Binding SelectedSeries.HasPlot}" />
+                            <Button Classes="text" Content="More" HorizontalAlignment="Left" Margin="-12,0,0,0"
+                                    IsVisible="{Binding SelectedSeries.HasPlot}">
+                                <Button.Flyout>
+                                    <Flyout Placement="Bottom">
+                                        <ScrollViewer MaxHeight="400" MaxWidth="320">
+                                            <TextBlock Text="{Binding SelectedSeries.Plot}" TextWrapping="Wrap" Margin="8" />
+                                        </ScrollViewer>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <Button Margin="0,12,0,0" HorizontalAlignment="Left" Command="{Binding DownloadAllEpisodesCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ui:FASymbolIcon Symbol="Download" FontSize="16" />
+                            <TextBlock Text="Download all" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <StackPanel Spacing="8" HorizontalAlignment="Center" Margin="0,32" IsVisible="{Binding IsLoadingEpisodes}">
+                        <ui:FAProgressRing IsActive="{Binding IsLoadingEpisodes}" Width="32" Height="32" />
+                        <TextBlock Text="Loading episodes..." Opacity="0.7" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Episodes}" IsVisible="{Binding !IsLoadingEpisodes}">
+                        <ItemsControl.DataTemplates>
+                            <DataTemplate DataType="vm:SeasonHeaderRow">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,16,0,4">
+                                    <TextBlock Grid.Column="0" Classes="title" Text="{Binding Name}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Classes="text"
+                                            Command="{Binding #RootControl.DataContext.DownloadSeasonCommand}" CommandParameter="{Binding Season}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <ui:FASymbolIcon Symbol="Download" FontSize="14" />
+                                            <TextBlock Text="Download season" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button Grid.Column="1" ToolTip.Tip="Toggle watched"
-                                            Command="{Binding #RootControl.DataContext.ToggleEpisodeWatchedCommand}" CommandParameter="{Binding}"
-                                            Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                        <ui:FASymbolIcon Symbol="{Binding IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
-                                    </Button>
-                                    <Button Grid.Column="2" ToolTip.Tip="Download to this device"
-                                            Command="{Binding #RootControl.DataContext.DownloadEpisodeCommand}" CommandParameter="{Binding}"
-                                            IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}"
-                                            Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                        <ui:FASymbolIcon Symbol="{Binding DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="16" />
-                                    </Button>
                                 </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.DataTemplates>
-                </ItemsControl>
+                            </DataTemplate>
+                            <DataTemplate DataType="vm:EpisodeListItemViewModel">
+                                <Border Classes="card" Margin="0,4" Padding="12,8">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Command="{Binding #RootControl.DataContext.PlayEpisodeCommand}" CommandParameter="{Binding}">
+                                            <StackPanel Opacity="{Binding ContentOpacity}" Spacing="2">
+                                                <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="12" Opacity="0.7" />
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}" />
+                                                    <TextBlock Text="{Binding ShortTitle}" TextWrapping="Wrap" />
+                                                </DockPanel>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="icon" ToolTip.Tip="Watched"
+                                                Command="{Binding #RootControl.DataContext.ToggleEpisodeWatchedCommand}" CommandParameter="{Binding}">
+                                            <ui:FASymbolIcon Symbol="{Binding IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="18" />
+                                        </Button>
+                                        <Button Grid.Column="2" Classes="icon" ToolTip.Tip="Download to this device"
+                                                Command="{Binding #RootControl.DataContext.DownloadEpisodeCommand}" CommandParameter="{Binding}"
+                                                IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}">
+                                            <ui:FASymbolIcon Symbol="{Binding DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="18" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.DataTemplates>
+                    </ItemsControl>
+                </StackPanel>
             </ScrollViewer>
         </Grid>
+
+        <!-- Category picker: a sheet from the bottom with a search box and the categories as pictures. -->
+        <Border Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" Background="#80000000" IsVisible="False"
+                PointerPressed="OnSheetBackgroundPressed">
+            <Border x:Name="CategoryCard" Background="{DynamicResource M3SurfaceContainerLowBrush}" CornerRadius="28,28,0,0"
+                    VerticalAlignment="Bottom" Margin="0,96,0,0" Padding="16,12,16,0" MaxWidth="640">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="title" Text="Category" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Classes="icon" Click="OnCloseSheetClick" ToolTip.Tip="Close">
+                            <ui:FASymbolIcon Symbol="Dismiss" FontSize="18" />
+                        </Button>
+                    </Grid>
+                    <TextBox Grid.Row="1" Text="{Binding CategoryFilterText}" Watermark="Find a category" Margin="0,4,0,8" />
+                    <ListBox Grid.Row="2" x:Name="CategoryList" ItemsSource="{Binding FilteredCategories}" Background="Transparent"
+                             SelectionChanged="OnCategoryPicked">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Grid ColumnDefinitions="Auto,*" MinHeight="52">
+                                    <views:SimplePictureIcon Picture="{Binding Converter={x:Static views:BrowseConverters.CategoryPicture}}"
+                                                             Width="36" Height="36" CornerRadius="8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding}" Margin="16,0,0,0" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" FontSize="16" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Border>
     </Grid>
 </UserControl>

@@ -19,6 +19,18 @@ public partial class EpisodeListItemViewModel : ObservableObject
     // downloads are all keyed on this one.
     public Series Series { get; }
     public string Title => Episode.Title;
+
+    // Providers often name episodes "Show Name - S01E02 - Title". Where the show and number are
+    // already on screen, just the title reads better ("Episode 2" when that's all there is).
+    public string ShortTitle
+    {
+        get
+        {
+            var title = System.Text.RegularExpressions.Regex.Replace(Episode.Title, @"^.*?\bS\d+\s*E\d+\b\s*[-:–]?\s*", "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            return title.Length > 0 ? title : $"Episode {Episode.EpisodeNumber}";
+        }
+    }
     public string SeasonEpisodeLabel => $"S{Episode.Season:00}E{Episode.EpisodeNumber:00}";
     public string? PlotSummary => Episode.PlotSummary;
     public bool HasPlotSummary => !string.IsNullOrEmpty(PlotSummary);
