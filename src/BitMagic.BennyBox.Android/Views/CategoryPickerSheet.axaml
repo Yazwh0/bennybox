@@ -23,10 +23,14 @@
                 <ListBox Grid.Row="2" x:Name="List" Background="Transparent" SelectionChanged="OnPicked">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="views:CategoryChoice">
-                            <Grid ColumnDefinitions="Auto,*" MinHeight="52">
+                            <Grid ColumnDefinitions="Auto,*,Auto" MinHeight="52">
                                 <views:SimplePictureIcon Picture="{Binding Picture}" Width="36" Height="36" CornerRadius="8" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="16,0,0,0" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis" FontSize="16" />
+                                <Button Grid.Column="2" Classes="icon" Click="OnFavouriteClick" IsVisible="{Binding CanFavourite}"
+                                        ToolTip.Tip="Favourite category">
+                                    <ui:FASymbolIcon Symbol="{Binding IsFavourite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="18" />
+                                </Button>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

@@ -18,6 +18,8 @@ public sealed class SharedSettings
     [JsonPropertyName("cu")] public bool? CheckForUpdatesAutomatically { get; set; }
     [JsonPropertyName("sm")] public bool? SimpleMode { get; set; }
     [JsonPropertyName("pp")] public string? PriorityPrefixes { get; set; }
+    // Favourite categories (CategoryFavourites), as its own JSON list.
+    [JsonPropertyName("fc")] public string? FavouriteCategories { get; set; }
 }
 
 public enum FavoriteKind

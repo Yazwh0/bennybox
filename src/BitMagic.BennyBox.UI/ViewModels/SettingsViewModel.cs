@@ -30,6 +30,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly FavoritesTransfer _favoritesTransfer;
     private readonly ContentPriority _contentPriority;
     private readonly ProfileContentImporter _contentImporter;
+    private readonly CategoryFavourites _categoryFavourites;
     private bool _isApplyingSavedPriorityPrefixes;
     private readonly ILogger<SettingsViewModel> _logger;
 
@@ -193,9 +194,12 @@ public partial class SettingsViewModel : ViewModelBase
         FavoritesTransfer favoritesTransfer,
         ContentPriority contentPriority,
         ProfileContentImporter contentImporter,
+        CategoryFavourites categoryFavourites,
         ILogger<SettingsViewModel> logger)
     {
         _contentImporter = contentImporter;
+        _categoryFavourites = categoryFavourites;
+        _ = categoryFavourites.EnsureLoadedAsync();
         _favoritesTransfer = favoritesTransfer;
         _contentPriority = contentPriority;
         _profileRepository = profileRepository;
@@ -669,6 +673,7 @@ public partial class SettingsViewModel : ViewModelBase
         CheckForUpdatesAutomatically = CheckForUpdatesAutomatically,
         SimpleMode = IsSimpleMode,
         PriorityPrefixes = PriorityPrefixes,
+        FavouriteCategories = _categoryFavourites.Items.Count > 0 ? _categoryFavourites.Serialise() : null,
     };
 
     // Each property's own OnChanged handler saves it, exactly as if it had been changed by hand.
@@ -687,6 +692,7 @@ public partial class SettingsViewModel : ViewModelBase
         if (s.PreferredSubtitleLanguage is { } subtitles) PreferredSubtitleLanguage = subtitles;
         if (s.CheckForUpdatesAutomatically is { } checkUpdates) CheckForUpdatesAutomatically = checkUpdates;
         if (s.PriorityPrefixes is { } prefixes) PriorityPrefixes = prefixes;
+        if (s.FavouriteCategories is { } categories) _categoryFavourites.Replace(categories);
         if (s.SimpleMode is { } simple) IsSimpleMode = simple;
     }
 

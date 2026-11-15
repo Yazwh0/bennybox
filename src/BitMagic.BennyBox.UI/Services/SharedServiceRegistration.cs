@@ -67,6 +67,7 @@ public static class SharedServiceRegistration
         services.AddSingleton<StreamHealth>();
         services.AddSingleton<ProfileContentImporter>();
         services.AddSingleton<AutoRefresh>();
+        services.AddSingleton<CategoryFavourites>();
 
         // Some IPTV providers block requests with no User-Agent header (HttpClient sends none by default, unlike curl/browsers).
         const string userAgent = "BennyBox/1.0";

@@ -71,6 +71,9 @@ public partial class SimpleHomeView : UserControl
         InitializeComponent();
         RowsList.ItemsSource = _rows;
 
+        // Favourite categories live in settings; once they're read, the home screen can show them.
+        _ = LoadCategoryFavouritesAsync();
+
         // A stream that just failed (or worked again) updates its tile where it is, rather than
         // rebuilding the screen and losing the scroll position; it moves to the end next time.
         WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, message) =>
@@ -100,6 +103,12 @@ public partial class SimpleHomeView : UserControl
         {
             GoHome();
         }
+    }
+
+    private async Task LoadCategoryFavouritesAsync()
+    {
+        await CategoryFavourites.EnsureLoadedAsync();
+        Rebuild();
     }
 
     private void GoHome()
@@ -277,6 +286,19 @@ public partial class SimpleHomeView : UserControl
                 AddSection(tiles, "My films", SimplePicture.Films, favourites.OfType<MovieListItemViewModel>());
                 AddSection(tiles, "My videos", SimplePicture.Videos, favourites.OfType<ClipListItemViewModel>());
 
+                // Favourite categories ("UK | Sport"): one tap to everything in them. Skipped while that
+                // place is still loading, or if the category has gone from the source.
+                var favouriteCategories = CategoryFavourites.Items
+                    .Select(f => (Destination: DestinationFor(f.Place), f.Name))
+                    .Where(f => PageFor(f.Destination)?.Categories.Contains(f.Name) == true)
+                    .Select(f => CategoryTile(f.Destination, PageFor(f.Destination)!, f.Name, [], withBadge: true))
+                    .ToList();
+                if (favouriteCategories.Count > 0)
+                {
+                    tiles.Add(new SimpleHeader("My categories", SimplePicture.Favourite));
+                    tiles.AddRange(favouriteCategories);
+                }
+
                 var places = Enum.GetValues<SimpleDestination>().Where(HasContent).ToList();
                 if (places.Count > 0)
                 {
@@ -310,14 +332,19 @@ public partial class SimpleHomeView : UserControl
     // A category's picture: a fixed one when its name has a known word (Sport, News, Kids...), so it
     // looks the same every time; otherwise the first four pictures inside it, with the place's badge.
     // Only falls back to the place's own picture when the category has nothing with a picture yet.
-    private static SimpleTile CategoryTile(SimpleDestination destination, IBrowsePage page, string name, HashSet<SimplePicture> usedPictures)
+    // withBadge: the place's picture in the corner too, for the home screen's favourite categories, where TV
+    // and film categories sit side by side.
+    private SimpleTile CategoryTile(SimpleDestination destination, IBrowsePage page, string name, HashSet<SimplePicture> usedPictures,
+        bool withBadge = false)
     {
         var payload = new SimpleCategory(destination, name);
+        var isFavourite = CategoryFavourites.IsFavourite(PlaceFor(destination), name);
         // Each fixed picture is used once per screen (the first category to match gets it), so no two
         // tiles on a screen look the same - "Adventure" after "Action" gets a collage instead.
         if (SimplePictures.ForCategory(name) is { } picture && usedPictures.Add(picture))
         {
-            return new SimpleTile { Title = name, Icon = picture, Payload = payload };
+            return new SimpleTile { Title = name, Icon = picture, Payload = payload, IsFavourite = isFavourite,
+                Badge = withBadge ? PictureFor(destination) : null };
         }
 
         var images = page.ItemsInCategory(name)
@@ -329,9 +356,27 @@ public partial class SimpleHomeView : UserControl
             .ToList();
 
         return images.Count == 0
-            ? new SimpleTile { Title = name, Icon = PictureFor(destination), Payload = payload }
-            : new SimpleTile { Title = name, Collage = images, Badge = PictureFor(destination), Payload = payload };
+            ? new SimpleTile { Title = name, Icon = PictureFor(destination), Payload = payload, IsFavourite = isFavourite }
+            : new SimpleTile { Title = name, Collage = images, Badge = PictureFor(destination), Payload = payload, IsFavourite = isFavourite };
     }
+
+    private static CategoryFavourites CategoryFavourites => App.Services!.GetRequiredService<CategoryFavourites>();
+
+    private static CategoryPlace PlaceFor(SimpleDestination destination) => destination switch
+    {
+        SimpleDestination.Tv => CategoryPlace.Tv,
+        SimpleDestination.Films => CategoryPlace.Films,
+        SimpleDestination.Shows => CategoryPlace.Shows,
+        _ => CategoryPlace.Videos,
+    };
+
+    private static SimpleDestination DestinationFor(CategoryPlace place) => place switch
+    {
+        CategoryPlace.Tv => SimpleDestination.Tv,
+        CategoryPlace.Films => SimpleDestination.Films,
+        CategoryPlace.Shows => SimpleDestination.Shows,
+        _ => SimpleDestination.Videos,
+    };
 
     private static void AddSection(List<object> tiles, string title, SimplePicture picture, IEnumerable<object> items)
     {
@@ -696,6 +741,9 @@ public partial class SimpleHomeView : UserControl
         var add = !tile.IsFavourite;
         switch (tile.Payload)
         {
+            case SimpleCategory category:
+                CategoryFavourites.Toggle(PlaceFor(category.Destination), category.Name);
+                break;
             case ChannelListItemViewModel channel:
                 await (add ? repository.AddAsync(channel.Channel.ProfileId, channel.Channel.Id) : repository.RemoveAsync(channel.Channel.Id));
                 channel.IsFavorite = add;

@@ -165,9 +165,6 @@
                                                 <views:SimplePictureIcon Picture="NotWorking" IsVisible="{Binding DidNotWork}"
                                                                          Width="64" Height="64" CornerRadius="32"
                                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                <views:SimplePictureIcon Picture="Favourite" IsVisible="{Binding IsFavourite}"
-                                                                         Width="36" Height="36" CornerRadius="18"
-                                                                         HorizontalAlignment="Right" VerticalAlignment="Top" />
                                             </Panel>
                                             <!-- Categories without a keyword picture: the first few pictures inside. -->
                                             <Border IsVisible="{Binding HasCollage}" CornerRadius="12" ClipToBounds="True"
@@ -186,6 +183,10 @@
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                             </Border>
+                                            <!-- A favourite: a yellow star, on pictures and category tiles alike. -->
+                                            <views:SimplePictureIcon Picture="Favourite" IsVisible="{Binding IsFavourite}"
+                                                                     Width="36" Height="36" CornerRadius="18" Margin="0,4,4,0"
+                                                                     HorizontalAlignment="Right" VerticalAlignment="Top" />
                                             <!-- What kind of thing it is, in its place's picture and colour. -->
                                             <views:SimplePictureIcon Picture="{Binding Badge, TargetNullValue=Home}" IsVisible="{Binding HasBadge}"
                                                                      Width="36" Height="36" CornerRadius="8"
@@ -236,11 +237,16 @@
                     Margin="16" MaxWidth="480" VerticalAlignment="Center" x:DataType="views:SimpleTile">
                 <StackPanel Spacing="16">
                     <Panel Height="180">
+                        <!-- A category: its own picture and colour. -->
+                        <views:SimplePictureIcon Picture="{Binding PanelPicture, TargetNullValue=Home}" IsVisible="{Binding HasPanelPicture}"
+                                                 Width="180" Height="180" CornerRadius="20" HorizontalAlignment="Center" />
+                        <Panel IsVisible="{Binding !HasPanelPicture}">
                         <Border Classes="picture-backing" IsVisible="{Binding #PanelPic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
                             <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
                         </Border>
                         <controls:ChannelLogoImage x:Name="PanelPic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
                                                    TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                        </Panel>
                         <views:SimplePictureIcon Picture="{Binding Badge, TargetNullValue=Home}" IsVisible="{Binding HasBadge}"
                                                  Width="44" Height="44" CornerRadius="10"
                                                  HorizontalAlignment="Left" VerticalAlignment="Top" />
@@ -248,10 +254,10 @@
                     <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" TextAlignment="Center"
                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                     <UniformGrid Columns="3">
-                        <Button Classes="panel-button" Tag="Play" Click="OnPanelPlayClick" Holding="OnPanelButtonHolding">
+                        <Button Classes="panel-button" Tag="{Binding PrimaryLabel}" Click="OnPanelPlayClick" Holding="OnPanelButtonHolding">
                             <StackPanel Spacing="8">
                                 <views:SimplePictureIcon Picture="Play" Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center" />
-                                <TextBlock Text="Play" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding PrimaryLabel}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Button Classes="panel-button" Click="OnPanelFavouriteClick" Holding="OnPanelButtonHolding"

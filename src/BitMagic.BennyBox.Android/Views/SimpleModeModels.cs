@@ -71,9 +71,16 @@ public sealed partial class SimpleTile : ObservableObject
     public bool HasBadge => Badge is not null;
     public bool HasProgress => Progress is not null;
 
-    // Only real items (channel, film, show, video) can be made favourites.
+    // Channels, films, shows, videos and categories can be made favourites (not episodes or places).
     public bool CanFavourite => Payload is ChannelListItemViewModel or MovieListItemViewModel
-        or SeriesListItemViewModel or ClipListItemViewModel;
+        or SeriesListItemViewModel or ClipListItemViewModel or SimpleCategory;
+
+    // The big picture on the hold panel for something without a picture of its own (a category).
+    public SimplePicture? PanelPicture => Icon ?? (HasCollage ? Badge : null);
+    public bool HasPanelPicture => PanelPicture is not null;
+
+    // The hold panel's first button: a category opens rather than plays.
+    public string PrimaryLabel => Payload is SimpleCategory ? "Open" : "Play";
 }
 
 // The "Normal mode" tile on the home screen: held (not tapped) for a couple of seconds, with Progress
