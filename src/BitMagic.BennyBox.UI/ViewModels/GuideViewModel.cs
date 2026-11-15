@@ -189,6 +189,16 @@ public partial class GuideViewModel : ViewModelBase
         }
     }
 
+    // Clicking a channel's name: its own page on Live TV - watch live, what's coming up, and catch-up.
+    [RelayCommand]
+    private void OpenChannelPage(GuideRowViewModel? row)
+    {
+        if (row is not null)
+        {
+            WeakReferenceMessenger.Default.Send(new OpenChannelMessage(row.Channel));
+        }
+    }
+
     [RelayCommand]
     private async Task ToggleFavoriteAsync(GuideRowViewModel? row)
     {

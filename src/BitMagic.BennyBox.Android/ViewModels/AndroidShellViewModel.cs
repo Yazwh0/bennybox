@@ -117,6 +117,13 @@ public partial class AndroidShellViewModel : ViewModelBase
         // movie/clip result on Search, Favorites, or Downloads (all of which only send one of these
         // messages, they don't navigate directly) would silently do nothing on Android: nothing was
         // listening, so the message vanished and the tab never switched or selected the item.
+        // A channel's page opened from the Guide: switch to Live TV and open it there.
+        WeakReferenceMessenger.Default.Register<OpenChannelMessage>(this, (_, message) =>
+        {
+            CurrentPage = LiveTv;
+            _ = LiveTv.OpenScheduleForAsync(message.Channel);
+        });
+
         WeakReferenceMessenger.Default.Register<OpenSeriesMessage>(this, (_, message) =>
         {
             CurrentPage = Series;

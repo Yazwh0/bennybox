@@ -238,6 +238,15 @@ public partial class LiveTvViewModel : ViewModelBase
     [RelayCommand]
     private void CloseSchedule() => OpenSchedule = null;
 
+    // Opens a channel's page from elsewhere (OpenChannelMessage), using its row here when it has one so
+    // the favourite star and what's on now match.
+    public Task OpenScheduleForAsync(Channel channel)
+    {
+        var row = _allGroups.SelectMany(g => g.Channels).FirstOrDefault(c => c.Channel.Id == channel.Id)
+            ?? new ChannelListItemViewModel(channel, null);
+        return OpenScheduleCommand.ExecuteAsync(row);
+    }
+
     [RelayCommand]
     private void SelectChannel(Channel? channel)
     {

@@ -66,7 +66,7 @@
                                          button's VerticalAlignment="Stretch" below can reach the row's full height
                                          top-to-bottom - matching Live TV/Series - instead of being inset by 6px
                                          top/bottom the way Border.Padding would apply it. -->
-                                    <Grid ColumnDefinitions="Auto,*" Margin="6,0">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,0">
                                         <!-- Rows here are stacked with zero gap (a fixed-height Border with only a
                                              bottom hairline, not per-row Margin like the other list views), so these
                                              buttons deliberately skip glass-nav/glass-ctrl's Background+CornerRadius -
@@ -79,11 +79,14 @@
                                                 VerticalAlignment="Stretch"
                                                 Foreground="{StaticResource GlassTextDimBrush}"
                                                 Padding="6,0" Margin="0,0,4,0" />
+                                        <!-- The name opens the channel's own page (schedule and catch-up) on Live TV;
+                                             the play button beside it watches it live straight away. -->
                                         <Button Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
                                                 HorizontalContentAlignment="Left"
-                                                Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
-                                                CommandParameter="{Binding}">
+                                                Command="{Binding #RootControl.DataContext.OpenChannelPageCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Schedule and catch-up">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
                                                                             FallbackLogoUrl="{Binding FallbackLogoUrl}"
@@ -94,6 +97,9 @@
                                                            Foreground="{StaticResource GlassTextBrush}" />
                                             </StackPanel>
                                         </Button>
+                                        <Button Grid.Column="2" Content="&#9654;" ToolTip.Tip="Watch live"
+                                                Command="{Binding #RootControl.DataContext.SelectChannelCommand}" CommandParameter="{Binding}"
+                                                VerticalAlignment="Stretch" Foreground="{StaticResource GlassTextDimBrush}" Padding="6,0" Margin="4,0,0,0" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

@@ -70,13 +70,17 @@
                                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                                         <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
                                     </Button>
-                                    <controls:ChannelLogoImage Grid.Column="1"
-                                                                LogoUrl="{Binding Channel.LogoUrl}"
-                                                                FallbackLogoUrl="{Binding FallbackLogoUrl}"
-                                                                TmdbFallbackTitle="{Binding ChannelName}"
-                                                                Width="32" Height="32" Margin="6,0" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="{Binding ChannelName}" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" />
+                                    <!-- The channel's name opens its own page (schedule and catch-up) on Live TV;
+                                         the expand arrow still shows today's programmes here, and play watches live. -->
+                                    <Button Grid.Column="1" Grid.ColumnSpan="2" Classes="text" Padding="4,0" HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Left" Foreground="{DynamicResource M3OnSurfaceBrush}"
+                                            Command="{Binding #RootControl.DataContext.OpenChannelPageCommand}" CommandParameter="{Binding}">
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}" FallbackLogoUrl="{Binding FallbackLogoUrl}"
+                                                                       TmdbFallbackTitle="{Binding ChannelName}" Width="32" Height="32" Margin="2,0,10,0" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding ChannelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                    </Button>
                                     <Button Grid.Column="3"
                                             Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
                                             CommandParameter="{Binding}"

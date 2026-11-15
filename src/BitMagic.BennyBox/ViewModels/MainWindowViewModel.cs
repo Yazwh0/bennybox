@@ -118,6 +118,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // A series/movie favorited elsewhere is opened by switching to its page and asking it to
         // select that item, reusing the existing "open a series/movie" flow rather than duplicating it.
+        // A channel's page opened from the Guide: switch to Live TV and open it there.
+        WeakReferenceMessenger.Default.Register<OpenChannelMessage>(this, (_, message) =>
+        {
+            CurrentPage = LiveTv;
+            _ = LiveTv.OpenScheduleForAsync(message.Channel);
+        });
+
         WeakReferenceMessenger.Default.Register<OpenSeriesMessage>(this, (_, message) =>
         {
             CurrentPage = Series;
