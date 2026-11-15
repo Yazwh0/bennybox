@@ -27,6 +27,13 @@ public static class BrowseConverters
     public static readonly IValueConverter WatchedMenuText = new FuncValueConverter<bool, string>(watched =>
         watched ? "Mark as not watched" : "Mark as watched");
 
+    // A poster's progress bar only while something is happening: [show (bool), fraction (double)].
+    public static readonly IMultiValueConverter ProgressWhen = new FuncMultiValueConverter<object?, double?>(values =>
+    {
+        var list = values.ToList();
+        return list is [true, double fraction] ? fraction : null;
+    });
+
     public static readonly IValueConverter FavouriteMenuIcon = new FuncValueConverter<bool, FASymbol>(favourite =>
         favourite ? FASymbol.Star : FASymbol.StarFilled);
 }

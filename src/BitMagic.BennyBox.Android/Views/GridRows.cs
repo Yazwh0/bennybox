@@ -4,36 +4,49 @@ using Avalonia.Threading;
 
 namespace BitMagic.BennyBox.Android.Views;
 
-// One row of a poster grid: up to Columns items side by side.
+// One row of a grid: up to Columns items of the same kind side by side.
 public sealed record GridRow(IReadOnlyList<object> Items);
 
-// Lays a page's flat Rows list (category headings and items) out as a grid that can still virtualise:
-// headings pass through on their own, and the items between them are grouped into GridRows of
-// Columns each. Rebuilds when the source changes (coalesced, since lists refill an item at a time) or
-// when the column count changes with the width.
+// Lays a page's flat Rows list (headings and items) out as a grid that can still virtualise: headings
+// pass through on their own, and the items between them are grouped into GridRows. Pages that mix
+// kinds (Search, Favourites: channel rows and posters) give each kind its own key and column count,
+// and a row never mixes kinds. Rebuilds when the source changes (coalesced, since lists refill an
+// item at a time) or when a column count changes with the width.
 public sealed class GridRows
 {
-    private readonly Func<object, bool> _isItem;
+    // The kind of grid cell an item is, or null for something full width (a heading).
+    private readonly Func<object, string?> _kindOf;
+    private readonly Dictionary<string, int> _columns = [];
     private ObservableCollection<object>? _source;
-    private int _columns = 3;
     private bool _rebuildQueued;
 
-    public GridRows(Func<object, bool> isItem) => _isItem = isItem;
+    public const string Item = "item";
+
+    public GridRows(Func<object, string?> kindOf) => _kindOf = kindOf;
+
+    // The common case: one kind of item, everything else full width.
+    public GridRows(Func<object, bool> isItem) : this(o => isItem(o) ? Item : null)
+    {
+    }
 
     public ObservableCollection<object> Rows { get; } = [];
 
     public int Columns
     {
-        get => _columns;
-        set
+        get => ColumnsFor(Item);
+        set => SetColumns(Item, value);
+    }
+
+    public void SetColumns(string kind, int columns)
+    {
+        if (columns > 0 && ColumnsFor(kind) != columns)
         {
-            if (value != _columns && value > 0)
-            {
-                _columns = value;
-                Rebuild();
-            }
+            _columns[kind] = columns;
+            Rebuild();
         }
     }
+
+    private int ColumnsFor(string kind) => _columns.TryGetValue(kind, out var columns) ? columns : 1;
 
     public void Attach(ObservableCollection<object> source)
     {
@@ -71,17 +84,25 @@ public sealed class GridRows
         }
 
         var pending = new List<object>();
+        string? pendingKind = null;
         foreach (var item in _source)
         {
-            if (!_isItem(item))
+            var kind = _kindOf(item);
+            if (kind is null)
             {
                 Flush();
                 Rows.Add(item);
                 continue;
             }
 
+            if (kind != pendingKind)
+            {
+                Flush();
+                pendingKind = kind;
+            }
+
             pending.Add(item);
-            if (pending.Count == _columns)
+            if (pending.Count >= ColumnsFor(kind))
             {
                 Flush();
             }

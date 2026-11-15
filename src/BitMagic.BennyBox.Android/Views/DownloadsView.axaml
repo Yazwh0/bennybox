@@ -1,23 +1,22 @@
 <!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
-     comment for why. Mirrors desktop's DownloadsView.axaml, adapted to plain controls (no glass-*
-     classes/theme brushes - see App.axaml) and the row-card look already established in
-     LiveTvView.axaml. -->
-<UserControl xmlns="https://github.com/avaloniaui"
+     comment for why. Downloads as posters (MixedGridView), with a progress bar along the bottom while
+     downloading and the status underneath. Tapping a finished one opens it on its own page; press and
+     hold for Cancel / Retry / Delete. -->
+<views:MixedGridView xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
-             xmlns:controls="using:BitMagic.BennyBox.Controls"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:BitMagic.BennyBox.Android.Views"
              x:Class="BitMagic.BennyBox.Views.DownloadsView"
              x:DataType="vm:DownloadsViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <TextBlock Grid.Row="0" Text="Downloads" FontWeight="Bold" FontSize="18" Margin="8" />
+        <TextBlock Grid.Row="0" Classes="headline" Text="Downloads" Margin="16,12,16,0" />
 
-        <TextBlock Grid.Row="1" Text="Nothing downloaded yet - look for the download button on a movie, episode, or clip."
+        <TextBlock Grid.Row="1" Text="Nothing downloaded yet - press and hold a film or video, or open a show, to download it."
                    Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoDownloads}" />
 
-        <ScrollViewer Grid.Row="1">
-            <ItemsControl ItemsSource="{Binding Rows}">
+        <ScrollViewer Grid.Row="1" SizeChanged="OnListSizeChanged">
+            <ItemsControl x:Name="DownloadRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -25,48 +24,45 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
+                        <TextBlock Classes="title" Text="{Binding Name}" Margin="0,16,0,8" />
                     </DataTemplate>
-                    <DataTemplate DataType="vm:DownloadItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.OpenCommand}" CommandParameter="{Binding}"
-                                        IsEnabled="{Binding IsCompleted}" ToolTip.Tip="Open in Movies/Series/Clips">
-                                    <Grid ColumnDefinitions="Auto,*">
-                                        <controls:ChannelLogoImage Grid.Column="0" LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
-                                            <TextBlock Text="{Binding StatusLabel}" FontSize="11" Opacity="0.75" Margin="0,4,0,0" />
-                                            <ProgressBar Height="4" Margin="0,6,0,0" Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"
-                                                         IsVisible="{Binding IsInProgress}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Button>
-                                <Button Grid.Column="1" Content="Cancel"
-                                        Command="{Binding #RootControl.DataContext.CancelCommand}" CommandParameter="{Binding}"
-                                        IsVisible="{Binding IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
-                                            IsVisible="{Binding !IsInProgress}" VerticalAlignment="Center" Margin="4,0,0,0">
-                                    <Button ToolTip.Tip="Retry"
-                                            Command="{Binding #RootControl.DataContext.RetryCommand}" CommandParameter="{Binding}"
-                                            IsVisible="{Binding IsFailedOrCanceled}" Width="48" Height="48" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
+                    <DataTemplate DataType="views:GridRow">
+                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,8">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="{x:Static views:PosterGrid.Gap}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.DataTemplates>
+                                <DataTemplate DataType="vm:DownloadItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="Cancel" IsVisible="{Binding IsInProgress}"
+                                                          Command="{Binding #RootControl.DataContext.CancelCommand}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="Try again" IsVisible="{Binding IsFailedOrCanceled}"
+                                                          Command="{Binding #RootControl.DataContext.RetryCommand}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="Delete" IsVisible="{Binding !IsInProgress}"
+                                                          Command="{Binding #RootControl.DataContext.DeleteCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
+                                                          Title="{Binding Title}" ImageUrl="{Binding CoverUrl}" Subtitle="{Binding StatusLabel}">
+                                            <views:PosterTile.Progress>
+                                                <MultiBinding Converter="{x:Static views:BrowseConverters.ProgressWhen}">
+                                                    <Binding Path="IsInProgress" />
+                                                    <Binding Path="ProgressFraction" />
+                                                </MultiBinding>
+                                            </views:PosterTile.Progress>
+                                        </views:PosterTile>
                                     </Button>
-                                    <Button ToolTip.Tip="Delete"
-                                            Command="{Binding #RootControl.DataContext.DeleteCommand}" CommandParameter="{Binding}"
-                                            Width="48" Height="48" Padding="0"
-                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                        <ui:FASymbolIcon Symbol="Dismiss" FontSize="16" />
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                                </DataTemplate>
+                            </ItemsControl.DataTemplates>
+                        </ItemsControl>
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>
     </Grid>
-</UserControl>
+</views:MixedGridView>

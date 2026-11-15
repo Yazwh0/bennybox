@@ -1,8 +1,9 @@
 <!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
-     comment for why. Mirrors desktop's FavoritesView.axaml row-for-row, adapted to plain controls (no
-     glass-* classes/theme brushes - see App.axaml) and the row-card look already established in
-     LiveTvView.axaml. -->
-<UserControl xmlns="https://github.com/avaloniaui"
+     comment for why. Continue watching, then favourite channels, shows, films and videos, laid out like
+     their own pages (MixedGridView): channels as compact rows, the rest as posters - part-watched ones
+     with a progress bar. Tapping plays (continue watching, channels) or opens it on its own page; press
+     and hold a poster to remove it. -->
+<views:MixedGridView xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -13,13 +14,16 @@
              x:DataType="vm:FavoritesViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <TextBlock Grid.Row="0" Text="Favorites" FontSize="20" Margin="8" />
+        <StackPanel Grid.Row="0" Margin="16,12,16,0">
+            <TextBlock Classes="headline" Text="Favourites" />
+            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding LoadError, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-            <TextBlock Text="Loading favorites..." Opacity="0.7" />
         </StackPanel>
-        <TextBlock Grid.Row="1" Text="No favorites yet - star a channel or series to add it here."
-                   Margin="16" TextWrapping="Wrap" Opacity="0.7">
+        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap" Opacity="0.7"
+                   Text="Nothing here yet - press and hold a show or film (or tap a channel's star) to add it.">
             <TextBlock.IsVisible>
                 <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
                     <Binding Path="!IsLoading" />
@@ -27,8 +31,9 @@
                 </MultiBinding>
             </TextBlock.IsVisible>
         </TextBlock>
-        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
-            <ItemsControl ItemsSource="{Binding Rows}">
+
+        <ScrollViewer Grid.Row="1" SizeChanged="OnListSizeChanged">
+            <ItemsControl x:Name="FavouriteRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -36,129 +41,109 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
+                        <TextBlock Classes="title" Text="{Binding Name}" Margin="0,16,0,8" />
                     </DataTemplate>
-                    <DataTemplate DataType="vm:WatchProgressItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.PlayWatchProgressCommand}" CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
-                                            <ProgressBar Value="{Binding ProgressFraction}" Minimum="0" Maximum="1" Width="140" Height="4" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.RemoveWatchProgressCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="Dismiss" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                    <DataTemplate DataType="vm:ChannelListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectChannelCommand}" CommandParameter="{Binding Channel}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}" FallbackLogoUrl="{Binding FallbackLogoUrl}"
-                                                                    TmdbFallbackTitle="{Binding Name}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center">
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
-                                                           ToolTip.Tip="Didn't work last time" />
-                                                <TextBlock Text="{Binding Name}" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding NowTitle}" FontSize="11" Opacity="0.7" IsVisible="{Binding HasNowTitle}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                    <DataTemplate DataType="vm:SeriesListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectSeriesCommand}" CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.RemoveSeriesFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                    <DataTemplate DataType="vm:MovieListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectMovieCommand}" CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
-                                                       ToolTip.Tip="Didn't work last time" />
-                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                        </DockPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.RemoveMovieFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                    <DataTemplate DataType="vm:ClipListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectClipCommand}" CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
-                                                       ToolTip.Tip="Didn't work last time" />
-                                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                        </DockPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.RemoveClipFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="StarFilled" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
+                    <DataTemplate DataType="views:GridRow">
+                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,8">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="{x:Static views:PosterGrid.Gap}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.DataTemplates>
+                                <DataTemplate DataType="vm:WatchProgressItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="Remove from continue watching"
+                                                          Command="{Binding #RootControl.DataContext.RemoveWatchProgressCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
+                                                          Title="{Binding Title}" ImageUrl="{Binding CoverUrl}" Progress="{Binding ProgressFraction}" />
+                                    </Button>
+                                </DataTemplate>
+
+                                <DataTemplate DataType="vm:ChannelListItemViewModel">
+                                    <Border Classes="card" Width="{Binding #RootControl.ColumnWidth}" Padding="8,4,4,4" MinHeight="64">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Button Grid.Column="0" Padding="0" Background="Transparent" BorderThickness="0"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Command="{Binding #RootControl.DataContext.SelectChannelCommand}" CommandParameter="{Binding Channel}">
+                                                <Grid ColumnDefinitions="Auto,*">
+                                                    <Border Width="48" Height="48" CornerRadius="8" ClipToBounds="True" VerticalAlignment="Center"
+                                                            Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                                                        <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}" FallbackLogoUrl="{Binding FallbackLogoUrl}"
+                                                                                   TmdbFallbackTitle="{Binding Name}" Margin="2" />
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                                        <DockPanel>
+                                                            <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0"
+                                                                       IsVisible="{Binding DidNotWork}" />
+                                                            <TextBlock Text="{Binding Name}" FontSize="15" TextTrimming="CharacterEllipsis" />
+                                                        </DockPanel>
+                                                        <TextBlock Text="{Binding NowTitle}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis"
+                                                                   IsVisible="{Binding HasNowTitle}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                            <Button Grid.Column="1" Classes="icon" ToolTip.Tip="Remove from favourites"
+                                                    Command="{Binding #RootControl.DataContext.RemoveFavoriteCommand}" CommandParameter="{Binding}">
+                                                <ui:FASymbolIcon Symbol="StarFilled" FontSize="18" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+
+                                <DataTemplate DataType="vm:SeriesListItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="Remove from favourites"
+                                                          Command="{Binding #RootControl.DataContext.RemoveSeriesFavoriteCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
+                                                          Title="{Binding Name}" ImageUrl="{Binding CoverUrl}" Opacity="{Binding ContentOpacity}" />
+                                    </Button>
+                                </DataTemplate>
+
+                                <DataTemplate DataType="vm:MovieListItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="Remove from favourites"
+                                                          Command="{Binding #RootControl.DataContext.RemoveMovieFavoriteCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
+                                                          Title="{Binding Name}" ImageUrl="{Binding CoverUrl}" DidNotWork="{Binding DidNotWork}"
+                                                          Opacity="{Binding ContentOpacity}" />
+                                    </Button>
+                                </DataTemplate>
+
+                                <DataTemplate DataType="vm:ClipListItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="Remove from favourites"
+                                                          Command="{Binding #RootControl.DataContext.RemoveClipFavoriteCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
+                                                          Title="{Binding Name}" ImageUrl="{Binding CoverUrl}" DidNotWork="{Binding DidNotWork}"
+                                                          Opacity="{Binding ContentOpacity}" />
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.DataTemplates>
+                        </ItemsControl>
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>
     </Grid>
-</UserControl>
+</views:MixedGridView>
