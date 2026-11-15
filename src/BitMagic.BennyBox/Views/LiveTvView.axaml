@@ -3,11 +3,20 @@
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
+             xmlns:conv="using:Avalonia.Data.Converters"
              x:Class="BitMagic.BennyBox.Views.LiveTvView"
              x:DataType="vm:LiveTvViewModel"
              x:Name="RootControl">
+    <UserControl.Styles>
+        <!-- The programme on now in a channel's schedule. -->
+        <Style Selector="Border.glass-card.schedule-now">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+    </UserControl.Styles>
     <Grid RowDefinitions="Auto,*">
-        <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4">
+        <StackPanel Grid.Row="0" Spacing="6" Margin="8,8,8,4"
+                    IsVisible="{Binding OpenSchedule, Converter={x:Static conv:ObjectConverters.IsNull}}">
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBox Classes="glass" Grid.Column="0" Text="{Binding SearchText}" PlaceholderText="Search channels..." />
                 <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
@@ -45,7 +54,13 @@
             an outer ItemsControl. With 15k+ channels the nested/non-virtualized version realized
             every row's controls up front, which is what made loading the list freeze the UI.
         -->
-        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
+        <ScrollViewer Grid.Row="1">
+            <ScrollViewer.IsVisible>
+                <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
+                    <Binding Path="!IsLoading" />
+                    <Binding Path="OpenSchedule" Converter="{x:Static conv:ObjectConverters.IsNull}" />
+                </MultiBinding>
+            </ScrollViewer.IsVisible>
             <ItemsControl ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -58,7 +73,7 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:ChannelListItemViewModel">
                         <Border Classes="glass-card" Margin="8,4" Padding="10">
-                            <Grid ColumnDefinitions="*,Auto">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
                                 <Button Classes="glass-ctrl flat" Grid.Column="0"
                                         Padding="0"
                                         HorizontalAlignment="Stretch"
@@ -79,10 +94,20 @@
                                             <TextBlock Text="{Binding NowTitle}"
                                                         FontSize="11" Foreground="{StaticResource GlassTextDimBrush}"
                                                         IsVisible="{Binding HasNowTitle}" />
+                                            <ProgressBar Value="{Binding NowProgress}" Minimum="0" Maximum="1" Height="3" MinWidth="0" Width="180" Margin="0,3,0,3"
+                                                         HorizontalAlignment="Left" IsVisible="{Binding HasNowProgress}" />
+                                            <TextBlock Text="{Binding NextLine}" FontSize="11" Foreground="{StaticResource GlassTextDimBrush}" Opacity="0.8"
+                                                       IsVisible="{Binding HasNextLine}" />
                                         </StackPanel>
                                     </StackPanel>
                                 </Button>
-                                <Button Classes="glass-nav flat" Grid.Column="1"
+                                <!-- The channel's own page: what's coming up and what can be watched again. -->
+                                <Button Classes="glass-nav flat" Grid.Column="1" Content="&#128197;" ToolTip.Tip="Schedule and catch-up"
+                                        IsVisible="{Binding HasGuide}"
+                                        Command="{Binding #RootControl.DataContext.OpenScheduleCommand}" CommandParameter="{Binding}"
+                                        VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Width="34" Height="34" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0" />
+                                <Button Classes="glass-nav flat" Grid.Column="2"
                                         Content="{Binding FavoriteIcon}"
                                         Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
                                         CommandParameter="{Binding}"
@@ -95,5 +120,59 @@
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>
+
+        <!-- One channel's page (ChannelScheduleViewModel): watch live, what's coming up, and earlier
+             programmes to watch again where the provider keeps catch-up. Same layout as a show's page. -->
+        <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,Auto,*"
+              IsVisible="{Binding #RootControl.DataContext.OpenSchedule, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+              DataContext="{Binding #RootControl.DataContext.OpenSchedule}" x:DataType="vm:ChannelScheduleViewModel">
+            <Button Classes="glass-ctrl" Grid.Row="0" Content="&#8592; Back to channels" Command="{Binding #RootControl.DataContext.CloseScheduleCommand}"
+                    Margin="8,8,8,4" HorizontalAlignment="Stretch" />
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="8,4">
+                <controls:ChannelLogoImage LogoUrl="{Binding Channel.Channel.LogoUrl}" FallbackLogoUrl="{Binding Channel.FallbackLogoUrl}"
+                                           TmdbFallbackTitle="{Binding Channel.Name}" Width="56" Height="56" VerticalAlignment="Top" />
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6">
+                    <TextBlock Text="{Binding Channel.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                    <TextBlock Text="{Binding CatchupNote}" FontSize="11" TextWrapping="Wrap" Foreground="{StaticResource GlassTextDimBrush}" />
+                    <Button Classes="glass-ctrl accent" Content="&#9654; Watch live" Command="{Binding WatchLiveCommand}" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Grid>
+            <ui:FAProgressRing Grid.Row="2" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="32" Height="32"
+                               VerticalAlignment="Top" Margin="0,32,0,0" />
+            <TextBlock Grid.Row="2" Text="No programme information for this channel." Margin="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource GlassTextDimBrush}" IsVisible="{Binding HasNoGuide}" />
+            <ScrollViewer Grid.Row="2" x:Name="ScheduleScroller" IsVisible="{Binding !IsLoading}">
+                <ItemsControl x:Name="ScheduleList" ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.DataTemplates>
+                        <DataTemplate DataType="vm:ScheduleDayHeader">
+                            <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,10,8,4" Foreground="{StaticResource GlassTextBrush}" />
+                        </DataTemplate>
+                        <DataTemplate DataType="vm:ScheduleProgrammeViewModel">
+                            <Border Classes="glass-card" Classes.schedule-now="{Binding IsNow}" Margin="8,3" Padding="10,8" Opacity="{Binding Opacity}">
+                                <Grid ColumnDefinitions="48,*,Auto">
+                                    <TextBlock Text="{Binding TimeLabel}" FontWeight="SemiBold" Foreground="{StaticResource GlassTextBrush}" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Foreground="{StaticResource GlassTextBrush}" />
+                                        <TextBlock Text="{Binding Description}" FontSize="11" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource GlassTextDimBrush}" IsVisible="{Binding HasDescription}"
+                                                   ToolTip.Tip="{Binding Description}" />
+                                        <ProgressBar Value="{Binding NowProgress}" Minimum="0" Maximum="1" Height="3" MinWidth="0" Margin="0,3,0,0"
+                                                     IsVisible="{Binding IsNow}" />
+                                    </StackPanel>
+                                    <Button Classes="glass-ctrl" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Content="{Binding Status, StringFormat='&#9654; {0}'}" IsVisible="{Binding CanPlay}"
+                                            Command="{Binding #RootControl.DataContext.OpenSchedule.PlayProgrammeCommand}" CommandParameter="{Binding}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.DataTemplates>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
     </Grid>
 </UserControl>
