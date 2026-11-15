@@ -15,6 +15,15 @@ public static class SimpleModeConverters
     public static readonly IValueConverter FullscreenIcon = new FuncValueConverter<bool, FluentAvalonia.UI.Controls.FASymbol>(full =>
         full ? FluentAvalonia.UI.Controls.FASymbol.FullScreenMinimize : FluentAvalonia.UI.Controls.FASymbol.FullScreenMaximize);
 
+    public static readonly IValueConverter PlayPausePicture = new FuncValueConverter<bool, SimplePicture>(paused => paused ? SimplePicture.Play : SimplePicture.Pause);
+
+    public static readonly IValueConverter FullscreenPicture = new FuncValueConverter<bool, SimplePicture>(full => full ? SimplePicture.Small : SimplePicture.Big);
+
+    // The favourite button on the hold panel: a yellow star to add, an empty one to take it off.
+    public static readonly IValueConverter FavouritePicture = new FuncValueConverter<bool, SimplePicture>(favourite => favourite ? SimplePicture.NotFavourite : SimplePicture.Favourite);
+
+    public static readonly IValueConverter FavouriteLabel = new FuncValueConverter<bool, string>(favourite => favourite ? "Remove" : "Favourite");
+
     // Up to two letters, from the first two words ("BBC One" -> "BO", "Alias" -> "A"), shown on a
     // coloured tile when something has no picture, so there's never a blank square.
     public static readonly IValueConverter Initials = new FuncValueConverter<string?, string>(name =>

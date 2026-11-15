@@ -33,7 +33,7 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel VerticalAlignment="Center" Spacing="2">
                                 <TextBlock Text="Simple picture mode" />
-                                <TextBlock Text="Everything as big pictures, with no menus or typing. To leave, hold the Normal mode tile at the bottom of its home screen for 2 seconds."
+                                <TextBlock Text="Everything as big pictures, with no menus or typing. Hold any picture to hear its name or make it a favourite. To leave, hold the Normal mode tile at the bottom of its home screen for 2 seconds."
                                            Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsSimpleMode}" />

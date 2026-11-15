@@ -8,8 +8,11 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using BitMagic.BennyBox.Android.Services;
 using BitMagic.BennyBox.Android.ViewModels;
+using BitMagic.BennyBox.Core.Services;
+using BitMagic.BennyBox.Messages;
 using BitMagic.BennyBox.ViewModels;
-using FluentAvalonia.UI.Controls;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BitMagic.BennyBox.Android.Views;
 
@@ -40,7 +43,7 @@ public partial class SimpleHomeView : UserControl
         set => SetValue(TileImageHeightProperty, value);
     }
 
-    private enum ScreenKind { Home, Favourites, Categories, Items }
+    private enum ScreenKind { Home, Categories, Items }
 
     private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null);
 
@@ -125,13 +128,13 @@ public partial class SimpleHomeView : UserControl
 
         _screen = screen;
         BackButton.IsVisible = screen.Kind != ScreenKind.Home;
-        (TitleIcon.Symbol, TitleText.Text) = screen switch
+        (TitleIcon.Picture, TitleText.Text) = screen switch
         {
-            { Kind: ScreenKind.Home } => (FASymbol.Home, "Home"),
+            { Kind: ScreenKind.Home } => (SimplePicture.Home, "Home"),
             { Kind: ScreenKind.Items, Category: { } category } when category != PageFor(screen.Destination!.Value)?.Categories.FirstOrDefault()
-                => (IconFor(screen.Destination!.Value), category),
-            { Destination: { } destination } => (IconFor(destination), LabelFor(destination)),
-            _ => (FASymbol.Home, "Home"),
+                => (PictureFor(screen.Destination!.Value), category),
+            { Destination: { } destination } => (PictureFor(destination), LabelFor(destination)),
+            _ => (SimplePicture.Home, "Home"),
         };
 
         if (screen.Kind == ScreenKind.Items && screen.Destination is { } destination2 && PageFor(destination2) is { } itemsPage)
@@ -148,7 +151,7 @@ public partial class SimpleHomeView : UserControl
     // load in the background, and filtering by category refills them).
     private INotifyCollectionChanged? SourceFor(Screen screen) => screen switch
     {
-        { Kind: ScreenKind.Home or ScreenKind.Favourites } => _shell?.Favorites.Rows,
+        { Kind: ScreenKind.Home } => _shell?.Favorites.Rows,
         { Kind: ScreenKind.Categories, Destination: { } d } => PageFor(d)?.Categories,
         { Kind: ScreenKind.Items, Destination: { } d } => PageFor(d)?.Rows,
         _ => null,
@@ -232,33 +235,34 @@ public partial class SimpleHomeView : UserControl
                 var keepWatching = shell.Favorites.Rows.OfType<WatchProgressItemViewModel>().Select(TileFor).ToList();
                 if (keepWatching.Count > 0)
                 {
-                    tiles.Add(new SimpleHeader("Keep watching", FASymbol.PlayFilled));
+                    tiles.Add(new SimpleHeader("Keep watching", SimplePicture.KeepWatching));
                     tiles.AddRange(keepWatching);
                 }
 
-                tiles.Add(new SimpleHeader("Watch", FASymbol.Video));
-                foreach (var destination in Enum.GetValues<SimpleDestination>())
+                // Favourites, a section per kind, each headed by that kind's own picture.
+                var favourites = shell.Favorites.Rows;
+                AddSection(tiles, "My channels", SimplePicture.Tv, favourites.OfType<ChannelListItemViewModel>());
+                AddSection(tiles, "My shows", SimplePicture.Shows, favourites.OfType<SeriesListItemViewModel>());
+                AddSection(tiles, "My films", SimplePicture.Films, favourites.OfType<MovieListItemViewModel>());
+                AddSection(tiles, "My videos", SimplePicture.Videos, favourites.OfType<ClipListItemViewModel>());
+
+                var places = Enum.GetValues<SimpleDestination>().Where(HasContent).ToList();
+                if (places.Count > 0)
                 {
-                    if (destination == SimpleDestination.Favourites ? !shell.Favorites.HasNoFavorites : HasContent(destination))
-                    {
-                        tiles.Add(new SimpleTile { Title = LabelFor(destination), Icon = IconFor(destination), Payload = destination });
-                    }
+                    tiles.Add(new SimpleHeader("Everything", SimplePicture.Home));
+                    tiles.AddRange(places.Select(destination =>
+                        new SimpleTile { Title = LabelFor(destination), Icon = PictureFor(destination), Payload = destination }));
                 }
 
-                tiles.Add(new SimpleHeader("Settings", FASymbol.Settings));
+                tiles.Add(new SimpleHeader("Settings", SimplePicture.Settings));
                 tiles.Add(_exitTile);
-                break;
-
-            case ScreenKind.Favourites:
-                tiles.AddRange(shell.Favorites.Rows.Where(r => r is not WatchProgressItemViewModel and not CategoryHeaderRow)
-                    .Select(TileForItem).OfType<SimpleTile>());
                 break;
 
             case ScreenKind.Categories when screen.Destination is { } destination && PageFor(destination) is { } page:
                 tiles.AddRange(page.Categories.Skip(1).Select(name => new SimpleTile
                 {
                     Title = name,
-                    Icon = IconFor(destination),
+                    Icon = PictureFor(destination),
                     Payload = new SimpleCategory(destination, name),
                 }));
                 break;
@@ -271,6 +275,16 @@ public partial class SimpleHomeView : UserControl
         return tiles;
     }
 
+    private static void AddSection(List<object> tiles, string title, SimplePicture picture, IEnumerable<object> items)
+    {
+        var section = items.Select(TileForItem).OfType<SimpleTile>().ToList();
+        if (section.Count > 0)
+        {
+            tiles.Add(new SimpleHeader(title, picture));
+            tiles.AddRange(section);
+        }
+    }
+
     private bool HasContent(SimpleDestination destination) =>
         PageFor(destination) is { } page && (page.Categories.Count > 1 || page.Rows.Count > 0);
 
@@ -280,10 +294,20 @@ public partial class SimpleHomeView : UserControl
         {
             Title = channel.Name, Payload = channel, ImageUrl = channel.Channel.LogoUrl,
             FallbackImageUrl = channel.FallbackLogoUrl, TmdbFallbackTitle = channel.Name,
+            Badge = SimplePicture.Tv, IsFavourite = channel.IsFavorite,
         },
-        MovieListItemViewModel movie => new SimpleTile { Title = movie.Name, Payload = movie, ImageUrl = movie.CoverUrl },
-        SeriesListItemViewModel series => new SimpleTile { Title = series.Name, Payload = series, ImageUrl = series.CoverUrl },
-        ClipListItemViewModel clip => new SimpleTile { Title = clip.Name, Payload = clip, ImageUrl = clip.CoverUrl },
+        MovieListItemViewModel movie => new SimpleTile
+        {
+            Title = movie.Name, Payload = movie, ImageUrl = movie.CoverUrl, Badge = SimplePicture.Films, IsFavourite = movie.IsFavorite,
+        },
+        SeriesListItemViewModel series => new SimpleTile
+        {
+            Title = series.Name, Payload = series, ImageUrl = series.CoverUrl, Badge = SimplePicture.Shows, IsFavourite = series.IsFavorite,
+        },
+        ClipListItemViewModel clip => new SimpleTile
+        {
+            Title = clip.Name, Payload = clip, ImageUrl = clip.CoverUrl, Badge = SimplePicture.Videos, IsFavourite = clip.IsFavorite,
+        },
         WatchProgressItemViewModel progress => TileFor(progress),
         _ => null,
     };
@@ -325,7 +349,6 @@ public partial class SimpleHomeView : UserControl
 
     private static string LabelFor(SimpleDestination destination) => destination switch
     {
-        SimpleDestination.Favourites => "Favourites",
         SimpleDestination.Tv => "TV",
         SimpleDestination.Films => "Films",
         SimpleDestination.Shows => "Shows",
@@ -333,14 +356,13 @@ public partial class SimpleHomeView : UserControl
         _ => "",
     };
 
-    private static FASymbol IconFor(SimpleDestination destination) => destination switch
+    private static SimplePicture PictureFor(SimpleDestination destination) => destination switch
     {
-        SimpleDestination.Favourites => FASymbol.Star,
-        SimpleDestination.Tv => FASymbol.Video,
-        SimpleDestination.Films => FASymbol.Library,
-        SimpleDestination.Shows => FASymbol.List,
-        SimpleDestination.Videos => FASymbol.Flag,
-        _ => FASymbol.Home,
+        SimpleDestination.Tv => SimplePicture.Tv,
+        SimpleDestination.Films => SimplePicture.Films,
+        SimpleDestination.Shows => SimplePicture.Shows,
+        SimpleDestination.Videos => SimplePicture.Videos,
+        _ => SimplePicture.Home,
     };
 
     private void OnListSizeChanged(object? sender, SizeChangedEventArgs e)
@@ -369,12 +391,19 @@ public partial class SimpleHomeView : UserControl
             return;
         }
 
+        await ActivateAsync(tile);
+    }
+
+    private async Task ActivateAsync(SimpleTile tile)
+    {
+        if (_shell is null)
+        {
+            return;
+        }
+
         var player = _shell.Player;
         switch (tile.Payload)
         {
-            case SimpleDestination.Favourites:
-                Navigate(new Screen(ScreenKind.Favourites, SimpleDestination.Favourites));
-                break;
             case SimpleDestination destination:
                 // Skip the category screen when there's only one category (or none) to pick from.
                 var categories = PageFor(destination)?.Categories.Count ?? 0;
@@ -426,13 +455,112 @@ public partial class SimpleHomeView : UserControl
         }
     }
 
+    // Holding reads the name aloud, and for a channel/film/show/video opens the item panel.
     private void OnTileHolding(object? sender, HoldingRoutedEventArgs e)
     {
         if (e.HoldingState == HoldingState.Started && sender is Control { DataContext: SimpleTile tile })
         {
             _suppressNextClick = true;
             ReadAloud.Speak(tile.Title);
+            if (tile.CanFavourite)
+            {
+                ItemCard.DataContext = tile;
+                ItemPanel.IsVisible = true;
+            }
         }
+    }
+
+    private void CloseItemPanel()
+    {
+        ItemPanel.IsVisible = false;
+        ItemCard.DataContext = null;
+    }
+
+    private void OnItemPanelBackgroundPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Only a press on the dimmed area around the card, not on the card itself.
+        if (ReferenceEquals(e.Source, ItemPanel))
+        {
+            CloseItemPanel();
+        }
+    }
+
+    private bool TakeSuppressedClick()
+    {
+        if (!_suppressNextClick)
+        {
+            return false;
+        }
+
+        _suppressNextClick = false;
+        return true;
+    }
+
+    private async void OnPanelPlayClick(object? sender, RoutedEventArgs e)
+    {
+        if (TakeSuppressedClick() || ItemCard.DataContext is not SimpleTile tile)
+        {
+            return;
+        }
+
+        CloseItemPanel();
+        await ActivateAsync(tile);
+    }
+
+    private void OnPanelBackClick(object? sender, RoutedEventArgs e)
+    {
+        if (!TakeSuppressedClick())
+        {
+            CloseItemPanel();
+        }
+    }
+
+    private void OnPanelButtonHolding(object? sender, HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState == HoldingState.Started && sender is Control { Tag: string label })
+        {
+            _suppressNextClick = true;
+            ReadAloud.Speak(label);
+        }
+    }
+
+    // Adds or removes the favourite, saying which it did. The home screen rebuilds from the reloaded
+    // favourites; the browse pages pick up the change through FavoritesUpdatedMessage.
+    private async void OnPanelFavouriteClick(object? sender, RoutedEventArgs e)
+    {
+        if (TakeSuppressedClick() || ItemCard.DataContext is not SimpleTile tile)
+        {
+            return;
+        }
+
+        var repository = App.Services!.GetRequiredService<IFavoriteRepository>();
+        var add = !tile.IsFavourite;
+        switch (tile.Payload)
+        {
+            case ChannelListItemViewModel channel:
+                await (add ? repository.AddAsync(channel.Channel.ProfileId, channel.Channel.Id) : repository.RemoveAsync(channel.Channel.Id));
+                channel.IsFavorite = add;
+                break;
+            case SeriesListItemViewModel series:
+                await (add ? repository.AddSeriesAsync(series.Series.ProfileId, series.Series.Id) : repository.RemoveSeriesAsync(series.Series.Id));
+                series.IsFavorite = add;
+                break;
+            case MovieListItemViewModel movie:
+                await (add ? repository.AddMovieAsync(movie.Movie.ProfileId, movie.Movie.Id) : repository.RemoveMovieAsync(movie.Movie.Id));
+                movie.IsFavorite = add;
+                break;
+            case ClipListItemViewModel clip:
+                await (add ? repository.AddClipAsync(clip.Clip.ProfileId, clip.Clip.Id) : repository.RemoveClipAsync(clip.Clip.Id));
+                clip.IsFavorite = add;
+                break;
+            default:
+                return;
+        }
+
+        tile.IsFavourite = add;
+        ReadAloud.Speak(add ? "Added to favourites" : "Removed from favourites");
+        CloseItemPanel();
+        WeakReferenceMessenger.Default.Send(new FavoritesUpdatedMessage());
     }
 
     private void OnBackHolding(object? sender, HoldingRoutedEventArgs e)

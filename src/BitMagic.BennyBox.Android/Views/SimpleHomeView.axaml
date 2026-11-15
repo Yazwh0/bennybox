@@ -1,10 +1,14 @@
 <!-- Simple picture mode (Settings > Simple picture mode): the whole app as big picture tiles, for someone
      who recognises pictures more easily than words (e.g. aphasia) and should be able to use it alone.
-     - Home: Keep watching, then big tiles for Favourites, TV, Films, Shows and Videos, then "Normal mode".
+     - Home: Keep watching, then the favourite channels, shows, films and videos as pictures, then big
+       tiles for TV, Films, Shows and Videos to browse everything, then "Normal mode".
      - TV/Films/Shows/Videos: category tiles, then a picture grid. One tap plays (shows resume their
        next unwatched episode). Nothing opens a text-heavy page, and there's no typing anywhere.
+     - Every place has one fixed picture and colour (SimplePictures), used everywhere it appears.
      - The same big Back button at the top of every screen except Home.
-     - Press and hold any tile to hear its name read aloud (ReadAloud).
+     - Press and hold any tile to hear its name read aloud (ReadAloud). Holding a channel, film, show or
+       video also opens a panel with big Play / Favourite / Back buttons, so favourites can be added and
+       removed without leaving simple mode.
      - "Normal mode" is a visible tile you hold for 2 seconds (a bar fills while holding), so it's easy to
        find but not something a stray tap triggers.
      DataContext is the shell, for its page view models (LiveTv, Movies, Series, Clips, Favorites). -->
@@ -55,6 +59,20 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <Style Selector="Button.panel-button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Padding" Value="4,12" />
+            <Setter Property="CornerRadius" Value="20" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.panel-button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.panel-button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource M3SurfaceContainerHighestBrush}" />
+        </Style>
         <!-- Fluent gives progress bars a 200px minimum width, wider than a phone tile. -->
         <Style Selector="ProgressBar">
             <Setter Property="MinWidth" Value="0" />
@@ -80,15 +98,15 @@
             <Button x:Name="BackButton" Classes="accent" Click="OnBackClick" Holding="OnBackHolding"
                     MinHeight="64" Padding="24,8" CornerRadius="32" Margin="0,0,16,0" IsVisible="False">
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                    <ui:FASymbolIcon Symbol="Back" FontSize="28" />
+                    <views:SimplePictureIcon Picture="Back" Backed="False" Width="30" Height="30" />
                     <TextBlock Text="Back" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <ui:FASymbolIcon x:Name="TitleIcon" Symbol="Home" FontSize="30" />
-                <TextBlock x:Name="TitleText" Text="Home" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center"
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                <views:SimplePictureIcon x:Name="TitleIcon" Picture="Home" Width="44" Height="44" Margin="0,0,12,0" />
+                <TextBlock Grid.Column="1" x:Name="TitleText" Text="Home" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+            </Grid>
         </Grid>
 
         <ListBox Grid.Row="1" x:Name="RowsList" Background="Transparent" SelectionMode="Single" Padding="16,0,16,24"
@@ -96,7 +114,7 @@
             <ListBox.DataTemplates>
                 <DataTemplate DataType="views:SimpleHeader">
                     <StackPanel Orientation="Horizontal" Spacing="12" Margin="4,16,4,8" Background="Transparent">
-                        <ui:FASymbolIcon Symbol="{Binding Icon}" FontSize="26" />
+                        <views:SimplePictureIcon Picture="{Binding Icon}" Width="40" Height="40" CornerRadius="8" />
                         <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
                 </DataTemplate>
@@ -113,12 +131,8 @@
                                 <Button Classes="simple-tile" Width="{Binding #Root.TileWidth}" Click="OnTileClick" Holding="OnTileHolding">
                                     <StackPanel Spacing="8">
                                         <Panel Height="{Binding #Root.TileImageHeight}">
-                                            <!-- Places and categories: a big icon on a coloured square. -->
-                                            <Border Classes="picture-backing" IsVisible="{Binding HasIcon}">
-                                                <ui:FASymbolIcon Symbol="{Binding Icon}" FontSize="64"
-                                                                 Foreground="{DynamicResource M3OnPrimaryContainerBrush}"
-                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
+                                            <!-- Places and categories: the place's own picture and colour. -->
+                                            <views:SimplePictureIcon Picture="{Binding Icon, TargetNullValue=Home}" CornerRadius="12" IsVisible="{Binding HasIcon}" />
                                             <!-- Items: the picture, or big initials when there isn't one. -->
                                             <Panel IsVisible="{Binding HasPicture}">
                                                 <Border Classes="picture-backing" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
@@ -126,6 +140,13 @@
                                                 </Border>
                                                 <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
                                                                            TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                                                <!-- What kind of thing it is, in its place's picture and colour. -->
+                                                <views:SimplePictureIcon Picture="{Binding Badge, TargetNullValue=Home}" IsVisible="{Binding HasBadge}"
+                                                                         Width="36" Height="36" CornerRadius="8"
+                                                                         HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                                <views:SimplePictureIcon Picture="Favourite" IsVisible="{Binding IsFavourite}"
+                                                                         Width="36" Height="36" CornerRadius="18"
+                                                                         HorizontalAlignment="Right" VerticalAlignment="Top" />
                                             </Panel>
                                         </Panel>
                                         <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="1" Height="6" CornerRadius="3"
@@ -142,8 +163,8 @@
                                     <StackPanel Spacing="8">
                                         <Border Height="{Binding #Root.TileImageHeight}" CornerRadius="12" Background="{DynamicResource M3SecondaryContainerBrush}">
                                             <StackPanel VerticalAlignment="Center" Spacing="8">
-                                                <ui:FASymbolIcon Symbol="Settings" FontSize="56" HorizontalAlignment="Center"
-                                                                 Foreground="{DynamicResource M3OnSecondaryContainerBrush}" />
+                                                <views:SimplePictureIcon Picture="Settings" Backed="False" Width="56" Height="56" HorizontalAlignment="Center"
+                                                                         Foreground="{DynamicResource M3OnSecondaryContainerBrush}" />
                                                 <TextBlock Text="Hold" FontSize="18" HorizontalAlignment="Center"
                                                            Foreground="{DynamicResource M3OnSecondaryContainerBrush}" />
                                             </StackPanel>
@@ -161,9 +182,55 @@
 
         <StackPanel Grid.Row="1" x:Name="EmptyMessage" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24"
                     IsVisible="False">
-            <ui:FASymbolIcon Symbol="Star" FontSize="64" HorizontalAlignment="Center" />
+            <views:SimplePictureIcon Picture="NotFavourite" Width="72" Height="72" HorizontalAlignment="Center" />
             <TextBlock Text="Nothing here yet" FontSize="24" HorizontalAlignment="Center" />
         </StackPanel>
+
+        <!-- Held tile: its picture and name, with big Play / Favourite / Back buttons. Tapping outside
+             the card also closes it. -->
+        <Border Grid.Row="0" Grid.RowSpan="2" x:Name="ItemPanel" Background="#99000000" IsVisible="False"
+                PointerPressed="OnItemPanelBackgroundPressed">
+            <Border x:Name="ItemCard" Background="{DynamicResource M3SurfaceContainerHighBrush}" CornerRadius="28" Padding="20"
+                    Margin="16" MaxWidth="480" VerticalAlignment="Center" x:DataType="views:SimpleTile">
+                <StackPanel Spacing="16">
+                    <Panel Height="180">
+                        <Border Classes="picture-backing" IsVisible="{Binding #PanelPic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
+                            <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
+                        </Border>
+                        <controls:ChannelLogoImage x:Name="PanelPic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
+                                                   TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                        <views:SimplePictureIcon Picture="{Binding Badge, TargetNullValue=Home}" IsVisible="{Binding HasBadge}"
+                                                 Width="44" Height="44" CornerRadius="10"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Top" />
+                    </Panel>
+                    <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" TextAlignment="Center"
+                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                    <UniformGrid Columns="3">
+                        <Button Classes="panel-button" Tag="Play" Click="OnPanelPlayClick" Holding="OnPanelButtonHolding">
+                            <StackPanel Spacing="8">
+                                <views:SimplePictureIcon Picture="Play" Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center" />
+                                <TextBlock Text="Play" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="panel-button" Click="OnPanelFavouriteClick" Holding="OnPanelButtonHolding"
+                                Tag="{Binding IsFavourite, Converter={x:Static views:SimpleModeConverters.FavouriteLabel}}">
+                            <StackPanel Spacing="8">
+                                <views:SimplePictureIcon Picture="{Binding IsFavourite, Converter={x:Static views:SimpleModeConverters.FavouritePicture}}"
+                                                         Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding IsFavourite, Converter={x:Static views:SimpleModeConverters.FavouriteLabel}}"
+                                           FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="panel-button" Tag="Back" Click="OnPanelBackClick" Holding="OnPanelButtonHolding">
+                            <StackPanel Spacing="8">
+                                <views:SimplePictureIcon Picture="Back" Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center" />
+                                <TextBlock Text="Back" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </Border>
 
         <!-- While a show's episode list loads before playing its next episode. -->
         <Border Grid.Row="0" Grid.RowSpan="2" x:Name="BusyOverlay" Background="#66000000" IsVisible="False">

@@ -382,34 +382,35 @@
                 <UniformGrid Grid.Row="1" Columns="5" Margin="8,8,8,20">
                     <Button Classes="simple-control" Tag="Back" Command="{Binding Player.StopCommand}" Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
-                            <ui:FASymbolIcon Symbol="Back" FontSize="36" HorizontalAlignment="Center" />
+                            <views:SimplePictureIcon Picture="Back" Backed="False" Width="36" Height="36" HorizontalAlignment="Center" />
                             <TextBlock Text="Back" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button Classes="simple-control" Tag="Quieter" Click="OnSimpleVolumeClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
-                            <ui:FASymbolIcon Symbol="Speaker1" FontSize="36" HorizontalAlignment="Center" />
+                            <views:SimplePictureIcon Picture="Quieter" Backed="False" Width="36" Height="36" HorizontalAlignment="Center" />
                             <TextBlock Text="Quieter" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button Classes="simple-control play" Tag="Play" Command="{Binding Player.TogglePauseCommand}" IsEnabled="{Binding Player.CanPause}"
                             Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
-                            <ui:FASymbolIcon Symbol="{Binding Player.IsPaused, Converter={x:Static views:PausedToPlaySymbolConverter.Instance}}"
-                                             FontSize="40" HorizontalAlignment="Center" />
+                            <views:SimplePictureIcon Picture="{Binding Player.IsPaused, Converter={x:Static views:SimpleModeConverters.PlayPausePicture}}"
+                                                     Backed="False" Width="40" Height="40" HorizontalAlignment="Center" />
                             <TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"
                                        Text="{Binding Player.IsPaused, Converter={x:Static views:SimpleModeConverters.PlayPauseLabel}}" />
                         </StackPanel>
                     </Button>
                     <Button Classes="simple-control" Tag="Louder" Click="OnSimpleVolumeClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
-                            <ui:FASymbolIcon Symbol="Speaker2" FontSize="36" HorizontalAlignment="Center" />
+                            <views:SimplePictureIcon Picture="Louder" Backed="False" Width="36" Height="36" HorizontalAlignment="Center" />
                             <TextBlock Text="Louder" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button Classes="simple-control" Tag="Big screen" Command="{Binding Player.ToggleFullscreenCommand}" Click="OnSimpleControlClick" Holding="OnSimpleControlHolding">
                         <StackPanel Spacing="6">
-                            <ui:FASymbolIcon Symbol="{Binding Player.IsFullscreen, Converter={x:Static views:SimpleModeConverters.FullscreenIcon}}" FontSize="36" HorizontalAlignment="Center" />
+                            <views:SimplePictureIcon Picture="{Binding Player.IsFullscreen, Converter={x:Static views:SimpleModeConverters.FullscreenPicture}}"
+                                                     Backed="False" Width="36" Height="36" HorizontalAlignment="Center" />
                             <TextBlock Text="{Binding Player.IsFullscreen, Converter={x:Static views:SimpleModeConverters.FullscreenLabel}}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Button>
