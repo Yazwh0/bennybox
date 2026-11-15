@@ -27,6 +27,21 @@ public enum SimplePicture
     Louder,
     Big,
     Small,
+
+    // Category pictures, picked from words in the provider's category names (SimplePictures.ForCategory).
+    Sport,
+    News,
+    Kids,
+    Family,
+    Music,
+    Comedy,
+    Horror,
+    Romance,
+    SciFi,
+    Nature,
+    Action,
+    Crime,
+    Food,
 }
 
 public static class SimplePictures
@@ -84,9 +99,85 @@ public static class SimplePictures
         [SimplePicture.Small] = new(Geometry.Parse(
             "M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"),
             Color.Parse("#546E7A"), White),
+
+        [SimplePicture.Sport] = new(Geometry.Parse(
+            "M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"),
+            Color.Parse("#00897B"), White),
+        [SimplePicture.News] = new(Geometry.Parse(
+            "M3,4 H21 V20 H3 Z M5,6 V9 H19 V6 Z M5,11 V12.5 H11 V11 Z M5,14 V15.5 H11 V14 Z M5,17 V18 H11 V17 Z M13,11 V18 H19 V11 Z"),
+            Color.Parse("#3949AB"), White),
+        [SimplePicture.Kids] = new(Geometry.Parse(
+            "M12,1.5 A6,7 0 1 1 11.99,1.5 Z M10.8,15.6 H13.2 L12.7,17 H11.3 Z M11.6,17 H12.4 V22.5 H11.6 Z"),
+            Color.Parse("#EC407A"), White),
+        [SimplePicture.Family] = new(Geometry.Parse(
+            "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"),
+            Color.Parse("#039BE5"), White),
+        [SimplePicture.Music] = new(Geometry.Parse(
+            "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"),
+            Color.Parse("#8E24AA"), White),
+        [SimplePicture.Comedy] = new(Geometry.Parse(
+            "M12,2 A10,10 0 1 1 11.99,2 Z M8.5,7.5 A1.5,1.5 0 1 0 8.51,7.5 Z M15.5,7.5 A1.5,1.5 0 1 0 15.51,7.5 Z M7,13 H17 A5,5 0 0 1 7,13 Z"),
+            Color.Parse("#F9A825"), White),
+        [SimplePicture.Horror] = new(Geometry.Parse(
+            "M12,2 A7,7 0 0 0 5,9 V21 L7.33,19 L9.67,21 L12,19 L14.33,21 L16.67,19 L19,21 V9 A7,7 0 0 0 12,2 Z M9.5,8 A1.5,2 0 1 0 9.51,8 Z M14.5,8 A1.5,2 0 1 0 14.51,8 Z"),
+            Color.Parse("#424242"), White),
+        [SimplePicture.Romance] = new(Geometry.Parse(
+            "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"),
+            Color.Parse("#D81B60"), White),
+        [SimplePicture.SciFi] = new(Geometry.Parse(
+            "M12,1 C15,4 16,8 16,12 L18,15 V19 L15.5,17 H8.5 L6,19 V15 L8,12 C8,8 9,4 12,1 Z M12,7.2 A1.8,1.8 0 1 0 12.01,7.2 Z M10,18 H14 L12,22.5 Z"),
+            Color.Parse("#5E35B1"), White),
+        [SimplePicture.Nature] = new(Geometry.Parse(
+            "M12,2 L18,10 H15 L20,17 H13 V22 H11 V17 H4 L9,10 H6 Z"),
+            Color.Parse("#558B2F"), White),
+        [SimplePicture.Action] = new(Geometry.Parse(
+            "M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"),
+            Color.Parse("#F4511E"), White),
+        [SimplePicture.Crime] = new(Geometry.Parse(
+            "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"),
+            Color.Parse("#6D4C41"), White),
+        [SimplePicture.Food] = new(Geometry.Parse(
+            "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"),
+            Color.Parse("#FF7043"), White),
     };
 
     public static Info Get(SimplePicture picture) => All[picture];
+
+    // Words that give a category a fixed picture. A category matches when any word in its name starts
+    // with one of these ("Sports", "UK | Football" -> Sport); the first matching row wins, so more
+    // specific rows go first. Anything unmatched gets a collage of its first few pictures instead.
+    private static readonly (SimplePicture Picture, string[] Words)[] CategoryWords =
+    [
+        (SimplePicture.Kids, ["kid", "child", "cartoon", "animat", "junior", "toddler", "baby", "disney", "nick"]),
+        (SimplePicture.News, ["news", "weather"]),
+        (SimplePicture.Sport, ["sport", "football", "soccer", "f1", "formula", "golf", "tennis", "cricket", "rugby",
+            "boxing", "ufc", "wwe", "wrestl", "racing", "motorsport", "nfl", "nba", "nhl", "mlb", "premier", "league", "olympic", "cup"]),
+        (SimplePicture.Music, ["music", "radio", "concert", "mtv"]),
+        (SimplePicture.Comedy, ["comedy", "comedies", "sitcom", "funny", "stand"]),
+        (SimplePicture.Horror, ["horror", "halloween", "scary", "zombie"]),
+        (SimplePicture.Romance, ["romance", "romantic", "love"]),
+        (SimplePicture.SciFi, ["sci", "fantasy", "space", "superhero"]),
+        (SimplePicture.Nature, ["documentar", "doc", "nature", "wildlife", "animal", "discovery", "history", "travel", "science"]),
+        (SimplePicture.Crime, ["crime", "thriller", "mystery", "detective", "police", "suspense"]),
+        (SimplePicture.Action, ["action", "adventure", "war", "western", "martial"]),
+        (SimplePicture.Family, ["family", "families"]),
+        (SimplePicture.Food, ["food", "cook", "kitchen", "chef"]),
+    ];
+
+    public static SimplePicture? ForCategory(string name)
+    {
+        var words = name.ToLowerInvariant()
+            .Split((char[])[' ', '|', '-', '/', '&', ',', ':', '(', ')', '[', ']', '.', '_', '+'], StringSplitOptions.RemoveEmptyEntries);
+        foreach (var (picture, keys) in CategoryWords)
+        {
+            if (words.Any(word => keys.Any(word.StartsWith)))
+            {
+                return picture;
+            }
+        }
+
+        return null;
+    }
 }
 
 // Draws one SimplePicture. Backed (the default) is the picture's white shape on its own coloured

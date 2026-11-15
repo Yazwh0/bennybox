@@ -49,6 +49,11 @@ public partial class LiveTvViewModel : ViewModelBase
     public ObservableCollection<object> Rows { get; } = [];
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
+    // The items in one category, in display order - simple picture mode uses the first few for the
+    // category tile's picture.
+    public IReadOnlyList<object> ItemsInCategory(string category) =>
+        _allGroups.FirstOrDefault(g => g.Name == category)?.Channels.Cast<object>().ToList() ?? [];
+
     // What the category ComboBox actually shows - narrowed by CategoryFilterText, but always a
     // subset of Categories. Kept separate so typing a filter query never touches SelectedCategory
     // (and so re-triggers a reload) until an item is actually picked from the (possibly narrowed)

@@ -51,6 +51,11 @@ public partial class ClipsViewModel : ViewModelBase
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
+    // The items in one category, in display order - simple picture mode uses the first few for the
+    // category tile's picture.
+    public IReadOnlyList<object> ItemsInCategory(string category) =>
+        _allGroups.FirstOrDefault(g => g.Name == category)?.Clips.Cast<object>().ToList() ?? [];
+
     public ObservableCollection<string> Sources { get; } = [AllSourcesLabel];
 
     [ObservableProperty]

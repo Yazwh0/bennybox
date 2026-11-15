@@ -140,14 +140,31 @@
                                                 </Border>
                                                 <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
                                                                            TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
-                                                <!-- What kind of thing it is, in its place's picture and colour. -->
-                                                <views:SimplePictureIcon Picture="{Binding Badge, TargetNullValue=Home}" IsVisible="{Binding HasBadge}"
-                                                                         Width="36" Height="36" CornerRadius="8"
-                                                                         HorizontalAlignment="Left" VerticalAlignment="Top" />
                                                 <views:SimplePictureIcon Picture="Favourite" IsVisible="{Binding IsFavourite}"
                                                                          Width="36" Height="36" CornerRadius="18"
                                                                          HorizontalAlignment="Right" VerticalAlignment="Top" />
                                             </Panel>
+                                            <!-- Categories without a keyword picture: the first few pictures inside. -->
+                                            <Border IsVisible="{Binding HasCollage}" CornerRadius="12" ClipToBounds="True"
+                                                    Background="{DynamicResource M3SurfaceContainerHighestBrush}">
+                                                <ItemsControl ItemsSource="{Binding Collage}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Columns="2" Rows="2" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="views:SimpleImage">
+                                                            <controls:ChannelLogoImage Margin="2" LogoUrl="{Binding Url}" FallbackLogoUrl="{Binding FallbackUrl}"
+                                                                                       TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Border>
+                                            <!-- What kind of thing it is, in its place's picture and colour. -->
+                                            <views:SimplePictureIcon Picture="{Binding Badge, TargetNullValue=Home}" IsVisible="{Binding HasBadge}"
+                                                                     Width="36" Height="36" CornerRadius="8"
+                                                                     HorizontalAlignment="Left" VerticalAlignment="Top" />
                                         </Panel>
                                         <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="1" Height="6" CornerRadius="3"
                                                      IsVisible="{Binding HasProgress}" />

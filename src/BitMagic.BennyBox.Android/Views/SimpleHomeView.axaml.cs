@@ -45,7 +45,7 @@ public partial class SimpleHomeView : UserControl
 
     private enum ScreenKind { Home, Categories, Items }
 
-    private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null);
+    private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null, SimplePicture? Picture = null);
 
     private readonly Stack<Screen> _history = new();
     private Screen _screen = new(ScreenKind.Home);
@@ -132,7 +132,7 @@ public partial class SimpleHomeView : UserControl
         {
             { Kind: ScreenKind.Home } => (SimplePicture.Home, "Home"),
             { Kind: ScreenKind.Items, Category: { } category } when category != PageFor(screen.Destination!.Value)?.Categories.FirstOrDefault()
-                => (PictureFor(screen.Destination!.Value), category),
+                => (screen.Picture ?? PictureFor(screen.Destination!.Value), category),
             { Destination: { } destination } => (PictureFor(destination), LabelFor(destination)),
             _ => (SimplePicture.Home, "Home"),
         };
@@ -259,12 +259,8 @@ public partial class SimpleHomeView : UserControl
                 break;
 
             case ScreenKind.Categories when screen.Destination is { } destination && PageFor(destination) is { } page:
-                tiles.AddRange(page.Categories.Skip(1).Select(name => new SimpleTile
-                {
-                    Title = name,
-                    Icon = PictureFor(destination),
-                    Payload = new SimpleCategory(destination, name),
-                }));
+                var usedPictures = new HashSet<SimplePicture>();
+                tiles.AddRange(page.Categories.Skip(1).Select(name => CategoryTile(destination, page, name, usedPictures)));
                 break;
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
@@ -273,6 +269,32 @@ public partial class SimpleHomeView : UserControl
         }
 
         return tiles;
+    }
+
+    // A category's picture: a fixed one when its name has a known word (Sport, News, Kids...), so it
+    // looks the same every time; otherwise the first four pictures inside it, with the place's badge.
+    // Only falls back to the place's own picture when the category has nothing with a picture yet.
+    private static SimpleTile CategoryTile(SimpleDestination destination, IBrowsePage page, string name, HashSet<SimplePicture> usedPictures)
+    {
+        var payload = new SimpleCategory(destination, name);
+        // Each fixed picture is used once per screen (the first category to match gets it), so no two
+        // tiles on a screen look the same - "Adventure" after "Action" gets a collage instead.
+        if (SimplePictures.ForCategory(name) is { } picture && usedPictures.Add(picture))
+        {
+            return new SimpleTile { Title = name, Icon = picture, Payload = payload };
+        }
+
+        var images = page.ItemsInCategory(name)
+            .Select(TileForItem)
+            .Where(tile => !string.IsNullOrEmpty(tile?.ImageUrl))
+            .DistinctBy(tile => tile!.ImageUrl)
+            .Take(4)
+            .Select(tile => new SimpleImage(tile!.ImageUrl, tile.FallbackImageUrl, tile.TmdbFallbackTitle))
+            .ToList();
+
+        return images.Count == 0
+            ? new SimpleTile { Title = name, Icon = PictureFor(destination), Payload = payload }
+            : new SimpleTile { Title = name, Collage = images, Badge = PictureFor(destination), Payload = payload };
     }
 
     private static void AddSection(List<object> tiles, string title, SimplePicture picture, IEnumerable<object> items)
@@ -321,13 +343,13 @@ public partial class SimpleHomeView : UserControl
     // that filters Rows); this gives them one face.
     private IBrowsePage? PageFor(SimpleDestination destination) => _shell is null ? null : destination switch
     {
-        SimpleDestination.Tv => new BrowsePage(_shell.LiveTv.Categories, _shell.LiveTv.Rows,
+        SimpleDestination.Tv => new BrowsePage(_shell.LiveTv.Categories, _shell.LiveTv.Rows, _shell.LiveTv.ItemsInCategory,
             () => _shell.LiveTv.SelectedCategory, v => _shell.LiveTv.SelectedCategory = v),
-        SimpleDestination.Films => new BrowsePage(_shell.Movies.Categories, _shell.Movies.Rows,
+        SimpleDestination.Films => new BrowsePage(_shell.Movies.Categories, _shell.Movies.Rows, _shell.Movies.ItemsInCategory,
             () => _shell.Movies.SelectedCategory, v => _shell.Movies.SelectedCategory = v),
-        SimpleDestination.Shows => new BrowsePage(_shell.Series.Categories, _shell.Series.Rows,
+        SimpleDestination.Shows => new BrowsePage(_shell.Series.Categories, _shell.Series.Rows, _shell.Series.ItemsInCategory,
             () => _shell.Series.SelectedCategory, v => _shell.Series.SelectedCategory = v),
-        SimpleDestination.Videos => new BrowsePage(_shell.Clips.Categories, _shell.Clips.Rows,
+        SimpleDestination.Videos => new BrowsePage(_shell.Clips.Categories, _shell.Clips.Rows, _shell.Clips.ItemsInCategory,
             () => _shell.Clips.SelectedCategory, v => _shell.Clips.SelectedCategory = v),
         _ => null,
     };
@@ -337,14 +359,16 @@ public partial class SimpleHomeView : UserControl
         ObservableCollection<string> Categories { get; }
         ObservableCollection<object> Rows { get; }
         string SelectedCategory { get; set; }
+        IReadOnlyList<object> ItemsInCategory(string category);
     }
 
     private sealed class BrowsePage(ObservableCollection<string> categories, ObservableCollection<object> rows,
-        Func<string> getCategory, Action<string> setCategory) : IBrowsePage
+        Func<string, IReadOnlyList<object>> itemsInCategory, Func<string> getCategory, Action<string> setCategory) : IBrowsePage
     {
         public ObservableCollection<string> Categories => categories;
         public ObservableCollection<object> Rows => rows;
         public string SelectedCategory { get => getCategory(); set => setCategory(value); }
+        public IReadOnlyList<object> ItemsInCategory(string category) => itemsInCategory(category);
     }
 
     private static string LabelFor(SimpleDestination destination) => destination switch
@@ -412,7 +436,8 @@ public partial class SimpleHomeView : UserControl
                     : new Screen(ScreenKind.Items, destination, categories == 2 ? PageFor(destination)!.Categories[1] : null));
                 break;
             case SimpleCategory category:
-                Navigate(new Screen(ScreenKind.Items, category.Destination, category.Name));
+                // The title shows the same picture as the tile that was tapped (a collage shows the place's).
+                Navigate(new Screen(ScreenKind.Items, category.Destination, category.Name, tile.Icon));
                 break;
             case ChannelListItemViewModel channel:
                 player.PlayChannel(channel.Channel);

@@ -56,6 +56,11 @@ public partial class MoviesViewModel : ViewModelBase
 
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
+    // The items in one category, in display order - simple picture mode uses the first few for the
+    // category tile's picture.
+    public IReadOnlyList<object> ItemsInCategory(string category) =>
+        _allGroups.FirstOrDefault(g => g.Name == category)?.Movies.Cast<object>().ToList() ?? [];
+
     // Every profile that contributed at least one movie - lets the list be narrowed to a single
     // source (e.g. one Xtream account, or a local/SFTP folder) when more than one is merged into the
     // same browsing list. No filter-as-you-type textbox like Categories has - there are realistically

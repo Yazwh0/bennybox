@@ -31,11 +31,15 @@ public sealed partial class SimpleTile : ObservableObject
     public SimplePicture? Badge { get; init; }
     public double? Progress { get; init; }
 
+    // A category with no keyword picture: the first few pictures inside it, shown as a 2x2 grid.
+    public IReadOnlyList<SimpleImage>? Collage { get; init; }
+
     [ObservableProperty]
     private bool _isFavourite;
 
     public bool HasIcon => Icon is not null;
-    public bool HasPicture => Icon is null;
+    public bool HasCollage => Collage is not null;
+    public bool HasPicture => Icon is null && Collage is null;
     public bool HasBadge => Badge is not null;
     public bool HasProgress => Progress is not null;
 
@@ -54,6 +58,8 @@ public sealed partial class SimpleExitTile : ObservableObject
     [ObservableProperty]
     private bool _isHolding;
 }
+
+public sealed record SimpleImage(string? Url, string? FallbackUrl, string? TmdbFallbackTitle);
 
 public sealed record SimpleCategory(SimpleDestination Destination, string Name);
 
