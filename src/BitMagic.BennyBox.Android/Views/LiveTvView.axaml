@@ -5,7 +5,11 @@
      namespace is shared by the ViewModel regardless of which head project it's actually compiled
      into. Only one of the desktop/Android LiveTvView types is ever loaded in a given process, so
      there's no runtime collision despite the same fully-qualified name existing in both head
-     projects - see the Android port plan, Phase 3/4. -->
+     projects - see the Android port plan, Phase 3/4.
+
+     Layout: a search box and a Category chip (opening CategoryPickerSheet), then the channels as
+     compact rows - logo, name, what's on now, favourite star. A phone shows one column; wider
+     screens fit two or three (OnListSizeChanged), so a tablet isn't one long stretched list. -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
@@ -16,23 +20,33 @@
              x:DataType="vm:LiveTvViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <StackPanel Grid.Row="0" Spacing="6" Margin="8">
+        <StackPanel Grid.Row="0" x:Name="FilterPanel" Spacing="4" Margin="12,8,12,4" HorizontalAlignment="Left">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels..." />
-                <Button Grid.Column="1" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0"
-                        Width="48" Height="48" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
-                </Button>
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels" />
+                <Panel Grid.Column="1" Width="48" Height="48" Margin="4,0,0,0">
+                    <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
+                    <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
+                        <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
+                    </Button>
+                </Panel>
             </Grid>
-            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
+            <Button x:Name="CategoryChip" Classes="chip" Click="OnCategoryChipClick" MaxWidth="320" HorizontalAlignment="Left"
+                    Classes.selected="{Binding SelectedCategory, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding SelectedCategory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                    <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
         </StackPanel>
 
-        <TextBlock Grid.Row="1" Text="Loading channels..." HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
-                   IsVisible="{Binding IsLoading}" />
+        <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
+            <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
+            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" Opacity="0.7" />
+        </StackPanel>
 
-        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}">
-            <ItemsControl ItemsSource="{Binding Rows}">
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}" SizeChanged="OnListSizeChanged">
+            <ItemsControl x:Name="ChannelRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -40,46 +54,55 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="12,12,12,4" />
+                        <TextBlock Classes="title" Text="{Binding Name}" Margin="0,16,0,8" />
                     </DataTemplate>
-                    <DataTemplate DataType="vm:ChannelListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Button Grid.Column="0"
-                                        Padding="0"
-                                        Background="Transparent" BorderThickness="0"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectChannelCommand}"
-                                        CommandParameter="{Binding Channel}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}"
-                                                                    FallbackLogoUrl="{Binding FallbackLogoUrl}"
-                                                                    TmdbFallbackTitle="{Binding Name}"
-                                                                    Width="48" Height="48" VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center">
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
-                                                           ToolTip.Tip="Didn't work last time" />
-                                                <TextBlock Text="{Binding Name}" FontSize="16" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding NowTitle}" FontSize="12" Opacity="0.7" IsVisible="{Binding HasNowTitle}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}"
-                                        CommandParameter="{Binding}"
-                                        VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
-                                        Width="44" Height="44" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                                    <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
+                    <DataTemplate DataType="views:GridRow">
+                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,8">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="{x:Static views:PosterGrid.Gap}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.DataTemplates>
+                                <DataTemplate DataType="vm:ChannelListItemViewModel">
+                                    <Border Classes="card" Width="{Binding #RootControl.ColumnWidth}" Padding="8,4,4,4" MinHeight="64">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Button Grid.Column="0" Padding="0" Background="Transparent" BorderThickness="0"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Command="{Binding #RootControl.DataContext.SelectChannelCommand}" CommandParameter="{Binding Channel}">
+                                                <Grid ColumnDefinitions="Auto,*">
+                                                    <Border Width="48" Height="48" CornerRadius="8" ClipToBounds="True" VerticalAlignment="Center"
+                                                            Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                                                        <controls:ChannelLogoImage LogoUrl="{Binding Channel.LogoUrl}" FallbackLogoUrl="{Binding FallbackLogoUrl}"
+                                                                                   TmdbFallbackTitle="{Binding Name}" Margin="2" />
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                                        <DockPanel>
+                                                            <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0"
+                                                                       IsVisible="{Binding DidNotWork}" ToolTip.Tip="Didn't work last time" />
+                                                            <TextBlock Text="{Binding Name}" FontSize="15" TextTrimming="CharacterEllipsis" />
+                                                        </DockPanel>
+                                                        <TextBlock Text="{Binding NowTitle}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis"
+                                                                   IsVisible="{Binding HasNowTitle}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                            <Button Grid.Column="1" Classes="icon" ToolTip.Tip="Favourite"
+                                                    Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}">
+                                                <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="18" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.DataTemplates>
+                        </ItemsControl>
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>
+
+        <views:CategoryPickerSheet Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" FallbackPicture="Tv"
+                                   Categories="{Binding FilteredCategories}" FilterText="{Binding CategoryFilterText}"
+                                   Picked="OnCategoryPicked" />
     </Grid>
 </UserControl>

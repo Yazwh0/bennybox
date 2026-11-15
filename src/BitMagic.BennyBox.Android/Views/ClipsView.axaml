@@ -1,7 +1,7 @@
 <!-- Namespace is BitMagic.BennyBox.Views, not BitMagic.BennyBox.Android.Views - see LiveTvView.axaml's
-     comment for why. Mirrors MoviesView.axaml's Android port - see its header comment - just
-     Clip-flavored (ClipsViewModel/ClipListItemViewModel), same as desktop's ClipsView.axaml mirrors
-     MoviesView.axaml. -->
+     comment for why. Same ClipsViewModel as desktop, laid out like SeriesView.axaml (see its comment):
+     search and Category / Source chips, a poster grid that widens with the screen, press and hold a
+     poster for favourites. A video opens a details page with Play, watched and download. -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
@@ -13,27 +13,42 @@
              x:DataType="vm:ClipsViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <StackPanel Grid.Row="0" Spacing="6" Margin="8"
+        <!-- Search and filters. -->
+        <StackPanel Grid.Row="0" x:Name="FilterPanel" Spacing="4" Margin="12,8,12,4" HorizontalAlignment="Left"
                     IsVisible="{Binding SelectedClip, Converter={x:Static conv:ObjectConverters.IsNull}}">
-            <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search clips..." />
-                <ui:FAProgressRing Grid.Column="1" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="18" Height="18" Margin="6,0,0,0" />
-                <Button Grid.Column="2" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsLoading}" Margin="6,0,0,0"
-                        Width="48" Height="48" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    <ui:FASymbolIcon Symbol="Refresh" FontSize="16" />
-                </Button>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search videos" />
+                <Panel Grid.Column="1" Width="48" Height="48" Margin="4,0,0,0">
+                    <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
+                    <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
+                        <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
+                    </Button>
+                </Panel>
             </Grid>
-            <TextBox Text="{Binding CategoryFilterText}" Watermark="Filter categories..." />
-            <ComboBox ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}" HorizontalAlignment="Stretch" />
-            <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" HorizontalAlignment="Stretch" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="CategoryChip" Classes="chip" Click="OnCategoryChipClick" MaxWidth="260"
+                        Classes.selected="{Binding SelectedCategory, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding SelectedCategory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200" />
+                        <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SourceChip" Classes="chip" Click="OnSourceChipClick" MaxWidth="200"
+                        Classes.selected="{Binding SelectedSource, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding SelectedSource}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
+                        <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
-            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading clips...'}" Opacity="0.7" />
+            <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading videos...'}" Opacity="0.7" />
         </StackPanel>
-        <TextBlock Grid.Row="1" Text="No clips available yet - set a Clips folder on a Local Folder or SFTP profile and refresh it in Settings."
+        <TextBlock Grid.Row="1" Text="No videos yet - add a source and refresh it in Settings."
                    Margin="16" TextWrapping="Wrap" Opacity="0.7">
             <TextBlock.IsVisible>
                 <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
@@ -51,14 +66,15 @@
             </TextBlock.IsVisible>
         </TextBlock>
 
-        <ScrollViewer Grid.Row="1">
+        <!-- The poster grid. -->
+        <ScrollViewer Grid.Row="1" SizeChanged="OnGridSizeChanged">
             <ScrollViewer.IsVisible>
                 <MultiBinding Converter="{x:Static conv:BoolConverters.And}">
                     <Binding Path="!IsLoading" />
                     <Binding Path="SelectedClip" Converter="{x:Static conv:ObjectConverters.IsNull}" />
                 </MultiBinding>
             </ScrollViewer.IsVisible>
-            <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl x:Name="PosterRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -66,82 +82,112 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.DataTemplates>
                     <DataTemplate DataType="vm:CategoryHeaderRow">
-                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="8,12,8,4" />
+                        <TextBlock Classes="title" Text="{Binding Name}" Margin="0,16,0,8" />
                     </DataTemplate>
-                    <DataTemplate DataType="vm:ClipListItemViewModel">
-                        <Border Classes="card" Margin="8,4" Padding="12">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                <Button Grid.Column="0" Background="Transparent" BorderThickness="0" Padding="0"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Command="{Binding #RootControl.DataContext.SelectClipCommand}" CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding ContentOpacity}">
-                                        <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Width="44" Height="44" VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}"
-                                                           ToolTip.Tip="Didn't work last time" />
-                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding SourceName}" FontSize="11" Opacity="0.6" />
+                    <DataTemplate DataType="views:GridRow">
+                        <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,12">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="{x:Static views:PosterGrid.Gap}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.DataTemplates>
+                                <DataTemplate DataType="vm:ClipListItemViewModel">
+                                    <Button Classes="poster" Width="{Binding #RootControl.TileWidth}"
+                                            Click="OnPosterClick" ContextRequested="OnPosterContextRequested">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="{Binding IsFavorite, Converter={x:Static views:BrowseConverters.FavouriteMenuText}}"
+                                                          Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}" />
+                                                <MenuItem Header="{Binding IsWatched, Converter={x:Static views:BrowseConverters.WatchedMenuText}}"
+                                                          Command="{Binding #RootControl.DataContext.ToggleWatchedCommand}" CommandParameter="{Binding}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <StackPanel Spacing="6" Opacity="{Binding ContentOpacity}">
+                                            <Border Height="{Binding #RootControl.PosterHeight}" CornerRadius="10" ClipToBounds="True"
+                                                    Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Name, Converter={x:Static views:SimpleModeConverters.Initials}}"
+                                                               FontSize="28" FontWeight="Bold" Opacity="0.6"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <controls:ChannelLogoImage LogoUrl="{Binding CoverUrl}" Stretch="UniformToFill" />
+                                                    <Border IsVisible="{Binding IsFavorite}" Width="28" Height="28" CornerRadius="14" Margin="6"
+                                                            Background="#B3000000" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                        <ui:FASymbolIcon Symbol="StarFilled" FontSize="14" Foreground="#FFCA28" />
+                                                    </Border>
+                                                    <Border IsVisible="{Binding DidNotWork}" Width="28" Height="28" CornerRadius="14" Margin="6"
+                                                            Background="#C62828" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                            ToolTip.Tip="Didn't work last time">
+                                                        <TextBlock Text="!" FontWeight="Bold" Foreground="White"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Text="{Binding Name}" FontSize="13" TextWrapping="Wrap" MaxLines="2" Height="36"
+                                                       TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="1"
-                                        Command="{Binding #RootControl.DataContext.ToggleFavoriteCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="{Binding IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="16" />
-                                </Button>
-                                <Button Grid.Column="2" ToolTip.Tip="Toggle watched"
-                                        Command="{Binding #RootControl.DataContext.ToggleWatchedCommand}" CommandParameter="{Binding}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="{Binding IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
-                                </Button>
-                                <Button Grid.Column="3" ToolTip.Tip="Download to this device"
-                                        Command="{Binding #RootControl.DataContext.DownloadCommand}" CommandParameter="{Binding}"
-                                        IsEnabled="{Binding CanDownload}" IsVisible="{Binding !IsFromDownloadsProfile}"
-                                        Background="Transparent" BorderThickness="0" Width="48" Height="48" Padding="0"
-                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="4,0,0,0">
-                                    <ui:FASymbolIcon Symbol="{Binding DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="16" />
-                                </Button>
-                            </Grid>
-                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.DataTemplates>
+                        </ItemsControl>
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
             </ItemsControl>
         </ScrollViewer>
 
+        <!-- One video. -->
         <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,*"
               IsVisible="{Binding SelectedClip, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
-            <Button Grid.Row="0" Content="&#8592; Back to Clips" Command="{Binding BackToListCommand}" Margin="8" HorizontalAlignment="Stretch" />
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="4,4,12,0" MinHeight="56">
+                <Button Classes="icon" Command="{Binding BackToListCommand}" ToolTip.Tip="Back to videos">
+                    <ui:FASymbolIcon Symbol="Back" FontSize="20" />
+                </Button>
+                <TextBlock Grid.Column="1" Text="{Binding SelectedClip.Name}" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="4,0,0,0" TextTrimming="CharacterEllipsis" />
+            </Grid>
             <ScrollViewer Grid.Row="1">
-                <Grid ColumnDefinitions="Auto,*" Margin="8">
-                    <controls:ChannelLogoImage Grid.Column="0" LogoUrl="{Binding SelectedClip.CoverUrl}" Width="110" Height="165" VerticalAlignment="Top" />
-                    <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6" VerticalAlignment="Top">
-                        <TextBlock Text="{Binding SelectedClip.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding SelectedClip.SourceName}" FontSize="11" Opacity="0.6" />
-                        <TextBlock Text="{Binding SelectedClip.MetaLine}" FontSize="11" Opacity="0.7" TextWrapping="Wrap"
-                                   IsVisible="{Binding SelectedClip.HasMetaLine}" />
-                        <TextBlock Text="{Binding SelectedClip.Plot}" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
-                                   IsVisible="{Binding SelectedClip.HasPlot}" />
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                            <Button Content="&#9654; Play" Command="{Binding PlayClipCommand}" CommandParameter="{Binding SelectedClip}" />
-                            <Button ToolTip.Tip="Toggle watched" Width="48" Height="48" Padding="0"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    Command="{Binding ToggleWatchedCommand}" CommandParameter="{Binding SelectedClip}">
-                                <ui:FASymbolIcon Symbol="{Binding SelectedClip.IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="16" />
-                            </Button>
-                            <Button ToolTip.Tip="Download to this device" Width="48" Height="48" Padding="0"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    Command="{Binding DownloadCommand}" CommandParameter="{Binding SelectedClip}"
-                                    IsEnabled="{Binding SelectedClip.CanDownload}" IsVisible="{Binding !SelectedClip.IsFromDownloadsProfile}">
-                                <ui:FASymbolIcon Symbol="{Binding SelectedClip.DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="16" />
-                            </Button>
+                <StackPanel Margin="12,4,12,12" Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="120" Height="180" CornerRadius="10" ClipToBounds="True" VerticalAlignment="Top"
+                                Background="{DynamicResource M3SurfaceContainerHighBrush}">
+                            <controls:ChannelLogoImage LogoUrl="{Binding SelectedClip.CoverUrl}" Stretch="UniformToFill" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="6" VerticalAlignment="Top">
+                            <TextBlock Text="{Binding SelectedClip.MetaLine, Converter={x:Static views:BrowseConverters.MetaLine}}"
+                                       FontSize="13" Opacity="0.7" TextWrapping="Wrap" IsVisible="{Binding SelectedClip.HasMetaLine}" />
+                            <TextBlock Text="{Binding SelectedClip.SourceName}" FontSize="13" Opacity="0.6" />
+                            <TextBlock Text="⚠ Didn't work last time" Foreground="#FFB300" FontSize="13" IsVisible="{Binding SelectedClip.DidNotWork}" />
                         </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="accent" Command="{Binding PlayClipCommand}" CommandParameter="{Binding SelectedClip}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ui:FASymbolIcon Symbol="PlayFilled" FontSize="16" />
+                                <TextBlock Text="Play" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="icon" ToolTip.Tip="Watched"
+                                Command="{Binding ToggleWatchedCommand}" CommandParameter="{Binding SelectedClip}">
+                            <ui:FASymbolIcon Symbol="{Binding SelectedClip.IsWatched, Converter={x:Static views:WatchedToSymbolConverter.Instance}}" FontSize="20" />
+                        </Button>
+                        <Button Classes="icon" ToolTip.Tip="Favourite"
+                                Command="{Binding ToggleFavoriteCommand}" CommandParameter="{Binding SelectedClip}">
+                            <ui:FASymbolIcon Symbol="{Binding SelectedClip.IsFavorite, Converter={x:Static views:FavoriteToSymbolConverter.Instance}}" FontSize="20" />
+                        </Button>
+                        <Button Classes="icon" ToolTip.Tip="Download to this device"
+                                Command="{Binding DownloadCommand}" CommandParameter="{Binding SelectedClip}"
+                                IsEnabled="{Binding SelectedClip.CanDownload}" IsVisible="{Binding !SelectedClip.IsFromDownloadsProfile}">
+                            <ui:FASymbolIcon Symbol="{Binding SelectedClip.DownloadState, Converter={x:Static views:DownloadStateToSymbolConverter.Instance}}" FontSize="20" />
+                        </Button>
                     </StackPanel>
-                </Grid>
+                    <TextBlock Text="{Binding SelectedClip.Plot}" FontSize="14" TextWrapping="Wrap" IsVisible="{Binding SelectedClip.HasPlot}" />
+                </StackPanel>
             </ScrollViewer>
         </Grid>
+
+        <!-- Category picker (see CategoryPickerSheet). -->
+        <views:CategoryPickerSheet Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" FallbackPicture="Videos"
+                                   Categories="{Binding FilteredCategories}" FilterText="{Binding CategoryFilterText}"
+                                   Picked="OnCategoryPicked" />
     </Grid>
 </UserControl>

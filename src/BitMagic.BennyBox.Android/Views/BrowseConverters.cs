@@ -24,6 +24,9 @@ public static class BrowseConverters
     public static readonly IValueConverter FavouriteMenuText = new FuncValueConverter<bool, string>(favourite =>
         favourite ? "Remove from favourites" : "Add to favourites");
 
+    public static readonly IValueConverter WatchedMenuText = new FuncValueConverter<bool, string>(watched =>
+        watched ? "Mark as not watched" : "Mark as watched");
+
     public static readonly IValueConverter FavouriteMenuIcon = new FuncValueConverter<bool, FASymbol>(favourite =>
         favourite ? FASymbol.Star : FASymbol.StarFilled);
 }

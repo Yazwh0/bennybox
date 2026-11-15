@@ -10,6 +10,14 @@ public static class PosterGrid
 
     public readonly record struct Layout(int Columns, double TileWidth, double PosterHeight);
 
+    // For lists of rows (Live TV): as many columns as fit at least minWidth each, at least one.
+    public static (int Columns, double ColumnWidth) FitRows(double width, double minWidth)
+    {
+        width = Math.Max(width, 0);
+        var columns = Math.Max(1, (int)((width + Gap) / (minWidth + Gap)));
+        return (columns, Math.Floor((width - Gap * (columns - 1)) / columns));
+    }
+
     public static Layout Fit(double width)
     {
         width = Math.Max(width, MinTile * MinColumns);

@@ -224,34 +224,9 @@
             </ScrollViewer>
         </Grid>
 
-        <!-- Category picker: a sheet from the bottom with a search box and the categories as pictures. -->
-        <Border Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" Background="#80000000" IsVisible="False"
-                PointerPressed="OnSheetBackgroundPressed">
-            <Border x:Name="CategoryCard" Background="{DynamicResource M3SurfaceContainerLowBrush}" CornerRadius="28,28,0,0"
-                    VerticalAlignment="Bottom" Margin="0,96,0,0" Padding="16,12,16,0" MaxWidth="640">
-                <Grid RowDefinitions="Auto,Auto,*">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Classes="title" Text="Category" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Classes="icon" Click="OnCloseSheetClick" ToolTip.Tip="Close">
-                            <ui:FASymbolIcon Symbol="Dismiss" FontSize="18" />
-                        </Button>
-                    </Grid>
-                    <TextBox Grid.Row="1" Text="{Binding CategoryFilterText}" Watermark="Find a category" Margin="0,4,0,8" />
-                    <ListBox Grid.Row="2" x:Name="CategoryList" ItemsSource="{Binding FilteredCategories}" Background="Transparent"
-                             SelectionChanged="OnCategoryPicked">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <Grid ColumnDefinitions="Auto,*" MinHeight="52">
-                                    <views:SimplePictureIcon Picture="{Binding Converter={x:Static views:BrowseConverters.CategoryPicture}}"
-                                                             Width="36" Height="36" CornerRadius="8" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="{Binding}" Margin="16,0,0,0" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" FontSize="16" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
-            </Border>
-        </Border>
+        <!-- Category picker (see CategoryPickerSheet). -->
+        <views:CategoryPickerSheet Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" FallbackPicture="Shows"
+                                   Categories="{Binding FilteredCategories}" FilterText="{Binding CategoryFilterText}"
+                                   Picked="OnCategoryPicked" />
     </Grid>
 </UserControl>

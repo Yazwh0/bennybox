@@ -1,0 +1,37 @@
+<!-- The category picker the Category chip opens on the normal-mode browse pages (Shows, Films, Videos,
+     Live TV): a sheet up from the bottom with a search box and each category as a row with the same
+     picture it has in simple mode. Bind Categories and FilterText to the page's FilteredCategories /
+     CategoryFilterText; Open() shows it, and Picked fires with the chosen name. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:BitMagic.BennyBox.Android.Views"
+             x:Class="BitMagic.BennyBox.Android.Views.CategoryPickerSheet"
+             x:DataType="views:CategoryPickerSheet"
+             x:Name="Root" IsVisible="False">
+    <Border x:Name="Scrim" Background="#80000000" PointerPressed="OnScrimPressed">
+        <Border Background="{DynamicResource M3SurfaceContainerLowBrush}" CornerRadius="28,28,0,0"
+                VerticalAlignment="Bottom" Margin="0,96,0,0" Padding="16,12,16,0" MaxWidth="640">
+            <Grid RowDefinitions="Auto,Auto,*">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="title" Text="Category" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="icon" Click="OnCloseClick" ToolTip.Tip="Close">
+                        <ui:FASymbolIcon Symbol="Dismiss" FontSize="18" />
+                    </Button>
+                </Grid>
+                <TextBox Grid.Row="1" Text="{Binding #Root.FilterText}" Watermark="Find a category" Margin="0,4,0,8" />
+                <ListBox Grid.Row="2" x:Name="List" Background="Transparent" SelectionChanged="OnPicked">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="views:CategoryChoice">
+                            <Grid ColumnDefinitions="Auto,*" MinHeight="52">
+                                <views:SimplePictureIcon Picture="{Binding Picture}" Width="36" Height="36" CornerRadius="8" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="16,0,0,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" FontSize="16" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+    </Border>
+</UserControl>

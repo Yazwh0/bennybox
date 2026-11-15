@@ -78,61 +78,21 @@ public partial class SeriesView : UserControl
         }
     }
 
-    private void OnCategoryChipClick(object? sender, RoutedEventArgs e)
+    private void OnCategoryChipClick(object? sender, RoutedEventArgs e) => CategorySheet.Open();
+
+    private void OnCategoryPicked(object? sender, string category)
     {
         if (DataContext is SeriesViewModel viewModel)
-        {
-            viewModel.CategoryFilterText = "";
-        }
-
-        CategoryList.SelectedItem = null;
-        CategorySheet.IsVisible = true;
-    }
-
-    private void OnCategoryPicked(object? sender, SelectionChangedEventArgs e)
-    {
-        if (CategoryList.SelectedItem is string category && DataContext is SeriesViewModel viewModel)
         {
             viewModel.SelectedCategory = category;
-            CloseSheet();
         }
     }
 
-    private void OnSheetBackgroundPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (ReferenceEquals(e.Source, CategorySheet))
-        {
-            CloseSheet();
-        }
-    }
-
-    private void OnCloseSheetClick(object? sender, RoutedEventArgs e) => CloseSheet();
-
-    private void CloseSheet()
-    {
-        CategorySheet.IsVisible = false;
-        if (DataContext is SeriesViewModel viewModel)
-        {
-            viewModel.CategoryFilterText = "";
-        }
-    }
-
-    // A short list (usually two or three sources), so a plain menu under the chip.
     private void OnSourceChipClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SeriesViewModel viewModel)
+        if (DataContext is SeriesViewModel viewModel)
         {
-            return;
+            SourceMenu.Show(SourceChip, viewModel.Sources, source => viewModel.SelectedSource = source);
         }
-
-        var menu = new MenuFlyout();
-        foreach (var source in viewModel.Sources)
-        {
-            var item = new MenuItem { Header = source };
-            item.Click += (_, _) => viewModel.SelectedSource = source;
-            menu.Items.Add(item);
-        }
-
-        menu.ShowAt(SourceChip);
     }
 }
