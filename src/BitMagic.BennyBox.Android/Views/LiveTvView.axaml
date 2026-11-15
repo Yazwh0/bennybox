@@ -21,25 +21,27 @@
              x:DataType="vm:LiveTvViewModel"
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
-        <StackPanel Grid.Row="0" x:Name="FilterPanel" Spacing="4" Margin="12,8,12,4" HorizontalAlignment="Left">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels" />
-                <Panel Grid.Column="1" Width="48" Height="48" Margin="4,0,0,0">
-                    <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
-                    <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
-                        <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
-                    </Button>
-                </Panel>
-            </Grid>
-            <Button x:Name="CategoryChip" Classes="chip" Click="OnCategoryChipClick" MaxWidth="320" HorizontalAlignment="Left"
-                    Classes.selected="{Binding SelectedCategory, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="{Binding SelectedCategory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" />
-                    <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
-            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
-        </StackPanel>
+        <!-- Search, then the Category chip: underneath on a phone, beside the search box on a wider screen
+             (FilterLayout). The chip takes the search box's height so they line up either way. -->
+        <Grid Grid.Row="0" x:Name="FilterPanel" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="12,8,12,4" HorizontalAlignment="Left">
+            <TextBox x:Name="SearchBox" Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels" />
+            <Panel Grid.Column="2" Width="48" Height="48" Margin="4,0,0,0">
+                <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
+                <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
+                    <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
+                </Button>
+            </Panel>
+            <StackPanel x:Name="FilterChips" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                <Button x:Name="CategoryChip" Classes="chip" Height="{Binding #SearchBox.Bounds.Height}" Click="OnCategoryChipClick" MaxWidth="320"
+                        Classes.selected="{Binding SelectedCategory, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding SelectedCategory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                        <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
+        </Grid>
 
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />

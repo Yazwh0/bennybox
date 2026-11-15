@@ -11,7 +11,6 @@ public partial class LiveTvView : UserControl
 {
     // A row needs room for the logo, a channel name and what's on now.
     private const double MinColumnWidth = 340;
-    private const double MaxFilterWidth = 720;
 
     public static readonly StyledProperty<double> ColumnWidthProperty =
         AvaloniaProperty.Register<LiveTvView, double>(nameof(ColumnWidth), 340);
@@ -104,7 +103,7 @@ public partial class LiveTvView : UserControl
     private void OnListSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         var width = Math.Max(0, e.NewSize.Width - 24);
-        FilterPanel.Width = Math.Min(MaxFilterWidth, width);
+        FilterLayout.Apply(FilterPanel, FilterChips, width);
         var (columns, columnWidth) = PosterGrid.FitRows(width, MinColumnWidth);
         ColumnWidth = columnWidth;
         _grid.Columns = columns;

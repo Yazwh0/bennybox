@@ -29,8 +29,6 @@ public partial class SeriesView : UserControl
         set => SetValue(PosterHeightProperty, value);
     }
 
-    private const double MaxFilterWidth = 720;
-
     private readonly GridRows _grid = new(item => item is SeriesListItemViewModel);
 
     public SeriesView()
@@ -48,9 +46,8 @@ public partial class SeriesView : UserControl
 
     private void OnGridSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        // The search box and chips stop growing at a comfortable width on a tablet, lined up with
-        // the grid's left edge rather than stretched across the whole screen.
-        FilterPanel.Width = Math.Min(MaxFilterWidth, Math.Max(0, e.NewSize.Width - 24));
+        // Chips beside or below the search box, and the whole row capped at a comfortable width.
+        FilterLayout.Apply(FilterPanel, FilterChips, e.NewSize.Width - 24);
 
         var layout = PosterGrid.Fit(e.NewSize.Width - 24);
         TileWidth = layout.TileWidth;

@@ -19,26 +19,26 @@
              x:Name="RootControl">
     <Grid RowDefinitions="Auto,*">
         <!-- Search and filters. -->
-        <StackPanel Grid.Row="0" x:Name="FilterPanel" Spacing="4" Margin="12,8,12,4" HorizontalAlignment="Left"
+        <!-- Search, then the Category / Source chips: underneath on a phone, beside the search box on a wider
+             screen (FilterLayout). The chips take the search box's height so they line up either way. -->
+        <Grid Grid.Row="0" x:Name="FilterPanel" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="12,8,12,4" HorizontalAlignment="Left"
                     IsVisible="{Binding SelectedSeries, Converter={x:Static conv:ObjectConverters.IsNull}}">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}" Watermark="Search shows" />
-                <Panel Grid.Column="1" Width="48" Height="48" Margin="4,0,0,0">
-                    <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
-                    <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
-                        <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
-                    </Button>
-                </Panel>
-            </Grid>
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button x:Name="CategoryChip" Classes="chip" Click="OnCategoryChipClick" MaxWidth="260"
+            <TextBox x:Name="SearchBox" Grid.Column="0" Text="{Binding SearchText}" Watermark="Search shows" />
+            <Panel Grid.Column="2" Width="48" Height="48" Margin="4,0,0,0">
+                <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
+                <Button Classes="icon" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsLoading}" ToolTip.Tip="Refresh">
+                    <ui:FASymbolIcon Symbol="Refresh" FontSize="20" />
+                </Button>
+            </Panel>
+            <StackPanel x:Name="FilterChips" Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                <Button x:Name="CategoryChip" Classes="chip" Height="{Binding #SearchBox.Bounds.Height}" Click="OnCategoryChipClick" MaxWidth="260"
                         Classes.selected="{Binding SelectedCategory, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="{Binding SelectedCategory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="200" />
                         <ui:FASymbolIcon Symbol="ChevronDown" FontSize="12" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="SourceChip" Classes="chip" Click="OnSourceChipClick" MaxWidth="200"
+                <Button x:Name="SourceChip" Classes="chip" Height="{Binding #SearchBox.Bounds.Height}" Click="OnSourceChipClick" MaxWidth="200"
                         Classes.selected="{Binding SelectedSource, Converter={x:Static views:BrowseConverters.IsFilterActive}}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="{Binding SelectedSource}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
@@ -46,8 +46,8 @@
                     </StackPanel>
                 </Button>
             </StackPanel>
-            <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
-        </StackPanel>
+            <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
+        </Grid>
 
         <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
