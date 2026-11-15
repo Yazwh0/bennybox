@@ -56,7 +56,7 @@ public partial class SimpleHomeView : UserControl
     private int _columns = 2;
 
     private AndroidShellViewModel? _shell;
-    private INotifyCollectionChanged? _watchedCollection;
+    private List<INotifyCollectionChanged> _watchedCollections = [];
     private bool _rebuildQueued;
 
     private readonly SimpleExitTile _exitTile = new();
@@ -162,7 +162,7 @@ public partial class SimpleHomeView : UserControl
             itemsPage.SelectedCategory = screen.Category ?? itemsPage.Categories.FirstOrDefault() ?? itemsPage.SelectedCategory;
         }
 
-        WatchSource(SourceFor(screen));
+        WatchSources(SourcesFor(screen));
         Rebuild();
         RowsList.ScrollIntoView(0);
 
@@ -174,26 +174,31 @@ public partial class SimpleHomeView : UserControl
 
     // The collection the current screen is built from, so it can rebuild when that changes (lists
     // load in the background, and filtering by category refills them).
-    private INotifyCollectionChanged? SourceFor(Screen screen) => screen switch
+    //
+    // Home also watches each place's category list: its TV / Films / Shows / Videos tiles only show
+    // once that place has something in it, and those lists load in the background. Watching just the
+    // favourites meant a place that finished loading after them (TV, with thousands of channels, nearly
+    // always) never got its tile until something else changed.
+    private IEnumerable<INotifyCollectionChanged?> SourcesFor(Screen screen) => screen switch
     {
-        { Kind: ScreenKind.Home } => _shell?.Favorites.Rows,
-        { Kind: ScreenKind.Categories, Destination: { } d } => PageFor(d)?.Categories,
-        { Kind: ScreenKind.Items, Destination: { } d } => PageFor(d)?.Rows,
-        { Kind: ScreenKind.Show } => _shell?.Series.Episodes,
-        _ => null,
+        { Kind: ScreenKind.Home } => [_shell?.Favorites.Rows, .. Enum.GetValues<SimpleDestination>().Select(d => PageFor(d)?.Categories)],
+        { Kind: ScreenKind.Categories, Destination: { } d } => [PageFor(d)?.Categories],
+        { Kind: ScreenKind.Items, Destination: { } d } => [PageFor(d)?.Rows],
+        { Kind: ScreenKind.Show } => [_shell?.Series.Episodes],
+        _ => [],
     };
 
-    private void WatchSource(INotifyCollectionChanged? source)
+    private void WatchSources(IEnumerable<INotifyCollectionChanged?> sources)
     {
-        if (_watchedCollection is not null)
+        foreach (var watched in _watchedCollections)
         {
-            _watchedCollection.CollectionChanged -= OnSourceChanged;
+            watched.CollectionChanged -= OnSourceChanged;
         }
 
-        _watchedCollection = source;
-        if (_watchedCollection is not null)
+        _watchedCollections = sources.OfType<INotifyCollectionChanged>().ToList();
+        foreach (var watched in _watchedCollections)
         {
-            _watchedCollection.CollectionChanged += OnSourceChanged;
+            watched.CollectionChanged += OnSourceChanged;
         }
     }
 

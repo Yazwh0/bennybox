@@ -54,6 +54,11 @@
             an outer ItemsControl. With 15k+ channels the nested/non-virtualized version realized
             every row's controls up front, which is what made loading the list freeze the UI.
         -->
+        <!-- Nothing to show: no source with live TV at all, or a search / category that matches nothing. -->
+        <TextBlock Grid.Row="1" Margin="12" TextWrapping="Wrap" Foreground="{StaticResource GlassTextDimBrush}" IsVisible="{Binding HasNoChannels}"
+                   Text="No live TV channels yet. Add a source with live TV (an Xtream account or an M3U playlist) in Settings, then refresh it." />
+        <TextBlock Grid.Row="1" Margin="12" TextWrapping="Wrap" Foreground="{StaticResource GlassTextDimBrush}" IsVisible="{Binding HasNoMatches}"
+                   Text="No channels match. Try a different search or category." />
         <ScrollViewer Grid.Row="1">
             <ScrollViewer.IsVisible>
                 <MultiBinding Converter="{x:Static conv:BoolConverters.And}">

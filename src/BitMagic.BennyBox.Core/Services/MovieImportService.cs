@@ -27,6 +27,9 @@ public class MovieImportService
 
         if (!result.NotModified)
         {
+            // Keep each film's Id across the refresh so favourites still point at it (see StableIds).
+            StableIds.Carry(await _movieRepository.GetMoviesAsync(profile.Id, cancellationToken), result.Movies,
+                m => m.SourceMovieId, m => m.Id, (m, id) => m.Id = id);
             await _movieRepository.ReplaceMoviesAsync(profile.Id, result.Categories, result.Movies, cancellationToken);
         }
 

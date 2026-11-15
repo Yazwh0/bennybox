@@ -27,6 +27,9 @@ public class ClipImportService
 
         if (!result.NotModified)
         {
+            // Keep each video's Id across the refresh so favourites still point at it (see StableIds).
+            StableIds.Carry(await _clipRepository.GetClipsAsync(profile.Id, cancellationToken), result.Clips,
+                c => c.SourceMovieId, c => c.Id, (c, id) => c.Id = id);
             await _clipRepository.ReplaceClipsAsync(profile.Id, result.Categories, result.Clips, cancellationToken);
         }
 

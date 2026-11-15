@@ -68,7 +68,19 @@ public partial class LiveTvViewModel : ViewModelBase
     private Channel? _selectedChannel;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNoChannels), nameof(HasNoMatches))]
     private bool _isLoading;
+
+    // No live channels from any source (e.g. only a Jellyfin or folder source is set up), as opposed to
+    // a search or category that just matches nothing - the page says which.
+    public bool HasNoChannels => !IsLoading && _allGroups.Count == 0;
+    public bool HasNoMatches => !IsLoading && _allGroups.Count > 0 && Rows.Count == 0;
+
+    private void RaiseEmptyStates()
+    {
+        OnPropertyChanged(nameof(HasNoChannels));
+        OnPropertyChanged(nameof(HasNoMatches));
+    }
 
     [NotifyPropertyChangedFor(nameof(HasLoadError))]
     [ObservableProperty]
@@ -359,6 +371,7 @@ public partial class LiveTvViewModel : ViewModelBase
                 {
                     Rows.Add(row);
                 }
+                RaiseEmptyStates();
             });
         }
         catch (OperationCanceledException)
@@ -374,6 +387,7 @@ public partial class LiveTvViewModel : ViewModelBase
         {
             Rows.Add(row);
         }
+        RaiseEmptyStates();
     }
 
     private static List<CategoryGroupViewModel> Filter(List<CategoryGroupViewModel> groups, string query, string category)

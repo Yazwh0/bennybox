@@ -36,6 +36,9 @@ public class PlaylistImportService
         // large) delete+reinsert entirely, we only need to record that we checked.
         if (!result.NotModified)
         {
+            // Keep each channel's Id across the refresh so favourites still point at it (see StableIds).
+            StableIds.Carry(await _channelRepository.GetChannelsAsync(profile.Id, cancellationToken), result.Channels,
+                c => c.SourceChannelId, c => c.Id, (c, id) => c.Id = id);
             await _channelRepository.ReplaceChannelsAsync(profile.Id, result.Categories, result.Channels, cancellationToken);
         }
 

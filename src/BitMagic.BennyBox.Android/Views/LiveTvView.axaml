@@ -48,6 +48,12 @@
             <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" Opacity="0.7" />
         </StackPanel>
 
+
+        <!-- Nothing to show: no source with live TV at all, or a search / category that matches nothing. -->
+        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoChannels}"
+                   Text="No live TV channels yet. Add a source with live TV (an Xtream account or an M3U playlist) in Settings, then refresh it." />
+        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoMatches}"
+                   Text="No channels match. Try a different search or category." />
         <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}" SizeChanged="OnListSizeChanged">
             <ItemsControl x:Name="ChannelRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>

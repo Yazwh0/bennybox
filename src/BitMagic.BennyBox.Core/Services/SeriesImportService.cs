@@ -32,6 +32,9 @@ public class SeriesImportService
 
         if (!result.NotModified)
         {
+            // Keep each show's Id across the refresh so favourites still point at it (see StableIds).
+            StableIds.Carry(await _seriesRepository.GetSeriesAsync(profile.Id, cancellationToken), result.SeriesList,
+                s => s.SourceSeriesId, s => s.Id, (s, id) => s.Id = id);
             await _seriesRepository.ReplaceSeriesAsync(profile.Id, result.Categories, result.SeriesList, cancellationToken);
         }
 
