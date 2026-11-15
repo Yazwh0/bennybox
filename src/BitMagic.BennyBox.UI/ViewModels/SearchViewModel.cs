@@ -569,11 +569,10 @@ public partial class SearchViewModel : ViewModelBase
                     var nowNext = await _epgRepository.GetNowNextAsync(profile.Id, nowUtc);
                     foreach (var channel in profileChannels)
                     {
-                        var nowTitle = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry)
-                            ? entry.Now?.Title
-                            : null;
+                        var schedule = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry) ? entry : null;
+                            var nowTitle = schedule?.Now?.Title;
                         channels.Add(new ChannelListItemViewModel(channel, nowTitle, favoriteChannelIds.Contains(channel.Id),
-                            ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name)));
+                            ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name), schedule?.Now, schedule?.Next));
                     }
                 }
 

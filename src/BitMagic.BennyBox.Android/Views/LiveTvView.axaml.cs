@@ -37,6 +37,34 @@ public partial class LiveTvView : UserControl
         };
     }
 
+    // Moves the "how far through" bars on once a minute while the page is showing.
+    private readonly Avalonia.Threading.DispatcherTimer _clock = new() { Interval = TimeSpan.FromMinutes(1) };
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _clock.Tick += OnClockTick;
+        _clock.Start();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _clock.Stop();
+        _clock.Tick -= OnClockTick;
+    }
+
+    private void OnClockTick(object? sender, EventArgs e)
+    {
+        if (DataContext is LiveTvViewModel viewModel)
+        {
+            foreach (var channel in viewModel.Rows.OfType<ChannelListItemViewModel>())
+            {
+                channel.RefreshTimes();
+            }
+        }
+    }
+
     private void OnListSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         var width = Math.Max(0, e.NewSize.Width - 24);

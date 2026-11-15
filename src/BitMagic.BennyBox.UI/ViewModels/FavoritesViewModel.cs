@@ -280,11 +280,10 @@ public partial class FavoritesViewModel : ViewModelBase
                     var nowNext = await _epgRepository.GetNowNextAsync(profile.Id, DateTime.UtcNow);
                     foreach (var channel in favoriteChannels)
                     {
-                        var nowTitle = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry)
-                            ? entry.Now?.Title
-                            : null;
+                        var schedule = !string.IsNullOrEmpty(channel.TvgId) && nowNext.TryGetValue(channel.TvgId, out var entry) ? entry : null;
+                            var nowTitle = schedule?.Now?.Title;
                         channelItems.Add(new ChannelListItemViewModel(channel, nowTitle, isFavorite: true,
-                            fallbackLogoUrl: ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name)));
+                            fallbackLogoUrl: ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, channel.Name), now: schedule?.Now, next: schedule?.Next));
                     }
                 }
 
