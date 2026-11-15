@@ -44,11 +44,7 @@ public class M3uChannelSource : IChannelSource
 
         await foreach (var entry in M3uParser.ParseAsync(stream, cancellationToken))
         {
-            var groupTitle = entry.Attributes.GetValueOrDefault("group-title", string.Empty).Trim();
-            if (groupTitle.Length == 0)
-            {
-                groupTitle = "Uncategorized";
-            }
+            var groupTitle = CategoryNames.Tidy(entry.Attributes.GetValueOrDefault("group-title", string.Empty));
 
             if (!categories.TryGetValue(groupTitle, out var category))
             {

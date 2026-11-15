@@ -436,11 +436,17 @@ public partial class LiveTvViewModel : ViewModelBase
                             continue;
                         }
 
-                        groups.Add(new CategoryGroupViewModel(category.Name, categoryChannels));
+                        groups.Add(new CategoryGroupViewModel(CategoryNames.Tidy(category.Name), categoryChannels));
                     }
                 }
 
-                return groups.OrderBy(g => rank(g.Name)).ThenBy(g => g.Name).ToList();
+                // Playlists imported before category names were tidied (see CategoryNames) can still
+                // have several "Animation;..." categories that now share a name - one heading each.
+                return groups
+                    .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(same => same.Count() == 1 ? same.First()
+                        : new CategoryGroupViewModel(same.Key, same.SelectMany(g => g.Channels).ToList()))
+                    .OrderBy(g => rank(g.Name)).ThenBy(g => g.Name).ToList();
             });
 
             if (requestId != _loadRequestId)
