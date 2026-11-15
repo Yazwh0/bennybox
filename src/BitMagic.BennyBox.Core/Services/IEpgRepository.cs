@@ -14,4 +14,7 @@ public interface IEpgRepository
 
     // One channel's programmes overlapping a time range, in start order - for a channel's own schedule page.
     Task<IReadOnlyList<EpgProgramme>> GetChannelProgrammesAsync(Guid profileId, string channelTvgId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default);
+
+    // When a source's guide runs out (its last programme's end), or null with no guide at all.
+    Task<DateTime?> GetLatestProgrammeEndAsync(Guid profileId, CancellationToken cancellationToken = default);
 }

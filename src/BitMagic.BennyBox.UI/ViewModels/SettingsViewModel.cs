@@ -29,6 +29,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly ICredentialProtector _credentialProtector;
     private readonly FavoritesTransfer _favoritesTransfer;
     private readonly ContentPriority _contentPriority;
+    private readonly ProfileContentImporter _contentImporter;
     private bool _isApplyingSavedPriorityPrefixes;
     private readonly ILogger<SettingsViewModel> _logger;
 
@@ -191,8 +192,10 @@ public partial class SettingsViewModel : ViewModelBase
         ICredentialProtector credentialProtector,
         FavoritesTransfer favoritesTransfer,
         ContentPriority contentPriority,
+        ProfileContentImporter contentImporter,
         ILogger<SettingsViewModel> logger)
     {
+        _contentImporter = contentImporter;
         _favoritesTransfer = favoritesTransfer;
         _contentPriority = contentPriority;
         _profileRepository = profileRepository;
@@ -758,69 +761,8 @@ public partial class SettingsViewModel : ViewModelBase
     {
         var messages = new List<string>();
 
-        try
-        {
-            var result = await _importService.ImportAsync(profile);
-            messages.Add(result.NotModified
-                ? "channels up to date"
-                : $"{result.Channels.Count} channels in {result.Categories.Count} categories");
-
-            if (profile.EpgSourceType != EpgSourceType.None)
-            {
-                await _epgImportService.ImportAsync(profile);
-                if (!result.NotModified)
-                {
-                    messages.Add("EPG updated");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            messages.Add($"channels/EPG failed: {ex.Message}");
-            _logger.LogError(ex, "Failed to import channels/EPG for profile {ProfileName}", profile.Name);
-        }
-
-        try
-        {
-            var seriesResult = await _seriesImportService.ImportAsync(profile);
-            if (seriesResult is not null)
-            {
-                messages.Add($"{seriesResult.SeriesList.Count} series");
-            }
-        }
-        catch (Exception ex)
-        {
-            messages.Add($"series failed: {ex.Message}");
-            _logger.LogError(ex, "Failed to import series for profile {ProfileName}", profile.Name);
-        }
-
-        try
-        {
-            var movieResult = await _movieImportService.ImportAsync(profile);
-            if (movieResult is not null)
-            {
-                messages.Add($"{movieResult.Movies.Count} movies");
-            }
-        }
-        catch (Exception ex)
-        {
-            messages.Add($"movies failed: {ex.Message}");
-            _logger.LogError(ex, "Failed to import movies for profile {ProfileName}", profile.Name);
-        }
-
-        try
-        {
-            var clipResult = await _clipImportService.ImportAsync(profile);
-            if (clipResult is not null)
-            {
-                messages.Add($"{clipResult.Clips.Count} clips");
-            }
-        }
-        catch (Exception ex)
-        {
-            messages.Add($"clips failed: {ex.Message}");
-            _logger.LogError(ex, "Failed to import clips for profile {ProfileName}", profile.Name);
-        }
+        // The same import a background refresh does (see AutoRefresh), then the account details.
+        messages.Add(await _contentImporter.ImportAllAsync(profile));
 
         try
         {

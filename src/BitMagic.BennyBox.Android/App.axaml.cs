@@ -58,6 +58,9 @@ public partial class App : Avalonia.Application
             };
         }
 
+        // Keeps the guide and every source up to date in the background (see AutoRefresh).
+        host.Services.GetRequiredService<AutoRefresh>().Start();
+
 #if DEBUG
         var debugBridgeLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DebugBridge");
         var debugBridge = new AndroidDebugBridgeServer(host.Services.GetRequiredService<AndroidShellViewModel>(), debugBridgeLogger);

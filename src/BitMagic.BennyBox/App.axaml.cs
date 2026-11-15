@@ -99,6 +99,9 @@ public partial class App : Application
             mainWindow.Show();
             splash.Close();
 
+            // Keeps the guide and every source up to date in the background (see AutoRefresh).
+            host.Services.GetRequiredService<AutoRefresh>().Start();
+
 #if DEBUG
             _debugRemoteControlServer = new DebugRemoteControlServer(mainWindowViewModel, mainWindow, host.Services.GetRequiredService<ILogger<DebugRemoteControlServer>>());
             _debugRemoteControlServer.Start();

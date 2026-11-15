@@ -104,4 +104,11 @@ public class SqliteEpgRepository : IEpgRepository
                 new { profileId, channelTvgId, startUtc, endUtc });
             return (IReadOnlyList<EpgProgramme>)rows.ToList();
         }, cancellationToken);
+
+    public Task<DateTime?> GetLatestProgrammeEndAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            return connection.ExecuteScalar<DateTime?>("SELECT MAX(EndUtc) FROM EpgProgramme WHERE ProfileId = @profileId", new { profileId });
+        }, cancellationToken);
 }
