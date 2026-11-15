@@ -31,6 +31,17 @@ public sealed partial class SimpleTile : ObservableObject
     public SimplePicture? Badge { get; init; }
     public double? Progress { get; init; }
 
+    // Shown big on the tile when there's no picture (an episode's number); otherwise its initials.
+    public string? BigText { get; init; }
+    public string Placeholder => BigText ?? SimpleModeConverters.InitialsOf(Title);
+
+    // What press-and-hold reads aloud, when it should say more than the label ("Episode 3, ...").
+    public string? SpokenText { get; init; }
+    public string Speech => SpokenText ?? Title;
+
+    // An episode that's been watched: a green tick on the tile, and the picture faded.
+    public bool IsWatched { get; init; }
+
     // A category with no keyword picture: the first few pictures inside it, shown as a 2x2 grid.
     public IReadOnlyList<SimpleImage>? Collage { get; init; }
 
@@ -43,7 +54,7 @@ public sealed partial class SimpleTile : ObservableObject
     [NotifyPropertyChangedFor(nameof(PictureOpacity))]
     private bool _didNotWork;
 
-    public double PictureOpacity => DidNotWork ? 0.35 : 1;
+    public double PictureOpacity => DidNotWork ? 0.35 : IsWatched ? 0.5 : 1;
 
     // The stream this tile plays, for matching a StreamHealthChangedMessage.
     public string? StreamUrl => Payload switch
@@ -81,6 +92,10 @@ public sealed record SimpleImage(string? Url, string? FallbackUrl, string? TmdbF
 public sealed record SimpleCategory(SimpleDestination Destination, string Name);
 
 public sealed record SimpleHeader(string Title, SimplePicture Icon);
+
+// The big "Play next" button at the top of a show's screen, a whole row wide: which episode it will
+// play, so it's clear without reading the list below.
+public sealed record SimplePlayNextTile(EpisodeListItemViewModel Episode, string Label, string Detail, string EpisodeTitle);
 
 // Tiles are laid out in rows (2 per row on a phone, 4 on a tablet) rather than in a wrap panel so the
 // list can virtualise - a TV category can hold hundreds of channels.

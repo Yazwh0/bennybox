@@ -119,6 +119,21 @@
                     </StackPanel>
                 </DataTemplate>
 
+                <!-- A show's big "Play next" button, a whole row wide. -->
+                <DataTemplate DataType="views:SimplePlayNextTile">
+                    <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,8,0,8"
+                            Padding="20,16" CornerRadius="24" MinHeight="112" Click="OnPlayNextClick" Holding="OnPlayNextHolding">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <views:SimplePictureIcon Picture="Play" Width="72" Height="72" CornerRadius="36" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{Binding Label}" FontSize="28" FontWeight="Bold" />
+                                <TextBlock Text="{Binding Detail}" FontSize="20" />
+                                <TextBlock Text="{Binding EpisodeTitle}" FontSize="18" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+
                 <DataTemplate DataType="views:SimpleTileRow">
                     <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,0,0,12">
                         <ItemsControl.ItemsPanel>
@@ -137,11 +152,15 @@
                                             <Panel IsVisible="{Binding HasPicture}">
                                                 <Panel Opacity="{Binding PictureOpacity}">
                                                     <Border Classes="picture-backing" IsVisible="{Binding #Pic.Source, Converter={x:Static conv:ObjectConverters.IsNull}}">
-                                                        <TextBlock Text="{Binding Title, Converter={x:Static views:SimpleModeConverters.Initials}}" />
+                                                        <TextBlock Text="{Binding Placeholder}" />
                                                     </Border>
                                                     <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
                                                                                TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
                                                 </Panel>
+                                                <!-- Watched episode: a green tick. -->
+                                                <views:SimplePictureIcon Picture="Watched" IsVisible="{Binding IsWatched}"
+                                                                         Width="44" Height="44" CornerRadius="22"
+                                                                         HorizontalAlignment="Right" VerticalAlignment="Top" />
                                                 <!-- Didn't work last time: a big red "no" sign over the greyed picture. -->
                                                 <views:SimplePictureIcon Picture="NotWorking" IsVisible="{Binding DidNotWork}"
                                                                          Width="64" Height="64" CornerRadius="32"

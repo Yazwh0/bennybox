@@ -45,6 +45,9 @@ public enum SimplePicture
 
     // Laid over a picture whose stream didn't play last time (StreamHealth).
     NotWorking,
+
+    // On an episode that's been watched.
+    Watched,
 }
 
 public static class SimplePictures
@@ -145,6 +148,8 @@ public static class SimplePictures
         [SimplePicture.NotWorking] = new(Geometry.Parse(
             "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"),
             Color.Parse("#C62828"), White),
+        [SimplePicture.Watched] = new(Geometry.Parse("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"),
+            Color.Parse("#2E7D32"), White),
     };
 
     public static Info Get(SimplePicture picture) => All[picture];

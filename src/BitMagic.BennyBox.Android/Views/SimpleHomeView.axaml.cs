@@ -44,9 +44,10 @@ public partial class SimpleHomeView : UserControl
         set => SetValue(TileImageHeightProperty, value);
     }
 
-    private enum ScreenKind { Home, Categories, Items }
+    private enum ScreenKind { Home, Categories, Items, Show }
 
-    private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null, SimplePicture? Picture = null);
+    private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null, SimplePicture? Picture = null,
+        SeriesListItemViewModel? Series = null);
 
     private readonly Stack<Screen> _history = new();
     private Screen _screen = new(ScreenKind.Home);
@@ -137,11 +138,19 @@ public partial class SimpleHomeView : UserControl
             page.SelectedCategory = page.Categories.FirstOrDefault() ?? page.SelectedCategory;
         }
 
+        // Leaving a show: close it on the Series page too.
+        if (_screen.Kind == ScreenKind.Show && screen.Kind != ScreenKind.Show)
+        {
+            StopWatchingEpisodes();
+            _shell?.Series.BackToListCommand.Execute(null);
+        }
+
         _screen = screen;
         BackButton.IsVisible = screen.Kind != ScreenKind.Home;
         (TitleIcon.Picture, TitleText.Text) = screen switch
         {
             { Kind: ScreenKind.Home } => (SimplePicture.Home, "Home"),
+            { Kind: ScreenKind.Show, Series: { } show } => (SimplePicture.Shows, show.Name),
             { Kind: ScreenKind.Items, Category: { } category } when category != PageFor(screen.Destination!.Value)?.Categories.FirstOrDefault()
                 => (screen.Picture ?? PictureFor(screen.Destination!.Value), category),
             { Destination: { } destination } => (PictureFor(destination), LabelFor(destination)),
@@ -156,6 +165,11 @@ public partial class SimpleHomeView : UserControl
         WatchSource(SourceFor(screen));
         Rebuild();
         RowsList.ScrollIntoView(0);
+
+        if (screen is { Kind: ScreenKind.Show, Series: { } series })
+        {
+            _ = OpenShowAsync(series);
+        }
     }
 
     // The collection the current screen is built from, so it can rebuild when that changes (lists
@@ -165,6 +179,7 @@ public partial class SimpleHomeView : UserControl
         { Kind: ScreenKind.Home } => _shell?.Favorites.Rows,
         { Kind: ScreenKind.Categories, Destination: { } d } => PageFor(d)?.Categories,
         { Kind: ScreenKind.Items, Destination: { } d } => PageFor(d)?.Rows,
+        { Kind: ScreenKind.Show } => _shell?.Series.Episodes,
         _ => null,
     };
 
@@ -219,7 +234,7 @@ public partial class SimpleHomeView : UserControl
 
         foreach (var item in _currentTiles)
         {
-            if (item is SimpleHeader)
+            if (item is SimpleHeader or SimplePlayNextTile)
             {
                 Flush();
                 _rows.Add(item);
@@ -272,6 +287,10 @@ public partial class SimpleHomeView : UserControl
             case ScreenKind.Categories when screen.Destination is { } destination && PageFor(destination) is { } page:
                 var usedPictures = new HashSet<SimplePicture>();
                 tiles.AddRange(page.Categories.Skip(1).Select(name => CategoryTile(destination, page, name, usedPictures)));
+                break;
+
+            case ScreenKind.Show:
+                BuildShow(shell.Series.Episodes, tiles);
                 break;
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
@@ -464,31 +483,138 @@ public partial class SimpleHomeView : UserControl
                 player.PlayClip(clip.Clip);
                 break;
             case SeriesListItemViewModel series:
-                await PlayNextEpisodeAsync(series);
+                Navigate(new Screen(ScreenKind.Show, Series: series));
+                break;
+            case EpisodeListItemViewModel episode:
+                _shell.Series.PlayEpisodeCommand.Execute(episode);
                 break;
         }
     }
 
-    // A show plays straight away: its first unwatched episode (or the first episode once they're all
-    // watched). The player itself resumes a part-watched episode where it stopped.
-    private async Task PlayNextEpisodeAsync(SeriesListItemViewModel series)
+    // A show's screen: a big "Play next" button, then every episode by season with a tick on the ones
+    // already watched, so it's easy to see how far through it is (or pick a different episode). The
+    // episodes are loaded by the normal Series page, which this drives.
+    private async Task OpenShowAsync(SeriesListItemViewModel series)
     {
-        var seriesPage = _shell!.Series;
         BusyOverlay.IsVisible = true;
         try
         {
-            await seriesPage.SelectSeriesCommand.ExecuteAsync(series);
-            var episodes = seriesPage.Episodes.OfType<EpisodeListItemViewModel>().ToList();
-            var next = episodes.FirstOrDefault(ep => !ep.IsWatched) ?? episodes.FirstOrDefault();
-            if (next is not null)
-            {
-                seriesPage.PlayEpisodeCommand.Execute(next);
-            }
+            await _shell!.Series.SelectSeriesCommand.ExecuteAsync(series);
         }
         finally
         {
-            seriesPage.BackToListCommand.Execute(null);
             BusyOverlay.IsVisible = false;
+        }
+
+        if (_screen.Series != series)
+        {
+            return;
+        }
+
+        WatchEpisodes();
+        Rebuild();
+    }
+
+    private static void BuildShow(IEnumerable<object> rows, List<object> tiles)
+    {
+        var episodes = rows.OfType<EpisodeListItemViewModel>().ToList();
+        if (episodes.Count == 0)
+        {
+            return;
+        }
+
+        // The first episode not yet watched; once they all are, back to the start. The player resumes
+        // a part-watched episode where it stopped.
+        var next = episodes.FirstOrDefault(e => !e.IsWatched);
+        var target = next ?? episodes[0];
+        tiles.Add(new SimplePlayNextTile(target,
+            next is null ? "Play from the start" : "Play next",
+            $"Season {target.Episode.Season}, episode {target.Episode.EpisodeNumber}",
+            ShortEpisodeTitle(target)));
+
+        foreach (var row in rows)
+        {
+            switch (row)
+            {
+                case SeasonHeaderRow season:
+                    tiles.Add(new SimpleHeader(season.Name, SimplePicture.Shows));
+                    break;
+                case EpisodeListItemViewModel episode:
+                    tiles.Add(new SimpleTile
+                    {
+                        Title = ShortEpisodeTitle(episode),
+                        Payload = episode,
+                        BigText = episode.Episode.EpisodeNumber.ToString(),
+                        SpokenText = $"Episode {episode.Episode.EpisodeNumber}. {ShortEpisodeTitle(episode)}",
+                        IsWatched = episode.IsWatched,
+                        // The one Play next will play gets a play badge.
+                        Badge = episode == target ? SimplePicture.Play : null,
+                        DidNotWork = episode.DidNotWork,
+                    });
+                    break;
+            }
+        }
+    }
+
+    // Providers often name episodes "Show Name - S01E02 - Title"; the tile already shows the number
+    // and the screen the show, so just the title is left (or "Episode 2" when that's all there is).
+    private static string ShortEpisodeTitle(EpisodeListItemViewModel episode)
+    {
+        var title = System.Text.RegularExpressions.Regex.Replace(episode.Title, @"^.*?\bS\d+\s*E\d+\b\s*[-:–]?\s*", "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+        return title.Length > 0 ? title : $"Episode {episode.Episode.EpisodeNumber}";
+    }
+
+    // Watching an episode ticks it (and moves Play next on); rebuild when that happens.
+    private readonly List<EpisodeListItemViewModel> _watchedEpisodes = [];
+
+    private void WatchEpisodes()
+    {
+        StopWatchingEpisodes();
+        _watchedEpisodes.AddRange(_shell!.Series.Episodes.OfType<EpisodeListItemViewModel>());
+        foreach (var episode in _watchedEpisodes)
+        {
+            episode.PropertyChanged += OnEpisodeChanged;
+        }
+    }
+
+    private void StopWatchingEpisodes()
+    {
+        foreach (var episode in _watchedEpisodes)
+        {
+            episode.PropertyChanged -= OnEpisodeChanged;
+        }
+
+        _watchedEpisodes.Clear();
+    }
+
+    private void OnEpisodeChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EpisodeListItemViewModel.IsWatched))
+        {
+            OnSourceChanged(sender, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+    }
+
+    private void OnPlayNextClick(object? sender, RoutedEventArgs e)
+    {
+        if (TakeSuppressedClick())
+        {
+            return;
+        }
+
+        if (sender is Control { DataContext: SimplePlayNextTile playNext })
+        {
+            _shell?.Series.PlayEpisodeCommand.Execute(playNext.Episode);
+        }
+    }
+
+    private void OnPlayNextHolding(object? sender, HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState == HoldingState.Started && sender is Control { DataContext: SimplePlayNextTile playNext })
+        {
+            _suppressNextClick = true;
+            ReadAloud.Speak($"{playNext.Label}. {playNext.Detail}. {playNext.EpisodeTitle}");
         }
     }
 
@@ -498,7 +624,7 @@ public partial class SimpleHomeView : UserControl
         if (e.HoldingState == HoldingState.Started && sender is Control { DataContext: SimpleTile tile })
         {
             _suppressNextClick = true;
-            ReadAloud.Speak(tile.Title);
+            ReadAloud.Speak(tile.Speech);
             if (tile.CanFavourite)
             {
                 ItemCard.DataContext = tile;
