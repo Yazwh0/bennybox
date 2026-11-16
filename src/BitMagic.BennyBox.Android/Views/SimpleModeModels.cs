@@ -54,7 +54,10 @@ public sealed partial class SimpleTile : ObservableObject
     [NotifyPropertyChangedFor(nameof(PictureOpacity))]
     private bool _didNotWork;
 
-    public double PictureOpacity => DidNotWork ? 0.35 : IsWatched ? 0.5 : 1;
+    // A programme that hasn't been on yet (on a channel's page): faded, and a tap reads it out rather than playing.
+    public bool IsLater { get; init; }
+
+    public double PictureOpacity => DidNotWork ? 0.35 : IsWatched || IsLater ? 0.5 : 1;
 
     // The stream this tile plays, for matching a StreamHealthChangedMessage.
     public string? StreamUrl => Payload switch
@@ -103,6 +106,14 @@ public sealed record SimpleHeader(string Title, SimplePicture Icon);
 // The big "Play next" button at the top of a show's screen, a whole row wide: which episode it will
 // play, so it's clear without reading the list below.
 public sealed record SimplePlayNextTile(EpisodeListItemViewModel Episode, string Label, string Detail, string EpisodeTitle);
+
+// The big "Watch now" button at the top of a channel's page, a whole row wide: the channel live, with
+// what's on and how far through it is when the guide knows.
+public sealed record SimpleWatchNowTile(ChannelListItemViewModel Channel, string? NowTitle, double? Progress)
+{
+    public bool HasNowTitle => NowTitle is not null;
+    public bool HasProgress => Progress is not null;
+}
 
 // Tiles are laid out in rows (2 per row on a phone, 4 on a tablet) rather than in a wrap panel so the
 // list can virtualise - a TV category can hold hundreds of channels.

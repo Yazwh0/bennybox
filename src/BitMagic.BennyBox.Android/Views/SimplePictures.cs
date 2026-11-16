@@ -48,6 +48,10 @@ public enum SimplePicture
 
     // On an episode that's been watched.
     Watched,
+
+    // A channel's page: earlier programmes to watch again (catch-up), and ones still to come.
+    WatchAgain,
+    Later,
 }
 
 public static class SimplePictures
@@ -150,6 +154,12 @@ public static class SimplePictures
             Color.Parse("#C62828"), White),
         [SimplePicture.Watched] = new(Geometry.Parse("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"),
             Color.Parse("#2E7D32"), White),
+        [SimplePicture.WatchAgain] = new(Geometry.Parse(
+            "M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"),
+            Color.Parse("#00838F"), White),
+        [SimplePicture.Later] = new(Geometry.Parse(
+            "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"),
+            Color.Parse("#78909C"), White),
     };
 
     public static Info Get(SimplePicture picture) => All[picture];

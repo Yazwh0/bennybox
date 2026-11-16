@@ -134,6 +134,21 @@
                     </Button>
                 </DataTemplate>
 
+                <!-- A channel's big "Watch now" button, a whole row wide: the same Play picture as Play next. -->
+                <DataTemplate DataType="views:SimpleWatchNowTile">
+                    <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,8,0,8"
+                            Padding="20,16" CornerRadius="24" MinHeight="112" Click="OnWatchNowClick" Holding="OnWatchNowHolding">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <views:SimplePictureIcon Picture="Play" Width="72" Height="72" CornerRadius="36" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center" Spacing="4">
+                                <TextBlock Text="Watch now" FontSize="28" FontWeight="Bold" />
+                                <TextBlock Text="{Binding NowTitle}" FontSize="20" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasNowTitle}" />
+                                <ProgressBar Value="{Binding Progress}" Maximum="1" IsVisible="{Binding HasProgress}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+
                 <DataTemplate DataType="views:SimpleTileRow">
                     <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,0,0,12">
                         <ItemsControl.ItemsPanel>

@@ -44,10 +44,10 @@ public partial class SimpleHomeView : UserControl
         set => SetValue(TileImageHeightProperty, value);
     }
 
-    private enum ScreenKind { Home, Categories, Items, Show }
+    private enum ScreenKind { Home, Categories, Items, Show, Channel }
 
     private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null, SimplePicture? Picture = null,
-        SeriesListItemViewModel? Series = null);
+        SeriesListItemViewModel? Series = null, ChannelListItemViewModel? Channel = null);
 
     private readonly Stack<Screen> _history = new();
     private Screen _screen = new(ScreenKind.Home);
@@ -147,6 +147,12 @@ public partial class SimpleHomeView : UserControl
             page.SelectedCategory = page.Categories.FirstOrDefault() ?? page.SelectedCategory;
         }
 
+        // Leaving a channel's page: close it on Live TV too.
+        if (_screen.Kind == ScreenKind.Channel && screen.Kind != ScreenKind.Channel)
+        {
+            _shell?.LiveTv.CloseScheduleCommand.Execute(null);
+        }
+
         // Leaving a show: close it on the Series page too.
         if (_screen.Kind == ScreenKind.Show && screen.Kind != ScreenKind.Show)
         {
@@ -160,6 +166,7 @@ public partial class SimpleHomeView : UserControl
         {
             { Kind: ScreenKind.Home } => (SimplePicture.Home, "Home"),
             { Kind: ScreenKind.Show, Series: { } show } => (SimplePicture.Shows, show.Name),
+            { Kind: ScreenKind.Channel, Channel: { } shown } => (SimplePicture.Tv, shown.Name),
             { Kind: ScreenKind.Items, Category: { } category } when category != PageFor(screen.Destination!.Value)?.Categories.FirstOrDefault()
                 => (screen.Picture ?? PictureFor(screen.Destination!.Value), category),
             { Destination: { } destination } => (PictureFor(destination), LabelFor(destination)),
@@ -178,6 +185,11 @@ public partial class SimpleHomeView : UserControl
         if (screen is { Kind: ScreenKind.Show, Series: { } series })
         {
             _ = OpenShowAsync(series);
+        }
+
+        if (screen is { Kind: ScreenKind.Channel, Channel: { } channelToOpen })
+        {
+            _ = OpenChannelAsync(channelToOpen);
         }
     }
 
@@ -248,7 +260,7 @@ public partial class SimpleHomeView : UserControl
 
         foreach (var item in _currentTiles)
         {
-            if (item is SimpleHeader or SimplePlayNextTile)
+            if (item is SimpleHeader or SimplePlayNextTile or SimpleWatchNowTile)
             {
                 Flush();
                 _rows.Add(item);
@@ -318,6 +330,10 @@ public partial class SimpleHomeView : UserControl
 
             case ScreenKind.Show:
                 BuildShow(shell.Series.Episodes, tiles);
+                break;
+
+            case ScreenKind.Channel when screen.Channel is { } channel:
+                BuildChannel(channel, shell.LiveTv.OpenSchedule, tiles);
                 break;
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
@@ -496,7 +512,114 @@ public partial class SimpleHomeView : UserControl
             return;
         }
 
+        // A channel opens its page (Watch now, then what can be watched again), like a show does; the
+        // hold panel's Play still plays it straight away.
+        if (tile.Payload is ChannelListItemViewModel channel)
+        {
+            Navigate(new Screen(ScreenKind.Channel, Channel: channel));
+            return;
+        }
+
         await ActivateAsync(tile);
+    }
+
+    // A channel's page, built from the same schedule Live TV's channel page uses (this drives it).
+    private async Task OpenChannelAsync(ChannelListItemViewModel channel)
+    {
+        BusyOverlay.IsVisible = true;
+        try
+        {
+            await _shell!.LiveTv.OpenScheduleCommand.ExecuteAsync(channel);
+        }
+        finally
+        {
+            BusyOverlay.IsVisible = false;
+        }
+
+        if (_screen.Channel == channel)
+        {
+            Rebuild();
+        }
+    }
+
+    // Watch now first, a whole row wide; then everything that can be watched again, newest first and
+    // under a heading per day ("Today", "Yesterday"...); then what's still to come, faded, where a tap
+    // reads it out. Times are the big text on each tile, so they can be told apart without reading.
+    private static void BuildChannel(ChannelListItemViewModel channel, ChannelScheduleViewModel? schedule, List<object> tiles)
+    {
+        var loaded = schedule is { IsLoading: false } && schedule.Channel == channel;
+        var now = loaded ? schedule!.NowRow : null;
+        tiles.Add(new SimpleWatchNowTile(channel, now?.Title ?? channel.Now?.Title, now?.NowProgress ?? channel.NowProgress));
+        if (!loaded)
+        {
+            return;
+        }
+
+        var days = new List<(string Day, List<ScheduleProgrammeViewModel> Programmes)>();
+        foreach (var row in schedule!.Rows)
+        {
+            switch (row)
+            {
+                case ScheduleDayHeader header:
+                    days.Add((header.Name, []));
+                    break;
+                case ScheduleProgrammeViewModel programme when days.Count > 0:
+                    days[^1].Programmes.Add(programme);
+                    break;
+            }
+        }
+
+        foreach (var (day, programmes) in Enumerable.Reverse(days))
+        {
+            var again = programmes.Where(p => p.CanCatchUp).Reverse().ToList();
+            if (again.Count == 0)
+            {
+                continue;
+            }
+
+            tiles.Add(new SimpleHeader(day == "Today" ? "Watch again" : $"Watch again: {day}", SimplePicture.WatchAgain));
+            tiles.AddRange(again.Select(p => ProgrammeTile(p, day, isLater: false)));
+        }
+
+        foreach (var (day, programmes) in days)
+        {
+            var later = programmes.Where(p => !p.IsPast && !p.IsNow).ToList();
+            if (later.Count == 0)
+            {
+                continue;
+            }
+
+            tiles.Add(new SimpleHeader(day == "Today" ? "Later today" : day, SimplePicture.Later));
+            tiles.AddRange(later.Select(p => ProgrammeTile(p, day, isLater: true)));
+        }
+    }
+
+    private static SimpleTile ProgrammeTile(ScheduleProgrammeViewModel programme, string day, bool isLater) => new()
+    {
+        Title = programme.Title,
+        Payload = programme,
+        BigText = programme.TimeLabel,
+        // Without the guide's little superscript "New" marker, which read-aloud stumbles over.
+        SpokenText = $"{day} at {programme.TimeLabel}. {System.Text.RegularExpressions.Regex.Replace(programme.Title, "[ʰ-˿ᴬ-ᵿ]+", "").Trim()}",
+        Badge = isLater ? SimplePicture.Later : SimplePicture.WatchAgain,
+        IsLater = isLater,
+    };
+
+    private void OnWatchNowClick(object? sender, RoutedEventArgs e)
+    {
+        if (!TakeSuppressedClick() && sender is Control { DataContext: SimpleWatchNowTile watchNow })
+        {
+            _shell?.Player.PlayChannel(watchNow.Channel.Channel);
+        }
+    }
+
+    private void OnWatchNowHolding(object? sender, HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState == HoldingState.Started && sender is Control { DataContext: SimpleWatchNowTile watchNow })
+        {
+            _suppressNextClick = true;
+            ReadAloud.Speak(watchNow.NowTitle is { } title ? $"Watch {watchNow.Channel.Name} now. {title}" : $"Watch {watchNow.Channel.Name} now");
+        }
     }
 
     private async Task ActivateAsync(SimpleTile tile)
@@ -522,6 +645,17 @@ public partial class SimpleHomeView : UserControl
                 break;
             case ChannelListItemViewModel channel:
                 player.PlayChannel(channel.Channel);
+                break;
+            case ScheduleProgrammeViewModel programme when _shell.LiveTv.OpenSchedule is { } schedule:
+                if (programme.CanPlay)
+                {
+                    await schedule.PlayProgrammeCommand.ExecuteAsync(programme);
+                }
+                else
+                {
+                    ReadAloud.Speak(tile.Speech);
+                }
+
                 break;
             case WatchProgressItemViewModel progress:
                 player.ResumeFromProgress(progress.Progress);
