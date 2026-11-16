@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
 	<uses-permission android:name="android.permission.INTERNET" />
-	<application android:label="Benny Box" android:icon="@mipmap/icon">
+	<!-- usesCleartextTraffic: IPTV playlists, streams and logos are very often plain http, and Xtream
+	     catch-up redirects from https to an http CDN - Android blocks all of that by default. -->
+	<application android:label="Benny Box" android:icon="@mipmap/icon" android:usesCleartextTraffic="true">
 		<!-- Asks Play services to fetch its QR scanner module when the app is installed, rather than on
 		     the first tap of Settings' "Scan QR code" (see QrCodeScanner). -->
 		<meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />

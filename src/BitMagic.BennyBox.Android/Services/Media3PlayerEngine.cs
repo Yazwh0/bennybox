@@ -54,7 +54,18 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
     // Exposed for the Android player view's NativeControlHost to bind a Media3 PlayerView to
     // directly - IPlayerEngine itself has no notion of a native player control (see IPlayerEngine's
     // comment).
-    public IExoPlayer Player => _player ??= new ExoPlayerBuilder(_context).Build()!;
+    public IExoPlayer Player => _player ??= CreatePlayer();
+
+    // Xtream catch-up links answer with a redirect from https to a plain-http CDN, which ExoPlayer
+    // refuses by default ("Response code: 302") - VLC on desktop just follows it, so do the same.
+    // DefaultDataSource still handles local files (downloads) and content:// itself.
+    private IExoPlayer CreatePlayer()
+    {
+        var http = new AndroidX.Media3.DataSource.DefaultHttpDataSource.Factory().SetAllowCrossProtocolRedirects(true)!;
+        var dataSources = new AndroidX.Media3.DataSource.DefaultDataSource.Factory(_context, http);
+        var mediaSources = new AndroidX.Media3.ExoPlayer.Source.DefaultMediaSourceFactory(dataSources);
+        return new ExoPlayerBuilder(_context).SetMediaSourceFactory(mediaSources)!.Build()!;
+    }
 
     public Media3PlayerEngine(Context context)
     {
