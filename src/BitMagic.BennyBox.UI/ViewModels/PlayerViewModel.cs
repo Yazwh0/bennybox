@@ -550,6 +550,16 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _loadTimeoutTimer.Start();
     }
 
+    // An error leaves nothing playing: the pause button and seeking go grey rather than showing Pause.
+    partial void OnHasPlaybackErrorChanged(bool value)
+    {
+        if (value)
+        {
+            CanPause = false;
+            IsSeekable = false;
+        }
+    }
+
     private void ResetSeekState()
     {
         SeekSliderValue = 0;
@@ -628,7 +638,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
 
         // Nothing came out because this device can't decode the picture (see IPlayerEngine.DeviceCannotPlay):
         // say so, rather than "stalled", and don't bother retrying.
-        if (Engine.DeviceCannotPlay)
+        if (Engine.DeviceCannotPlay && _lastDisplayedPictures < EarlyFreezeFrames)
         {
             _logger.LogWarning("This device can't decode {Url}", _currentUrl);
             IsPlaying = false;
@@ -637,6 +647,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             HasPlaybackError = true;
             StatusText = CannotPlayText;
             CannotPlayOnDevice = true;
+            // The stream got as far as the decoder, so it works - clear any old "didn't work" mark.
+            RecordStreamResult(worked: true);
             Engine.Stop();
             return;
         }
@@ -852,6 +864,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 // The stream's fine, this device just can't decode it - so no "didn't work" mark.
                 StatusText = CannotPlayText;
                 CannotPlayOnDevice = true;
+                // The stream got as far as the decoder, so it works - clear any old "didn't work" mark.
+                RecordStreamResult(worked: true);
                 _logger.LogWarning("This device can't decode {Url}", _currentUrl);
                 return;
             }
@@ -918,8 +932,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private void OnTimeChanged(object? sender, long time) =>
         Dispatcher.UIThread.Post(() =>
         {
-            CanPause = Engine.CanPause;
-            IsSeekable = Engine.IsSeekable;
+            // Nothing to pause or seek while an error is showing (the engine can still report a position then).
+            CanPause = Engine.CanPause && !HasPlaybackError;
+            IsSeekable = Engine.IsSeekable && !HasPlaybackError;
 
             // Only reset the stall watchdog's clock on a genuine position advance - the engine can
             // keep firing TimeChanged with the *same* stale value on some sort of internal heartbeat

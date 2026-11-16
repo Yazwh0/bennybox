@@ -85,12 +85,13 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
 
     // See IPlayerEngine.DeviceCannotPlay: a decoding error (ExoPlayer's 4xxx codes - no decoder would
     // start, or the format is beyond this device), or a stream whose picture no decoder here supports.
-    // Also true when no picture has come out of a video stream this device says is beyond it ("Format
-    // exceeds selected codec's capabilities" - 4K HDR HEVC on most phones): ExoPlayer tries anyway, and the
-    // decoder sits there producing nothing, which the stall check then catches.
+    // Also true while playing a video this device says is beyond it ("Format exceeds selected codec's
+    // capabilities" - 4K HDR HEVC on most phones): ExoPlayer tries anyway, and the decoder gives up after
+    // a frame or two (or none), which the stall check catches - PlayerViewModel only takes it as "can't
+    // play" when the picture froze early, so a 4K stream that does play and later stalls isn't blamed on it.
     public bool DeviceCannotPlay
     {
-        get => _deviceCannotPlay || (_player is { } player && RenderedFrameCount < 5 && PlayingVideoBeyondDevice(player));
+        get => _deviceCannotPlay || (_player is { } player && PlayingVideoBeyondDevice(player));
         private set => _deviceCannotPlay = value;
     }
 
