@@ -22,6 +22,11 @@ public interface IPlayerEngine
     // Engines without the problem can ignore it.
     bool SoftwareDecoding { get; set; }
 
+    // After an error: true when it was this device that couldn't decode the stream (typically a 4K
+    // channel on a phone or tablet without the decoder for it) rather than the stream not working -
+    // so it gets its own message and isn't remembered as a dead stream.
+    bool DeviceCannotPlay { get; }
+
     void Stop();
 
     void SetPaused(bool paused);

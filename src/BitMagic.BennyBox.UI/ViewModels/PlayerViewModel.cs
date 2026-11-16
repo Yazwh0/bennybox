@@ -59,6 +59,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     // A freeze before this many frames have shown is taken as the decoder giving up rather than the
     // connection dying: a few seconds' worth even at 50fps.
     private const long EarlyFreezeFrames = 250;
+
+    private const string CannotPlayText = "This device can't play this (it may be 4K/UHD)";
     private DateTime? _pausedAtUtc;
     private TimeSpan _skipInterval = DefaultSkipInterval;
     private TimeSpan _loadTimeout = DefaultLoadTimeout;
@@ -618,6 +620,20 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         CancelLoadTimeout();
         CaptureExactResumePoint();
 
+        // Nothing came out because this device can't decode the picture (see IPlayerEngine.DeviceCannotPlay):
+        // say so, rather than "stalled", and don't bother retrying.
+        if (Engine.DeviceCannotPlay)
+        {
+            _logger.LogWarning("This device can't decode {Url}", _currentUrl);
+            IsPlaying = false;
+            IsPaused = false;
+            IsBuffering = false;
+            HasPlaybackError = true;
+            StatusText = CannotPlayText;
+            Engine.Stop();
+            return;
+        }
+
         // The picture froze after only a few frames, with the sound and clock still going: the
         // hardware decoder choking on the stream (seen with HEVC Xtream catch-up), not a dead
         // connection. Go again once without it before calling it stalled.
@@ -824,6 +840,14 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             IsPaused = false;
             IsBuffering = false;
             HasPlaybackError = true;
+            if (Engine.DeviceCannotPlay)
+            {
+                // The stream's fine, this device just can't decode it - so no "didn't work" mark.
+                StatusText = CannotPlayText;
+                _logger.LogWarning("This device can't decode {Url}", _currentUrl);
+                return;
+            }
+
             StatusText = "Error playing channel";
             if (!_streamConfirmed)
             {

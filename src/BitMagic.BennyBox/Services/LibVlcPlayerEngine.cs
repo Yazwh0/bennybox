@@ -57,6 +57,9 @@ public class LibVlcPlayerEngine : IPlayerEngine, IDisposable
 
     public bool SoftwareDecoding { get; set; }
 
+    // VLC decodes in software when the GPU can't, so it doesn't get stuck this way.
+    public bool DeviceCannotPlay => false;
+
     public void Stop() => MediaPlayer.Stop();
 
     public void SetPaused(bool paused) => MediaPlayer.SetPause(paused);

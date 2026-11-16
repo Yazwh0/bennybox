@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Xamarin.AndroidX.Media3.Common" />
     <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer" />
+    <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Dash" />
     <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" />
     <PackageReference Include="Xamarin.AndroidX.Media3.UI" />
     <PackageReference Include="Xamarin.GooglePlayServices.Code.Scanner" />

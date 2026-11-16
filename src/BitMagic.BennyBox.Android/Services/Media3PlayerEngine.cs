@@ -50,6 +50,7 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
     private int _lastPlaybackState = Media3PlaybackState.Idle;
     private bool _lastIsPlaying;
     private bool _hadError;
+    private int _liveWindowRecoveries;
 
     // Exposed for the Android player view's NativeControlHost to bind a Media3 PlayerView to
     // directly - IPlayerEngine itself has no notion of a native player control (see IPlayerEngine's
@@ -64,7 +65,10 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
         var http = new AndroidX.Media3.DataSource.DefaultHttpDataSource.Factory().SetAllowCrossProtocolRedirects(true)!;
         var dataSources = new AndroidX.Media3.DataSource.DefaultDataSource.Factory(_context, http);
         var mediaSources = new AndroidX.Media3.ExoPlayer.Source.DefaultMediaSourceFactory(dataSources);
-        return new ExoPlayerBuilder(_context).SetMediaSourceFactory(mediaSources)!.Build()!;
+        // Decoder fallback: if the first decoder for a stream won't start (a 4K channel on a phone whose
+        // main decoder tops out lower, say), try the device's other decoders before failing.
+        var renderers = new DefaultRenderersFactory(_context).SetEnableDecoderFallback(true)!;
+        return new ExoPlayerBuilder(_context, renderers).SetMediaSourceFactory(mediaSources)!.Build()!;
     }
 
     public Media3PlayerEngine(Context context)
@@ -79,14 +83,44 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
     // ExoPlayer picks its own decoders (and falls back by itself), so this isn't needed here.
     public bool SoftwareDecoding { get; set; }
 
+    // See IPlayerEngine.DeviceCannotPlay: a decoding error (ExoPlayer's 4xxx codes - no decoder would
+    // start, or the format is beyond this device), or a stream whose picture no decoder here supports.
+    // Also true when no picture has come out of a video stream this device says is beyond it ("Format
+    // exceeds selected codec's capabilities" - 4K HDR HEVC on most phones): ExoPlayer tries anyway, and the
+    // decoder sits there producing nothing, which the stall check then catches.
+    public bool DeviceCannotPlay
+    {
+        get => _deviceCannotPlay || (_player is { } player && RenderedFrameCount < 5 && PlayingVideoBeyondDevice(player));
+        private set => _deviceCannotPlay = value;
+    }
+
+    private bool _deviceCannotPlay;
+
     public void Play(string url)
     {
-        Player.SetMediaItem(MediaItem.FromUri(url));
-        Player.Prepare();
-        Player.Play();
         _lastPlaybackState = Media3PlaybackState.Idle;
         _lastIsPlaying = false;
         _hadError = false;
+        DeviceCannotPlay = false;
+        _liveWindowRecoveries = 0;
+
+        // ExoPlayer throws straight out of SetMediaItem for a stream type it has no module for (it
+        // took the whole app down on a DASH channel before the DASH module was added) - whatever the
+        // stream, it's an error for that channel, never a crash.
+        try
+        {
+            Player.SetMediaItem(MediaItem.FromUri(url));
+            Player.Prepare();
+            Player.Play();
+        }
+        catch (Java.Lang.Exception ex)
+        {
+            global::Android.Util.Log.Warn("BennyBox", $"Couldn't start playback: {ex.Message}");
+            _hadError = true;
+            Dispatcher.UIThread.Post(() => EncounteredError?.Invoke(this, EventArgs.Empty));
+            return;
+        }
+
         _pollTimer.Change(TimeSpan.Zero, PollInterval);
     }
 
@@ -195,7 +229,18 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
 
         if (player.PlayerError is not null && !_hadError)
         {
+            // Fell behind a live stream's window (ERROR_CODE_BEHIND_LIVE_WINDOW, seen on live HLS like
+            // the UHD sports channels): not a broken stream, just jump back to the live point and carry on.
+            if (player.PlayerError.ErrorCode == 1002 && _liveWindowRecoveries < 3)
+            {
+                _liveWindowRecoveries++;
+                player.SeekToDefaultPosition();
+                player.Prepare();
+                return;
+            }
+
             _hadError = true;
+            DeviceCannotPlay = player.PlayerError.ErrorCode is >= 4000 and < 5000;
             EncounteredError?.Invoke(this, EventArgs.Empty);
             return;
         }
@@ -209,6 +254,13 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
                 case Media3PlaybackState.Buffering:
                     Buffering?.Invoke(this, 0);
                     break;
+                case Media3PlaybackState.Ready when HasNoPlayableVideo(player):
+                    // ExoPlayer would otherwise play just the sound over a black screen.
+                    _hadError = true;
+                    DeviceCannotPlay = true;
+                    player.Stop();
+                    EncounteredError?.Invoke(this, EventArgs.Empty);
+                    return;
                 case Media3PlaybackState.Ended:
                     EndReached?.Invoke(this, EventArgs.Empty);
                     break;
@@ -235,6 +287,17 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
         {
             LengthChanged?.Invoke(this, player.Duration);
         }
+    }
+
+    private static bool PlayingVideoBeyondDevice(IExoPlayer player) =>
+        ((System.Collections.IEnumerable?)player.CurrentTracks?.Groups)?.Cast<Tracks.Group>()
+            .Any(g => g.Type == C.TrackTypeVideo && g.IsSelected && !g.IsSupported) == true;
+
+    // The stream has a picture, but none of it was picked to play because nothing here can decode it.
+    private static bool HasNoPlayableVideo(IExoPlayer player)
+    {
+        var video = ((System.Collections.IEnumerable?)player.CurrentTracks?.Groups)?.Cast<Tracks.Group>().Where(g => g.Type == C.TrackTypeVideo).ToList() ?? [];
+        return video.Count > 0 && !video.Any(g => g.IsSelected) && !video.Any(g => g.IsSupported);
     }
 
     public void Dispose()

@@ -28,6 +28,7 @@
     <PackageVersion Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
     <PackageVersion Include="Xamarin.AndroidX.Media3.Common" Version="1.10.1.1" />
     <PackageVersion Include="Xamarin.AndroidX.Media3.ExoPlayer" Version="1.10.1.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Media3.ExoPlayer.Dash" Version="1.10.1.1" />
     <PackageVersion Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" Version="1.10.1.1" />
     <PackageVersion Include="Xamarin.AndroidX.Media3.UI" Version="1.10.1.1" />
     <PackageVersion Include="Xamarin.GooglePlayServices.Code.Scanner" Version="116.1.0.17" />
