@@ -20,10 +20,35 @@
              x:Class="BitMagic.BennyBox.Views.LiveTvView"
              x:DataType="vm:LiveTvViewModel"
              x:Name="RootControl">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <!-- Favourite categories, one tap each: a chip per favourite TV category (starred in the category
+             picker), with its simple-mode picture. Tapping the chosen one again goes back to all
+             channels. Hidden until there's a favourite; scrolls sideways when there are lots. -->
+        <ScrollViewer Grid.Row="0" x:Name="FavouriteCategoryBar" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                      IsVisible="False" Margin="0,8,0,0">
+            <ItemsControl x:Name="FavouriteCategoryChips" Margin="12,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="views:FavouriteCategoryChip">
+                        <Button Classes="chip" Classes.selected="{Binding IsSelected}" Height="48" Padding="6,4,14,4"
+                                Click="OnFavouriteCategoryClick" ToolTip.Tip="{Binding Name}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <views:SimplePictureIcon Picture="{Binding Picture}" Width="32" Height="32" CornerRadius="8" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="15" />
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
         <!-- Search, then the Category chip: underneath on a phone, beside the search box on a wider screen
              (FilterLayout). The chip takes the search box's height so they line up either way. -->
-        <Grid Grid.Row="0" x:Name="FilterPanel" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="12,8,12,4" HorizontalAlignment="Left">
+        <Grid Grid.Row="1" x:Name="FilterPanel" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="12,8,12,4" HorizontalAlignment="Left">
             <TextBox x:Name="SearchBox" Grid.Column="0" Text="{Binding SearchText}" Watermark="Search channels" />
             <Panel Grid.Column="2" Width="48" Height="48" Margin="4,0,0,0">
                 <ui:FAProgressRing IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Width="20" Height="20" />
@@ -43,18 +68,18 @@
             <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap" IsVisible="{Binding HasLoadError}" />
         </Grid>
 
-        <StackPanel Grid.Row="1" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
+        <StackPanel Grid.Row="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}">
             <ui:FAProgressRing IsActive="{Binding IsLoading}" Width="32" Height="32" />
             <TextBlock Text="{Binding RefreshElapsedLabel, TargetNullValue='Loading channels...'}" Opacity="0.7" />
         </StackPanel>
 
 
         <!-- Nothing to show: no source with live TV at all, or a search / category that matches nothing. -->
-        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoChannels}"
+        <TextBlock Grid.Row="2" Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoChannels}"
                    Text="No live TV channels yet. Add a source with live TV (an Xtream account or an M3U playlist) in Settings, then refresh it." />
-        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoMatches}"
+        <TextBlock Grid.Row="2" Margin="16" TextWrapping="Wrap" Opacity="0.7" IsVisible="{Binding HasNoMatches}"
                    Text="No channels match. Try a different search or category." />
-        <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsLoading}" SizeChanged="OnListSizeChanged">
+        <ScrollViewer Grid.Row="2" IsVisible="{Binding !IsLoading}" SizeChanged="OnListSizeChanged">
             <ItemsControl x:Name="ChannelRows" Margin="12,0,12,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -122,7 +147,7 @@
 
         <!-- One channel's page (ChannelScheduleViewModel): watch live, what's coming up, and earlier
              programmes to watch again where the provider keeps catch-up. -->
-        <Grid Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,Auto,*" Background="{DynamicResource M3SurfaceBrush}"
+        <Grid Grid.Row="0" Grid.RowSpan="3" RowDefinitions="Auto,Auto,*" Background="{DynamicResource M3SurfaceBrush}"
               IsVisible="{Binding #RootControl.DataContext.OpenSchedule, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
               DataContext="{Binding #RootControl.DataContext.OpenSchedule}" x:DataType="vm:ChannelScheduleViewModel">
             <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="4,4,12,0" MinHeight="56">
@@ -190,7 +215,7 @@
                 </ItemsControl>
             </ScrollViewer>
         </Grid>
-        <views:CategoryPickerSheet Grid.Row="0" Grid.RowSpan="2" x:Name="CategorySheet" FallbackPicture="Tv"
+        <views:CategoryPickerSheet Grid.Row="0" Grid.RowSpan="3" x:Name="CategorySheet" FallbackPicture="Tv"
                                    Categories="{Binding FilteredCategories}" FilterText="{Binding CategoryFilterText}"
                                    Picked="OnCategoryPicked" />
     </Grid>

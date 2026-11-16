@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using BitMagic.BennyBox.Android.Views;
+using BitMagic.BennyBox.UI.Services;
+using CommunityToolkit.Mvvm.Messaging;
 using BitMagic.BennyBox.ViewModels;
 
 namespace BitMagic.BennyBox.Views;
@@ -33,14 +35,56 @@ public partial class LiveTvView : UserControl
             {
                 _grid.Attach(viewModel.Rows);
                 viewModel.PropertyChanged += OnViewModelPropertyChanged;
+                viewModel.Categories.CollectionChanged += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshFavouriteCategories);
+                RefreshFavouriteCategories();
             }
         };
+
+        WeakReferenceMessenger.Default.Register<BitMagic.BennyBox.Messages.FavoritesUpdatedMessage>(
+            this, (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshFavouriteCategories));
+        _ = (CategoryFavourites.Current?.EnsureLoadedAsync() ?? Task.CompletedTask)
+            .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshFavouriteCategories));
+    }
+
+    // The favourite category bar: favourite TV categories this page actually has (one that's gone from
+    // the provider's list just isn't shown), in the order they were starred.
+    private void RefreshFavouriteCategories()
+    {
+        if (DataContext is not LiveTvViewModel viewModel || CategoryFavourites.Current is not { } favourites)
+        {
+            return;
+        }
+
+        var chips = favourites.Items
+            .Where(f => f.Place == CategoryPlace.Tv)
+            .Select(f => viewModel.Categories.FirstOrDefault(c => c.Equals(f.Name, StringComparison.OrdinalIgnoreCase)))
+            .OfType<string>()
+            .Distinct()
+            .Select(name => new FavouriteCategoryChip(name, SimplePictures.ForCategory(name) ?? SimplePicture.Tv, name == viewModel.SelectedCategory))
+            .ToList();
+
+        FavouriteCategoryChips.ItemsSource = chips;
+        FavouriteCategoryBar.IsVisible = chips.Count > 0;
+    }
+
+    // Picks that category, or, if it's already the one showing, goes back to every channel.
+    private void OnFavouriteCategoryClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is LiveTvViewModel viewModel && (sender as Control)?.DataContext is FavouriteCategoryChip chip)
+        {
+            viewModel.SelectedCategory = chip.IsSelected ? viewModel.Categories[0] : chip.Name;
+        }
     }
 
     // A channel's page opens scrolled to what's on now, with catch-up above it and what's coming up
     // below, rather than starting days back at the top of the catch-up window.
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(LiveTvViewModel.SelectedCategory))
+        {
+            RefreshFavouriteCategories();
+        }
+
         if (e.PropertyName == nameof(LiveTvViewModel.OpenSchedule) && sender is LiveTvViewModel { OpenSchedule: { } schedule })
         {
             schedule.PropertyChanged += (_, change) =>
