@@ -47,8 +47,15 @@ public class LibVlcPlayerEngine : IPlayerEngine, IDisposable
     {
         _currentMedia?.Dispose();
         _currentMedia = new Media(_libVlc, url, FromType.FromLocation);
+        if (SoftwareDecoding)
+        {
+            _currentMedia.AddOption(":avcodec-hw=none");
+        }
+
         MediaPlayer.Play(_currentMedia);
     }
+
+    public bool SoftwareDecoding { get; set; }
 
     public void Stop() => MediaPlayer.Stop();
 

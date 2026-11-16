@@ -16,6 +16,12 @@ public interface IPlayerEngine
 {
     void Play(string url);
 
+    // Decode without the GPU from the next Play on. LibVLC's D3D11 hardware decoder freezes on some
+    // HEVC streams (Xtream catch-up, for one) after a handful of frames, while software decoding plays
+    // them fine - PlayerViewModel retries with this on when the picture freezes straight away.
+    // Engines without the problem can ignore it.
+    bool SoftwareDecoding { get; set; }
+
     void Stop();
 
     void SetPaused(bool paused);

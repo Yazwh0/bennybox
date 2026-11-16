@@ -50,6 +50,15 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     private DateTime _lastTimeChangeUtc;
     private long _lastDisplayedPictures;
     private DateTime _lastDisplayedPicturesChangeUtc;
+
+    // Streams whose picture froze straight away with the hardware decoder and played once retried
+    // without it (see HandlePlaybackStalled) - kept for the session so a Retry or replay doesn't
+    // freeze first again.
+    private readonly HashSet<string> _softwareDecodingUrls = [];
+
+    // A freeze before this many frames have shown is taken as the decoder giving up rather than the
+    // connection dying: a few seconds' worth even at 50fps.
+    private const long EarlyFreezeFrames = 250;
     private DateTime? _pausedAtUtc;
     private TimeSpan _skipInterval = DefaultSkipInterval;
     private TimeSpan _loadTimeout = DefaultLoadTimeout;
@@ -512,6 +521,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         _subtitlePreferenceApplied = false;
         IsBuffering = true;
         ResetSeekState();
+        Engine.SoftwareDecoding = _softwareDecodingUrls.Contains(url);
         Engine.Play(url);
 
         // Avoid hammering a dead server: time out once, don't auto-retry.
@@ -607,6 +617,18 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         CancelStallWatchdog();
         CancelLoadTimeout();
         CaptureExactResumePoint();
+
+        // The picture froze after only a few frames, with the sound and clock still going: the
+        // hardware decoder choking on the stream (seen with HEVC Xtream catch-up), not a dead
+        // connection. Go again once without it before calling it stalled.
+        if (!Engine.SoftwareDecoding && _currentUrl is { } url && _lastDisplayedPictures < EarlyFreezeFrames)
+        {
+            _logger.LogWarning("Picture froze after {Frames} frames, retrying with software decoding: {Url}", _lastDisplayedPictures, url);
+            _softwareDecodingUrls.Add(url);
+            IsPlaying = false;
+            PlayUrl(url);
+            return;
+        }
 
         IsPlaying = false;
         IsPaused = false;

@@ -65,6 +65,9 @@ public class Media3PlayerEngine : IPlayerEngine, IDisposable
         _pollTimer = new Timer(_ => Dispatcher.UIThread.Post(Poll), null, Timeout.Infinite, Timeout.Infinite);
     }
 
+    // ExoPlayer picks its own decoders (and falls back by itself), so this isn't needed here.
+    public bool SoftwareDecoding { get; set; }
+
     public void Play(string url)
     {
         Player.SetMediaItem(MediaItem.FromUri(url));
