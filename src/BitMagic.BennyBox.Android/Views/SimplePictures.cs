@@ -52,6 +52,9 @@ public enum SimplePicture
     // A channel's page: earlier programmes to watch again (catch-up), and ones still to come.
     WatchAgain,
     Later,
+
+    // The player's message when this phone or tablet can't play a stream (4K, say): a phone with a line through it.
+    NotOnThisDevice,
 }
 
 public static class SimplePictures
@@ -160,6 +163,9 @@ public static class SimplePictures
         [SimplePicture.Later] = new(Geometry.Parse(
             "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"),
             Color.Parse("#78909C"), White),
+        [SimplePicture.NotOnThisDevice] = new(Geometry.Parse(
+            "M17 5v8.61l2 2V3c0-1.1-.9-2-2-2H7c-.71 0-1.33.37-1.68.93L8.39 5H17zM1.49 3.76L5 7.27V21c0 1.1.9 2 2 2h10c1.1 0 1.99-.89 2-1.98l1.51 1.51 1.41-1.41L2.9 2.35 1.49 3.76zM7 9.27L15.73 18H7V9.27z"),
+            Color.Parse("#C62828"), White),
     };
 
     public static Info Get(SimplePicture picture) => All[picture];

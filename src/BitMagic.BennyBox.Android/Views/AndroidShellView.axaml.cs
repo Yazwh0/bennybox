@@ -138,6 +138,14 @@ public partial class AndroidShellView : UserControl
         Services.ReadAloud.Speak(label);
     }
 
+    private void OnSimpleCannotPlayHolding(object? sender, Avalonia.Input.HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState == Avalonia.Input.HoldingState.Started)
+        {
+            Services.ReadAloud.Speak("This won't play on this device. Try a different channel.");
+        }
+    }
+
     private void OnSimpleRetryHolding(object? sender, Avalonia.Input.HoldingRoutedEventArgs e)
     {
         if (e.HoldingState == Avalonia.Input.HoldingState.Started)

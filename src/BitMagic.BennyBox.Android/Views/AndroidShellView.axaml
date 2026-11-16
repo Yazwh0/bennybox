@@ -302,7 +302,21 @@
                                 <ui:FAProgressRing Width="80" Height="80" IsActive="{Binding Player.ShowLoadingOverlay}" HorizontalAlignment="Center" />
                                 <TextBlock Text="{Binding Player.StatusText}" Foreground="White" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             </StackPanel>
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="24" IsVisible="{Binding Player.HasPlaybackError}">
+                            <!-- This phone or tablet can't play it (4K, say): its own picture - a phone crossed out - and
+                                 no Try again, which wouldn't help. Holding the picture reads it out. -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" Background="Transparent"
+                                        IsVisible="{Binding Player.CannotPlayOnDevice}" Holding="OnSimpleCannotPlayHolding">
+                                <views:SimplePictureIcon Picture="NotOnThisDevice" Width="120" Height="120" CornerRadius="24" HorizontalAlignment="Center" />
+                                <TextBlock Text="Won't play on this device" Foreground="White" FontSize="26" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="24">
+                                <StackPanel.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="Player.HasPlaybackError" />
+                                        <Binding Path="!Player.CannotPlayOnDevice" />
+                                    </MultiBinding>
+                                </StackPanel.IsVisible>
                                 <ui:FASymbolIcon Symbol="Important" FontSize="72" Foreground="White" HorizontalAlignment="Center" />
                                 <Button Classes="accent" Command="{Binding Player.RetryCommand}" Click="OnSimpleControlClick" Holding="OnSimpleRetryHolding"
                                         MinHeight="80" Padding="32,12" CornerRadius="40" HorizontalAlignment="Center">

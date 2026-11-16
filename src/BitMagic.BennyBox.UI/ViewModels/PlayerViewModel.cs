@@ -125,6 +125,11 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
     public bool HasMultipleAudioTracks => AudioTracks.Count > 1;
     public bool HasSubtitleTracks => SubtitleTracks.Count > 0;
 
+    // The last error was this device not being able to decode the stream (see IPlayerEngine.DeviceCannotPlay):
+    // simple mode shows its own picture for it rather than the general warning and Try again.
+    [ObservableProperty]
+    private bool _cannotPlayOnDevice;
+
     [ObservableProperty]
     private TrackOption? _selectedAudioTrack;
 
@@ -519,6 +524,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
         HasPlaybackError = false;
         _hasShownFrame = false;
         _streamConfirmed = false;
+        CannotPlayOnDevice = false;
         _audioPreferenceApplied = false;
         _subtitlePreferenceApplied = false;
         IsBuffering = true;
@@ -630,6 +636,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             IsBuffering = false;
             HasPlaybackError = true;
             StatusText = CannotPlayText;
+            CannotPlayOnDevice = true;
             Engine.Stop();
             return;
         }
@@ -844,6 +851,7 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             {
                 // The stream's fine, this device just can't decode it - so no "didn't work" mark.
                 StatusText = CannotPlayText;
+                CannotPlayOnDevice = true;
                 _logger.LogWarning("This device can't decode {Url}", _currentUrl);
                 return;
             }
