@@ -56,6 +56,12 @@ public sealed class CategoryFavourites
         return added;
     }
 
+    // A page's category list with its favourites moved up, just under "All ...", otherwise in the
+    // same order (OrderBy is stable). Used for the desktop drop-downs.
+    public static List<string> FavouritesFirst(IEnumerable<string> names, CategoryPlace place) =>
+        names.OrderBy(name => name.StartsWith("All ", StringComparison.Ordinal) ? 0
+            : Current?.IsFavourite(place, name) == true ? 1 : 2).ToList();
+
     // The list as stored, for a setup code, and replacing it from one.
     public string Serialise() => JsonSerializer.Serialize(_items);
 

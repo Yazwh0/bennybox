@@ -137,7 +137,7 @@ public partial class MoviesViewModel : ViewModelBase
         _contentPriority = contentPriority;
 
         WeakReferenceMessenger.Default.Register<ChannelsUpdatedMessage>(this, (_, _) => _ = LoadMoviesAsync());
-        WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => _ = RefreshFavoriteFlagsAsync());
+        WeakReferenceMessenger.Default.Register<FavoritesUpdatedMessage>(this, (_, _) => { ApplyCategoryFilter(); _ = RefreshFavoriteFlagsAsync(); });
         WeakReferenceMessenger.Default.Register<StreamHealthChangedMessage>(this, (_, m) => BitMagic.BennyBox.UI.Services.StreamHealth.Refresh(Rows, m.StreamUrl));
         WeakReferenceMessenger.Default.Register<WatchedStatusUpdatedMessage>(this, (_, _) => _ = RefreshWatchedFlagsAsync());
         _downloadManager.DownloadChanged += OnDownloadChanged;
@@ -431,10 +431,10 @@ public partial class MoviesViewModel : ViewModelBase
     private void ApplyCategoryFilter()
     {
         var query = CategoryFilterText.Trim();
-        var matching = Categories.Where(category =>
+        var matching = BitMagic.BennyBox.UI.Services.CategoryFavourites.FavouritesFirst(Categories.Where(category =>
             string.IsNullOrEmpty(query) ||
             category.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-            category == SelectedCategory).ToList();
+            category == SelectedCategory), BitMagic.BennyBox.UI.Services.CategoryPlace.Films);
 
         // Only actually replace the collection if its contents changed - reassigning on every single
         // reload (even when nothing about the category list or filter actually changed) makes the
@@ -588,6 +588,7 @@ public partial class MoviesViewModel : ViewModelBase
             // Grouping/sorting/object-construction can be real CPU work for a large library - keep it
             // off the UI thread, same rationale as LiveTvViewModel.
             await _contentPriority.EnsureLoadedAsync();
+            await (BitMagic.BennyBox.UI.Services.CategoryFavourites.Current?.EnsureLoadedAsync() ?? Task.CompletedTask);
             await (BitMagic.BennyBox.UI.Services.StreamHealth.Current?.EnsureLoadedAsync() ?? Task.CompletedTask);
             var rank = _contentPriority.Ranker();
             _allGroups = await Task.Run(() =>
