@@ -73,7 +73,11 @@ public class ProfileSetupCodeTests
             XtreamServerUrl = "http://Example.com:8080/",
             XtreamUsername = "User",
         });
-        var settings = new SharedSettings { Theme = "Dark", SimpleMode = true, SkipIntervalSeconds = 15 };
+        var settings = new SharedSettings
+        {
+            Theme = "Dark", SimpleMode = true, SkipIntervalSeconds = 15,
+            FavouriteCategories = """[{"Place":0,"Name":"UK | Sports"}]""",
+        };
         SharedFavorite[] favorites =
         [
             new(account, FavoriteKind.Channel, "101"),
@@ -88,6 +92,7 @@ public class ProfileSetupCodeTests
         Assert.True(result.Settings?.SimpleMode);
         Assert.Equal(15, result.Settings?.SkipIntervalSeconds);
         Assert.Null(result.Settings?.PreferredAudioLanguage);
+        Assert.Equal(settings.FavouriteCategories, result.Settings?.FavouriteCategories);
         Assert.Equal(favorites, result.Favorites);
     }
 

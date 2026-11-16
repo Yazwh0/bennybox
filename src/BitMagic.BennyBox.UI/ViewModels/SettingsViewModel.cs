@@ -575,7 +575,13 @@ public partial class SettingsViewModel : ViewModelBase
     public string BuildSetupCode(ProfileSource? onlyProfile = null)
     {
         var profiles = onlyProfile is not null ? [onlyProfile] : Profiles.Where(p => p.IsEnabled).ToList();
-        return ProfileSetupCode.Encode(profiles, _credentialProtector, HasEmbeddedTmdbKey ? null : TmdbApiKey);
+        // "Set up phone..." also carries the favourite categories starred here (and nothing else of
+        // the settings, so the phone's own theme and so on are left alone) - picking them on the big
+        // screen for a simple-mode phone is the point of having the star on desktop.
+        var settings = onlyProfile is null && _categoryFavourites.Items.Count > 0
+            ? new SharedSettings { FavouriteCategories = _categoryFavourites.Serialise() }
+            : null;
+        return ProfileSetupCode.Encode(profiles, _credentialProtector, HasEmbeddedTmdbKey ? null : TmdbApiKey, settings);
     }
 
     // Android's "Scan QR code" (and its paste fallback). Profiles this device already has (same server
