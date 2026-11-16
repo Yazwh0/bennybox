@@ -3,6 +3,7 @@
              xmlns:vm="using:BitMagic.BennyBox.ViewModels"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:BitMagic.BennyBox.Views"
              x:Class="BitMagic.BennyBox.Views.GuideView"
              x:DataType="vm:GuideViewModel"
              x:Name="RootControl">
@@ -35,8 +36,27 @@
                      to narrow which categories it shows (FilteredCategories) - typing here never touches
                      SelectedCategory itself, only picking an item from the ComboBox does. -->
                 <TextBox Classes="glass" Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
-                <ComboBox Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
-                          HorizontalAlignment="Stretch" />
+                <!-- The star makes the chosen category a favourite (CategoryFavouriteButton); favourites are starred in the list. -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <ComboBox x:Name="CategoryCombo" Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock>
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{x:Static views:CategoryFavouriteConverters.Label}" ConverterParameter="Tv">
+                                            <Binding />
+                                            <Binding ElementName="CategoryStar" Path="Content" />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <views:CategoryFavouriteButton x:Name="CategoryStar" Grid.Column="1" Classes="glass-nav" Place="Tv" Category="{Binding SelectedCategory}"
+                                                  Width="{Binding #CategoryCombo.Bounds.Height}" Height="{Binding #CategoryCombo.Bounds.Height}" Padding="0"
+                                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="6,0,0,0" />
+                </Grid>
                 <CheckBox Content="Hide channels with no info" IsChecked="{Binding HideEmptyChannels}" Foreground="{StaticResource GlassTextBrush}" />
             </StackPanel>
 

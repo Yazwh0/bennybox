@@ -4,6 +4,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:conv="using:Avalonia.Data.Converters"
              xmlns:controls="using:BitMagic.BennyBox.Controls"
+             xmlns:views="using:BitMagic.BennyBox.Views"
              x:Class="BitMagic.BennyBox.Views.ClipsView"
              x:DataType="vm:ClipsViewModel"
              x:Name="RootControl">
@@ -21,8 +22,27 @@
                         ToolTip.Tip="Refresh" Margin="6,0,0,0" />
             </Grid>
             <TextBox Classes="glass" Text="{Binding CategoryFilterText}" PlaceholderText="Filter categories..." />
-            <ComboBox Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
-                      HorizontalAlignment="Stretch" />
+            <!-- The star makes the chosen category a favourite (CategoryFavouriteButton); favourites are starred in the list. -->
+            <Grid ColumnDefinitions="*,Auto">
+                <ComboBox x:Name="CategoryCombo" Classes="glass" ItemsSource="{Binding FilteredCategories}" SelectedItem="{Binding SelectedCategory}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <TextBlock>
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{x:Static views:CategoryFavouriteConverters.Label}" ConverterParameter="Videos">
+                                        <Binding />
+                                        <Binding ElementName="CategoryStar" Path="Content" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <views:CategoryFavouriteButton x:Name="CategoryStar" Grid.Column="1" Classes="glass-nav" Place="Videos" Category="{Binding SelectedCategory}"
+                                              Width="{Binding #CategoryCombo.Bounds.Height}" Height="{Binding #CategoryCombo.Bounds.Height}" Padding="0"
+                                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="6,0,0,0" />
+            </Grid>
             <ComboBox Classes="glass" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}"
                       HorizontalAlignment="Stretch" />
             <TextBlock Text="{Binding LoadError}" Foreground="OrangeRed" TextWrapping="Wrap"

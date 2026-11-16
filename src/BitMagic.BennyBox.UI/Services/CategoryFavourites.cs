@@ -20,8 +20,19 @@ public sealed record FavouriteCategory(CategoryPlace Place, string Name);
 // screen as one tap to everything in them, and come first in the normal mode category picker. Kept by
 // name in settings - categories have no stable id of their own across refreshes, and the name is what
 // a person picked - which also lets them travel in a setup code (SharedSettings).
-public sealed class CategoryFavourites(ISettingsStore settingsStore)
+public sealed class CategoryFavourites
 {
+    private readonly ISettingsStore settingsStore;
+
+    public CategoryFavourites(ISettingsStore settingsStore)
+    {
+        this.settingsStore = settingsStore;
+        Current = this;
+    }
+
+    // For value converters, which can't be given services.
+    public static CategoryFavourites? Current { get; private set; }
+
     public const string SettingKey = "FavouriteCategories";
 
     private List<FavouriteCategory> _items = [];
