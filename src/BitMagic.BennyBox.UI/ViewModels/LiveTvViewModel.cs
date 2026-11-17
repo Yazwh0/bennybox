@@ -307,7 +307,7 @@ public partial class LiveTvViewModel : ViewModelBase
             return;
         }
 
-        DebounceApplyFilter();
+        DebounceApplyFilter(immediate: true);
     }
 
     partial void OnCategoryFilterTextChanged(string value) => ApplyCategoryFilter();
@@ -335,22 +335,22 @@ public partial class LiveTvViewModel : ViewModelBase
         }
     }
 
-    private void DebounceApplyFilter()
+    private void DebounceApplyFilter(bool immediate = false)
     {
         _searchCts?.Cancel();
         var cts = new CancellationTokenSource();
         _searchCts = cts;
-        _ = ApplyFilterDebouncedAsync(cts.Token);
+        _ = ApplyFilterDebouncedAsync(immediate ? TimeSpan.Zero : SearchDebounceDelay, cts.Token);
     }
 
     // Every keystroke would otherwise re-scan 10k+ channels on the UI thread, which is what made
     // typing feel laggy. Debounce so we only filter once the user pauses, and do the scan itself on
     // a background thread so even a fast typist never blocks the UI.
-    private async Task ApplyFilterDebouncedAsync(CancellationToken cancellationToken)
+    private async Task ApplyFilterDebouncedAsync(TimeSpan delay, CancellationToken cancellationToken)
     {
         try
         {
-            await Task.Delay(SearchDebounceDelay, cancellationToken);
+            await Task.Delay(delay, cancellationToken);
 
             var snapshot = _allGroups;
             var query = SearchText.Trim();

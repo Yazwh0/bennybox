@@ -408,7 +408,7 @@ public partial class MoviesViewModel : ViewModelBase
             return;
         }
 
-        DebounceApplyFilter();
+        DebounceApplyFilter(immediate: true);
     }
 
     partial void OnCategoryFilterTextChanged(string value) => ApplyCategoryFilter();
@@ -421,7 +421,7 @@ public partial class MoviesViewModel : ViewModelBase
             return;
         }
 
-        DebounceApplyFilter();
+        DebounceApplyFilter(immediate: true);
     }
 
     // Narrows the ComboBox's visible options as you type, without touching Categories (the source of
@@ -447,21 +447,21 @@ public partial class MoviesViewModel : ViewModelBase
         }
     }
 
-    private void DebounceApplyFilter()
+    private void DebounceApplyFilter(bool immediate = false)
     {
         _searchCts?.Cancel();
         var cts = new CancellationTokenSource();
         _searchCts = cts;
-        _ = ApplyFilterDebouncedAsync(cts.Token);
+        _ = ApplyFilterDebouncedAsync(immediate ? TimeSpan.Zero : SearchDebounceDelay, cts.Token);
     }
 
     // Same rationale as LiveTvViewModel/SeriesViewModel: debounce so we only filter once the user
     // pauses typing, and do the scan on a background thread so a large library never blocks the UI.
-    private async Task ApplyFilterDebouncedAsync(CancellationToken cancellationToken)
+    private async Task ApplyFilterDebouncedAsync(TimeSpan delay, CancellationToken cancellationToken)
     {
         try
         {
-            await Task.Delay(SearchDebounceDelay, cancellationToken);
+            await Task.Delay(delay, cancellationToken);
 
             var snapshot = _allGroups;
             var query = SearchText.Trim();

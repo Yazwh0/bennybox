@@ -72,7 +72,7 @@ public sealed class GridRows
         {
             _rebuildQueued = false;
             Rebuild();
-        }, DispatcherPriority.Background);
+        }, DispatcherPriority.Normal);
     }
 
     private void Rebuild()

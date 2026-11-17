@@ -57,6 +57,7 @@ public partial class SimpleHomeView : UserControl
 
     private AndroidShellViewModel? _shell;
     private List<INotifyCollectionChanged> _watchedCollections = [];
+    private bool _holdingForList;
     private bool _rebuildQueued;
 
     private readonly SimpleExitTile _exitTile = new();
@@ -224,7 +225,8 @@ public partial class SimpleHomeView : UserControl
         }
     }
 
-    // Lists refill one item at a time; coalesce into one rebuild per dispatcher pass.
+    // Lists refill one item at a time; coalesce into one rebuild per dispatcher pass. Normal priority so it
+    // runs before the next frame is drawn, never showing the old tiles for a frame.
     private void OnSourceChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (_rebuildQueued)
@@ -237,7 +239,7 @@ public partial class SimpleHomeView : UserControl
         {
             _rebuildQueued = false;
             Rebuild();
-        }, DispatcherPriority.Background);
+        }, DispatcherPriority.Normal);
     }
 
     private void Rebuild()
@@ -276,11 +278,17 @@ public partial class SimpleHomeView : UserControl
         }
 
         Flush();
-        EmptyMessage.IsVisible = _rows.Count == 0;
+        EmptyMessage.IsVisible = _rows.Count == 0 && !_holdingForList;
     }
+
+    // The list still has a heading for some other category than the one being shown.
+    private static bool IsStale(IBrowsePage page, string? category) =>
+        category is not null && category != page.Categories.FirstOrDefault()
+        && page.Rows.OfType<CategoryHeaderRow>().Any(header => header.Name != category);
 
     private List<object> BuildScreen(AndroidShellViewModel shell, Screen screen)
     {
+        _holdingForList = false;
         var tiles = new List<object>();
         switch (screen.Kind)
         {
@@ -338,6 +346,14 @@ public partial class SimpleHomeView : UserControl
                 break;
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
+                // Picking a category filters the page's list in the background, so for a moment it still
+                // holds the last one. Show nothing until it's caught up rather than the wrong tiles first.
+                if (IsStale(page, screen.Category))
+                {
+                    _holdingForList = true;
+                    break;
+                }
+
                 // Anything that didn't play last time goes to the end (OrderBy keeps the rest in order).
                 tiles.AddRange(page.Rows.Select(TileForItem).OfType<SimpleTile>().OrderBy(tile => tile.IsUnplayable));
                 break;
