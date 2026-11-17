@@ -94,6 +94,14 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             _streamHealth.Record(_currentUrl, worked);
         }
     }
+
+    private void RecordCannotPlay()
+    {
+        if (_currentUrl is not null)
+        {
+            _streamHealth.RecordCannotPlay(_currentUrl);
+        }
+    }
     private bool _isApplyingSavedSidebarWidth;
     private bool _isApplyingSavedVolume;
     private bool _isUserSeeking;
@@ -647,8 +655,9 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
             HasPlaybackError = true;
             StatusText = CannotPlayText;
             CannotPlayOnDevice = true;
-            // The stream got as far as the decoder, so it works - clear any old "didn't work" mark.
-            RecordStreamResult(worked: true);
+            // The stream works (it got as far as the decoder); this device is the problem, so remember
+            // that instead of "didn't work".
+            RecordCannotPlay();
             Engine.Stop();
             return;
         }
@@ -864,8 +873,8 @@ public partial class PlayerViewModel : ViewModelBase, IDisposable
                 // The stream's fine, this device just can't decode it - so no "didn't work" mark.
                 StatusText = CannotPlayText;
                 CannotPlayOnDevice = true;
-                // The stream got as far as the decoder, so it works - clear any old "didn't work" mark.
-                RecordStreamResult(worked: true);
+                // Remembered as "can't play here", not "didn't work" - see HandlePlaybackStalled.
+                RecordCannotPlay();
                 _logger.LogWarning("This device can't decode {Url}", _currentUrl);
                 return;
             }

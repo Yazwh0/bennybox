@@ -5,7 +5,7 @@ using System.Xml.Linq;
 
 namespace BitMagic.BennyBox.Sources.Xmltv;
 
-public record XmltvProgrammeEntry(string ChannelId, string Title, string? Description, DateTimeOffset Start, DateTimeOffset Stop);
+public record XmltvProgrammeEntry(string ChannelId, string Title, string? Description, DateTimeOffset Start, DateTimeOffset Stop, string? IconUrl = null);
 
 public static class XmltvParser
 {
@@ -52,8 +52,11 @@ public static class XmltvParser
             var programmeElement = (XElement)XNode.ReadFrom(reader);
             var title = programmeElement.Element("title")?.Value ?? "";
             var description = programmeElement.Element("desc")?.Value;
+            // Only web links: some feeds put a bare file name here, which is no use to us.
+            var icon = programmeElement.Element("icon")?.Attribute("src")?.Value;
+            var iconUrl = icon is not null && (icon.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || icon.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) ? icon : null;
 
-            yield return new XmltvProgrammeEntry(channelId, title, description, start, stop);
+            yield return new XmltvProgrammeEntry(channelId, title, description, start, stop, iconUrl);
         }
     }
 

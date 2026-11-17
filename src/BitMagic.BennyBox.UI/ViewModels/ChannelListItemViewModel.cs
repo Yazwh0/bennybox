@@ -12,7 +12,14 @@ public partial class ChannelListItemViewModel : ObservableObject
     // a StreamHealthChangedMessage.
     public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Channel.StreamUrl) ?? false;
 
-    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+    // This device can't decode it (4K/UHD on a phone, say) - see StreamHealth.CannotPlayHere.
+    public bool CannotPlayHere => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.CannotPlayHere(Channel.StreamUrl) ?? false;
+
+    public void RefreshHealth()
+    {
+        OnPropertyChanged(nameof(DidNotWork));
+        OnPropertyChanged(nameof(CannotPlayHere));
+    }
 
     public string? NowTitle { get; }
     public bool HasNowTitle => !string.IsNullOrEmpty(NowTitle);

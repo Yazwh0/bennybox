@@ -12,6 +12,7 @@ public partial class PosterTile : UserControl
     public static readonly StyledProperty<double> PosterHeightProperty = AvaloniaProperty.Register<PosterTile, double>(nameof(PosterHeight), 165);
     public static readonly StyledProperty<bool> IsFavouriteProperty = AvaloniaProperty.Register<PosterTile, bool>(nameof(IsFavourite));
     public static readonly StyledProperty<bool> DidNotWorkProperty = AvaloniaProperty.Register<PosterTile, bool>(nameof(DidNotWork));
+    public static readonly StyledProperty<bool> CannotPlayHereProperty = AvaloniaProperty.Register<PosterTile, bool>(nameof(CannotPlayHere));
     public static readonly StyledProperty<double?> ProgressProperty = AvaloniaProperty.Register<PosterTile, double?>(nameof(Progress));
 
     public PosterTile() => InitializeComponent();
@@ -22,6 +23,7 @@ public partial class PosterTile : UserControl
     public double PosterHeight { get => GetValue(PosterHeightProperty); set => SetValue(PosterHeightProperty, value); }
     public bool IsFavourite { get => GetValue(IsFavouriteProperty); set => SetValue(IsFavouriteProperty, value); }
     public bool DidNotWork { get => GetValue(DidNotWorkProperty); set => SetValue(DidNotWorkProperty, value); }
+    public bool CannotPlayHere { get => GetValue(CannotPlayHereProperty); set => SetValue(CannotPlayHereProperty, value); }
 
     // 0-1 for a bar along the bottom of the poster (part-watched, downloading); null for none.
     public double? Progress { get => GetValue(ProgressProperty); set => SetValue(ProgressProperty, value); }

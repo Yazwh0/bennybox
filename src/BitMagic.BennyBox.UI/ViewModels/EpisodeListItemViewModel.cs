@@ -12,7 +12,14 @@ public partial class EpisodeListItemViewModel : ObservableObject
     // a StreamHealthChangedMessage.
     public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Episode.StreamUrl) ?? false;
 
-    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+    // This device can't decode it (4K/UHD on a phone, say) - see StreamHealth.CannotPlayHere.
+    public bool CannotPlayHere => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.CannotPlayHere(Episode.StreamUrl) ?? false;
+
+    public void RefreshHealth()
+    {
+        OnPropertyChanged(nameof(DidNotWork));
+        OnPropertyChanged(nameof(CannotPlayHere));
+    }
 
     // The source entry this episode came from - the show itself, or one of its parts when a show was
     // merged from several entries (SeriesListItemViewModel.Parts). Playback, watched state and

@@ -76,6 +76,8 @@
                                                         <DockPanel>
                                                             <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0"
                                                                        IsVisible="{Binding DidNotWork}" />
+                                                            <views:SimplePictureIcon DockPanel.Dock="Left" Picture="NotOnThisDevice" Width="20" Height="20" CornerRadius="10" Margin="0,0,6,0"
+                                                                                     VerticalAlignment="Center" IsVisible="{Binding CannotPlayHere}" ToolTip.Tip="Won't play on this device" />
                                                             <TextBlock Text="{Binding Name}" FontSize="15" TextTrimming="CharacterEllipsis" />
                                                         </DockPanel>
                                                         <TextBlock Text="{Binding NowTitle}" FontSize="12" Opacity="0.8" TextTrimming="CharacterEllipsis"
@@ -125,7 +127,7 @@
                                         </Button.ContextFlyout>
                                         <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
                                                           Title="{Binding Name}" ImageUrl="{Binding CoverUrl}" IsFavourite="{Binding IsFavorite}"
-                                                          DidNotWork="{Binding DidNotWork}" Opacity="{Binding ContentOpacity}" />
+                                                          DidNotWork="{Binding DidNotWork}" CannotPlayHere="{Binding CannotPlayHere}" Opacity="{Binding ContentOpacity}" />
                                     </Button>
                                 </DataTemplate>
 
@@ -144,7 +146,7 @@
                                         </Button.ContextFlyout>
                                         <views:PosterTile Width="{Binding #RootControl.TileWidth}" PosterHeight="{Binding #RootControl.PosterHeight}"
                                                           Title="{Binding Name}" ImageUrl="{Binding CoverUrl}" IsFavourite="{Binding IsFavorite}"
-                                                          DidNotWork="{Binding DidNotWork}" Opacity="{Binding ContentOpacity}" />
+                                                          DidNotWork="{Binding DidNotWork}" CannotPlayHere="{Binding CannotPlayHere}" Opacity="{Binding ContentOpacity}" />
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.DataTemplates>

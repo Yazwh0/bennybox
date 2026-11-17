@@ -64,6 +64,24 @@ public class XmltvParserTests
     }
 
     [Fact]
+    public async Task ParseAsync_Icon_KeepsWebLinksOnly()
+    {
+        const string xml = """
+            <tv>
+              <programme start="20260724120000 +0000" stop="20260724130000 +0000" channel="ch1"><title>A</title><icon src="https://example.com/a.jpg" /></programme>
+              <programme start="20260724130000 +0000" stop="20260724140000 +0000" channel="ch1"><title>B</title><icon src="b.jpg" /></programme>
+              <programme start="20260724140000 +0000" stop="20260724150000 +0000" channel="ch1"><title>C</title></programme>
+            </tv>
+            """;
+
+        var entries = await ParseAllAsync(xml);
+
+        Assert.Equal("https://example.com/a.jpg", entries[0].IconUrl);
+        Assert.Null(entries[1].IconUrl);
+        Assert.Null(entries[2].IconUrl);
+    }
+
+    [Fact]
     public async Task ParseAsync_MissingRequiredAttributes_IsSkipped()
     {
         const string xml = """

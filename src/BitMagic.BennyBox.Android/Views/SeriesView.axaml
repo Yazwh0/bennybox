@@ -202,6 +202,8 @@
                                                 <TextBlock Text="{Binding SeasonEpisodeLabel}" FontSize="12" Opacity="0.7" />
                                                 <DockPanel>
                                                     <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="#FFB300" Margin="0,0,6,0" IsVisible="{Binding DidNotWork}" />
+                                                    <views:SimplePictureIcon DockPanel.Dock="Left" Picture="NotOnThisDevice" Width="20" Height="20" CornerRadius="10" Margin="0,0,6,0"
+                                                                             VerticalAlignment="Center" IsVisible="{Binding CannotPlayHere}" ToolTip.Tip="Won't play on this device" />
                                                     <TextBlock Text="{Binding ShortTitle}" TextWrapping="Wrap" />
                                                 </DockPanel>
                                             </StackPanel>

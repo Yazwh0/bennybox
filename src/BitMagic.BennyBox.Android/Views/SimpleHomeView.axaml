@@ -138,13 +138,19 @@
                 <DataTemplate DataType="views:SimpleWatchNowTile">
                     <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,8,0,8"
                             Padding="20,16" CornerRadius="24" MinHeight="112" Click="OnWatchNowClick" Holding="OnWatchNowHolding">
-                        <Grid ColumnDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
                             <views:SimplePictureIcon Picture="Play" Width="72" Height="72" CornerRadius="36" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center" Spacing="4">
                                 <TextBlock Text="Watch now" FontSize="28" FontWeight="Bold" />
                                 <TextBlock Text="{Binding NowTitle}" FontSize="20" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasNowTitle}" />
                                 <ProgressBar Value="{Binding Progress}" Maximum="1" IsVisible="{Binding HasProgress}" Margin="0,4,0,0" />
                             </StackPanel>
+                            <!-- What's on now's picture, when there is one. -->
+                            <Border Grid.Column="2" Width="80" Height="80" CornerRadius="16" ClipToBounds="True" Margin="16,0,0,0"
+                                    VerticalAlignment="Center" IsVisible="{Binding #NowPic.Source, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+                                <controls:ChannelLogoImage x:Name="NowPic" LogoUrl="{Binding NowImageUrl}" TmdbFallbackTitle="{Binding NowSearchTitle}"
+                                                           Stretch="UniformToFill" />
+                            </Border>
                         </Grid>
                     </Button>
                 </DataTemplate>
@@ -172,12 +178,27 @@
                                                     <controls:ChannelLogoImage x:Name="Pic" LogoUrl="{Binding ImageUrl}" FallbackLogoUrl="{Binding FallbackImageUrl}"
                                                                                TmdbFallbackTitle="{Binding TmdbFallbackTitle}" Stretch="Uniform" />
                                                 </Panel>
+                                                <!-- A programme with a picture: its time over the corner (without one, the time is the big text). -->
+                                                <Border CornerRadius="10" Padding="10,4" Margin="6" Background="#CC000000"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                                                    <Border.IsVisible>
+                                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                            <Binding Path="ShowsTimeOverPicture" />
+                                                            <Binding Path="#Pic.Source" Converter="{x:Static conv:ObjectConverters.IsNotNull}" />
+                                                        </MultiBinding>
+                                                    </Border.IsVisible>
+                                                    <TextBlock Text="{Binding BigText}" FontSize="24" FontWeight="Bold" Foreground="White" />
+                                                </Border>
                                                 <!-- Watched episode: a green tick. -->
                                                 <views:SimplePictureIcon Picture="Watched" IsVisible="{Binding IsWatched}"
                                                                          Width="44" Height="44" CornerRadius="22"
                                                                          HorizontalAlignment="Right" VerticalAlignment="Top" />
                                                 <!-- Didn't work last time: a big red "no" sign over the greyed picture. -->
                                                 <views:SimplePictureIcon Picture="NotWorking" IsVisible="{Binding DidNotWork}"
+                                                                         Width="64" Height="64" CornerRadius="32"
+                                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <!-- This device can't play it (4K/UHD): the crossed-out phone, as on the player. -->
+                                                <views:SimplePictureIcon Picture="NotOnThisDevice" IsVisible="{Binding CannotPlayHere}"
                                                                          Width="64" Height="64" CornerRadius="32"
                                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Panel>

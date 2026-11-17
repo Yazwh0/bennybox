@@ -66,6 +66,7 @@ public class XmltvEpgSource : IEpgSource
         ChannelTvgId = entry.ChannelId,
         Title = entry.Title,
         Description = entry.Description,
+        IconUrl = entry.IconUrl,
         StartUtc = entry.Start.UtcDateTime,
         EndUtc = entry.Stop.UtcDateTime
     };

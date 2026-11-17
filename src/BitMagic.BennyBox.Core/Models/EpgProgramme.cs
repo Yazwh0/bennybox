@@ -7,6 +7,9 @@ public class EpgProgramme
     public required string ChannelTvgId { get; set; }
     public required string Title { get; set; }
     public string? Description { get; set; }
+
+    // The programme's picture from the guide (XMLTV <icon src>), when the feed has one.
+    public string? IconUrl { get; set; }
     public DateTime StartUtc { get; set; }
     public DateTime EndUtc { get; set; }
 }

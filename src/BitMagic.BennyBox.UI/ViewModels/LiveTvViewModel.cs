@@ -475,7 +475,7 @@ public partial class LiveTvViewModel : ViewModelBase
                         var categoryChannels = channelsByCategory[category.Id]
                             .OrderBy(c => rank(c.Name))
                             // Channels that didn't play last time go to the bottom of their category (StreamHealth).
-                            .ThenBy(c => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(c.StreamUrl) ?? false)
+                            .ThenBy(c => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.IsUnplayable(c.StreamUrl) ?? false)
                             .Select(c => new ChannelListItemViewModel(c, GetNowTitle(c, nowNext), favoriteIds.Contains(c.Id),
                                 ChannelLogoFallbackSupport.FindFallback(logoFallbackIndex, c.Name), Schedule(c, nowNext)?.Now, Schedule(c, nowNext)?.Next))
                             .ToList();

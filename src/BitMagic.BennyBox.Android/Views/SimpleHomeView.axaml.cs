@@ -81,6 +81,7 @@ public partial class SimpleHomeView : UserControl
             foreach (var tile in _currentTiles.OfType<SimpleTile>().Where(t => t.StreamUrl == message.StreamUrl))
             {
                 tile.DidNotWork = StreamHealth.Current?.DidNotWork(message.StreamUrl) ?? false;
+                tile.CannotPlayHere = StreamHealth.Current?.CannotPlayHere(message.StreamUrl) ?? false;
             }
         });
 
@@ -338,7 +339,7 @@ public partial class SimpleHomeView : UserControl
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
                 // Anything that didn't play last time goes to the end (OrderBy keeps the rest in order).
-                tiles.AddRange(page.Rows.Select(TileForItem).OfType<SimpleTile>().OrderBy(tile => tile.DidNotWork));
+                tiles.AddRange(page.Rows.Select(TileForItem).OfType<SimpleTile>().OrderBy(tile => tile.IsUnplayable));
                 break;
         }
 
@@ -413,11 +414,11 @@ public partial class SimpleHomeView : UserControl
         {
             Title = channel.Name, Payload = channel, ImageUrl = channel.Channel.LogoUrl,
             FallbackImageUrl = channel.FallbackLogoUrl, TmdbFallbackTitle = channel.Name,
-            Badge = SimplePicture.Tv, IsFavourite = channel.IsFavorite, DidNotWork = channel.DidNotWork,
+            Badge = SimplePicture.Tv, IsFavourite = channel.IsFavorite, DidNotWork = channel.DidNotWork, CannotPlayHere = channel.CannotPlayHere,
         },
         MovieListItemViewModel movie => new SimpleTile
         {
-            Title = movie.Name, Payload = movie, ImageUrl = movie.CoverUrl, Badge = SimplePicture.Films, IsFavourite = movie.IsFavorite, DidNotWork = movie.DidNotWork,
+            Title = movie.Name, Payload = movie, ImageUrl = movie.CoverUrl, Badge = SimplePicture.Films, IsFavourite = movie.IsFavorite, DidNotWork = movie.DidNotWork, CannotPlayHere = movie.CannotPlayHere,
         },
         SeriesListItemViewModel series => new SimpleTile
         {
@@ -425,7 +426,7 @@ public partial class SimpleHomeView : UserControl
         },
         ClipListItemViewModel clip => new SimpleTile
         {
-            Title = clip.Name, Payload = clip, ImageUrl = clip.CoverUrl, Badge = SimplePicture.Videos, IsFavourite = clip.IsFavorite, DidNotWork = clip.DidNotWork,
+            Title = clip.Name, Payload = clip, ImageUrl = clip.CoverUrl, Badge = SimplePicture.Videos, IsFavourite = clip.IsFavorite, DidNotWork = clip.DidNotWork, CannotPlayHere = clip.CannotPlayHere,
         },
         WatchProgressItemViewModel progress => TileFor(progress),
         _ => null,
@@ -549,7 +550,7 @@ public partial class SimpleHomeView : UserControl
     {
         var loaded = schedule is { IsLoading: false } && schedule.Channel == channel;
         var now = loaded ? schedule!.NowRow : null;
-        tiles.Add(new SimpleWatchNowTile(channel, now?.Title ?? channel.Now?.Title, now?.NowProgress ?? channel.NowProgress));
+        tiles.Add(new SimpleWatchNowTile(channel, now?.Title ?? channel.Now?.Title, now?.NowProgress ?? channel.NowProgress, now?.IconUrl ?? channel.Now?.IconUrl));
         if (!loaded)
         {
             return;
@@ -599,8 +600,11 @@ public partial class SimpleHomeView : UserControl
         Title = programme.Title,
         Payload = programme,
         BigText = programme.TimeLabel,
-        // Without the guide's little superscript "New" marker, which read-aloud stumbles over.
-        SpokenText = $"{day} at {programme.TimeLabel}. {System.Text.RegularExpressions.Regex.Replace(programme.Title, "[ʰ-˿ᴬ-ᵿ]+", "").Trim()}",
+        ImageUrl = programme.IconUrl,
+        TmdbFallbackTitle = ProgrammeTitles.Clean(programme.Title),
+        ShowsTimeOverPicture = true,
+        // Without the guide's little superscript "New" marker and the like, which read-aloud stumbles over.
+        SpokenText = $"{day} at {programme.TimeLabel}. {ProgrammeTitles.Clean(programme.Title)}",
         Badge = isLater ? SimplePicture.Later : SimplePicture.WatchAgain,
         IsLater = isLater,
     };
@@ -734,6 +738,7 @@ public partial class SimpleHomeView : UserControl
                         // The one Play next will play gets a play badge.
                         Badge = episode == target ? SimplePicture.Play : null,
                         DidNotWork = episode.DidNotWork,
+                        CannotPlayHere = episode.CannotPlayHere,
                     });
                     break;
             }

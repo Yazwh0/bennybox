@@ -53,8 +53,8 @@ public class SqliteEpgRepository : IEpgRepository
         using var transaction = connection.BeginTransaction();
         connection.Execute(
             """
-            INSERT INTO EpgProgramme (Id, ProfileId, ChannelTvgId, Title, Description, StartUtc, EndUtc)
-            VALUES (@Id, @ProfileId, @ChannelTvgId, @Title, @Description, @StartUtc, @EndUtc)
+            INSERT INTO EpgProgramme (Id, ProfileId, ChannelTvgId, Title, Description, IconUrl, StartUtc, EndUtc)
+            VALUES (@Id, @ProfileId, @ChannelTvgId, @Title, @Description, @IconUrl, @StartUtc, @EndUtc)
             """, batch, transaction);
         transaction.Commit();
     }
@@ -65,7 +65,7 @@ public class SqliteEpgRepository : IEpgRepository
             using var connection = _connectionFactory.CreateConnection();
             var rows = connection.Query<EpgProgramme>(
                 """
-                SELECT Id, ProfileId, ChannelTvgId, Title, Description, StartUtc, EndUtc FROM (
+                SELECT Id, ProfileId, ChannelTvgId, Title, Description, IconUrl, StartUtc, EndUtc FROM (
                     SELECT *, ROW_NUMBER() OVER (PARTITION BY ChannelTvgId ORDER BY StartUtc) AS Rn
                     FROM EpgProgramme
                     WHERE ProfileId = @profileId AND EndUtc > @nowUtc

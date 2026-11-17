@@ -35,9 +35,13 @@ public sealed partial class SimpleTile : ObservableObject
     public string? BigText { get; init; }
     public string Placeholder => BigText ?? SimpleModeConverters.InitialsOf(Title);
 
+    // A programme on a channel's page: the time sits over the corner of its picture (and is the big
+    // text instead when there's no picture).
+    public bool ShowsTimeOverPicture { get; init; }
+
     // What press-and-hold reads aloud, when it should say more than the label ("Episode 3, ...").
     public string? SpokenText { get; init; }
-    public string Speech => SpokenText ?? Title;
+    public string Speech => CannotPlayHere ? $"{SpokenText ?? Title}. This won't play on this device." : SpokenText ?? Title;
 
     // An episode that's been watched: a green tick on the tile, and the picture faded.
     public bool IsWatched { get; init; }
@@ -54,10 +58,18 @@ public sealed partial class SimpleTile : ObservableObject
     [NotifyPropertyChangedFor(nameof(PictureOpacity))]
     private bool _didNotWork;
 
+    // This device can't play it (4K/UHD on a phone, say - StreamHealth.CannotPlayHere): greyed out like
+    // DidNotWork, but with a crossed-out phone instead, since trying again won't help.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PictureOpacity))]
+    private bool _cannotPlayHere;
+
+    public bool IsUnplayable => DidNotWork || CannotPlayHere;
+
     // A programme that hasn't been on yet (on a channel's page): faded, and a tap reads it out rather than playing.
     public bool IsLater { get; init; }
 
-    public double PictureOpacity => DidNotWork ? 0.35 : IsWatched || IsLater ? 0.5 : 1;
+    public double PictureOpacity => DidNotWork || CannotPlayHere ? 0.35 : IsWatched || IsLater ? 0.5 : 1;
 
     // The stream this tile plays, for matching a StreamHealthChangedMessage.
     public string? StreamUrl => Payload switch
@@ -109,8 +121,10 @@ public sealed record SimplePlayNextTile(EpisodeListItemViewModel Episode, string
 
 // The big "Watch now" button at the top of a channel's page, a whole row wide: the channel live, with
 // what's on and how far through it is when the guide knows.
-public sealed record SimpleWatchNowTile(ChannelListItemViewModel Channel, string? NowTitle, double? Progress)
+public sealed record SimpleWatchNowTile(ChannelListItemViewModel Channel, string? NowTitle, double? Progress, string? NowImageUrl = null)
 {
+    // What's on now's picture: the guide's own, or TMDB by title (see ChannelLogoImage).
+    public string? NowSearchTitle => NowTitle is null ? null : BitMagic.BennyBox.UI.Services.ProgrammeTitles.Clean(NowTitle);
     public bool HasNowTitle => NowTitle is not null;
     public bool HasProgress => Progress is not null;
 }

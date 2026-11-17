@@ -18,13 +18,19 @@ namespace BitMagic.BennyBox.UI.Services;
 public sealed class StreamHealth
 {
     private const string SettingKey = "FailedStreams";
+    private const string CannotPlaySettingKey = "UnplayableStreams";
     private const int MaxRemembered = 5000;
 
     private readonly ISettingsStore _settingsStore;
 
-    // Replaced, never changed in place, so a background sort can read it while a playback result is
-    // being recorded on the UI thread.
+    // Replaced, never changed in place, so a background sort can read them while a playback result is
+    // being recorded on the UI thread. A stream is in at most one of the two.
     private HashSet<string> _failed = [];
+
+    // Streams this device can't decode (4K/UHD on a phone, say - see IPlayerEngine.DeviceCannotPlay).
+    // Kept apart from _failed because the stream itself is fine and the device is the problem, which
+    // won't change by trying again later; stored on this device only, like everything in settings.
+    private HashSet<string> _cannotPlay = [];
     private Task? _loading;
 
     public StreamHealth(ISettingsStore settingsStore)
@@ -39,30 +45,55 @@ public sealed class StreamHealth
 
     public bool DidNotWork(string? streamUrl) => streamUrl is not null && _failed.Contains(streamUrl);
 
-    public void Record(string streamUrl, bool worked)
+    public bool CannotPlayHere(string? streamUrl) => streamUrl is not null && _cannotPlay.Contains(streamUrl);
+
+    // Either mark goes to the end of a list.
+    public bool IsUnplayable(string? streamUrl) => DidNotWork(streamUrl) || CannotPlayHere(streamUrl);
+
+    // A picture showed: clears both marks. Didn't: marks it as not working (and not a device problem).
+    public void Record(string streamUrl, bool worked) => Update(streamUrl, failed: !worked, cannotPlay: false);
+
+    public void RecordCannotPlay(string streamUrl) => Update(streamUrl, failed: false, cannotPlay: true);
+
+    private void Update(string streamUrl, bool failed, bool cannotPlay)
     {
-        if (worked != _failed.Contains(streamUrl))
+        var failedChanged = Change(ref _failed, streamUrl, failed);
+        var cannotPlayChanged = Change(ref _cannotPlay, streamUrl, cannotPlay);
+        if (failedChanged)
         {
-            return;
+            _ = _settingsStore.SetAsync(SettingKey, JsonSerializer.Serialize(_failed));
         }
 
-        var updated = new HashSet<string>(_failed);
-        if (worked)
+        if (cannotPlayChanged)
         {
-            updated.Remove(streamUrl);
+            _ = _settingsStore.SetAsync(CannotPlaySettingKey, JsonSerializer.Serialize(_cannotPlay));
         }
-        else if (updated.Count < MaxRemembered)
+
+        if (failedChanged || cannotPlayChanged)
+        {
+            WeakReferenceMessenger.Default.Send(new StreamHealthChangedMessage(streamUrl));
+        }
+    }
+
+    private static bool Change(ref HashSet<string> set, string streamUrl, bool include)
+    {
+        if (include == set.Contains(streamUrl) || (include && set.Count >= MaxRemembered))
+        {
+            return false;
+        }
+
+        var updated = new HashSet<string>(set);
+        if (include)
         {
             updated.Add(streamUrl);
         }
         else
         {
-            return;
+            updated.Remove(streamUrl);
         }
 
-        _failed = updated;
-        _ = _settingsStore.SetAsync(SettingKey, JsonSerializer.Serialize(updated));
-        WeakReferenceMessenger.Default.Send(new StreamHealthChangedMessage(streamUrl));
+        set = updated;
+        return true;
     }
 
     // For a page's StreamHealthChangedMessage handler: re-reads DidNotWork on whichever rows play that
@@ -91,17 +122,25 @@ public sealed class StreamHealth
 
     private async Task LoadAsync()
     {
+        _failed = await LoadSetAsync(SettingKey);
+        _cannotPlay = await LoadSetAsync(CannotPlaySettingKey);
+    }
+
+    private async Task<HashSet<string>> LoadSetAsync(string key)
+    {
         try
         {
-            var json = await _settingsStore.GetAsync(SettingKey);
+            var json = await _settingsStore.GetAsync(key);
             if (!string.IsNullOrEmpty(json) && JsonSerializer.Deserialize<List<string>>(json) is { } urls)
             {
-                _failed = [.. urls];
+                return [.. urls];
             }
         }
         catch (JsonException)
         {
             // A damaged setting just means starting again with nothing remembered.
         }
+
+        return [];
     }
 }

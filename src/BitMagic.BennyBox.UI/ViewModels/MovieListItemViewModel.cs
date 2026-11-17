@@ -13,7 +13,14 @@ public partial class MovieListItemViewModel : ObservableObject
     // a StreamHealthChangedMessage.
     public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Movie.StreamUrl) ?? false;
 
-    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+    // This device can't decode it (4K/UHD on a phone, say) - see StreamHealth.CannotPlayHere.
+    public bool CannotPlayHere => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.CannotPlayHere(Movie.StreamUrl) ?? false;
+
+    public void RefreshHealth()
+    {
+        OnPropertyChanged(nameof(DidNotWork));
+        OnPropertyChanged(nameof(CannotPlayHere));
+    }
 
     public string Name => Movie.Name;
     public string? CoverUrl => Movie.CoverUrl;

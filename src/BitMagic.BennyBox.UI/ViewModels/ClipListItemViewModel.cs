@@ -15,7 +15,14 @@ public partial class ClipListItemViewModel : ObservableObject
     // a StreamHealthChangedMessage.
     public bool DidNotWork => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.DidNotWork(Clip.StreamUrl) ?? false;
 
-    public void RefreshHealth() => OnPropertyChanged(nameof(DidNotWork));
+    // This device can't decode it (4K/UHD on a phone, say) - see StreamHealth.CannotPlayHere.
+    public bool CannotPlayHere => BitMagic.BennyBox.UI.Services.StreamHealth.Current?.CannotPlayHere(Clip.StreamUrl) ?? false;
+
+    public void RefreshHealth()
+    {
+        OnPropertyChanged(nameof(DidNotWork));
+        OnPropertyChanged(nameof(CannotPlayHere));
+    }
 
     public string Name => Clip.Name;
     public string? CoverUrl => Clip.CoverUrl;

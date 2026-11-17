@@ -180,6 +180,11 @@ public sealed class ScheduleProgrammeViewModel
     public string Title => Programme.Title;
     public string? Description => Programme.Description;
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+    public string? IconUrl => Programme.IconUrl;
+    public bool HasIcon => IconUrl is not null;
+
+    // For looking its picture up on TMDB when the guide has none (see ChannelLogoImage.TmdbFallbackTitle).
+    public string SearchTitle => BitMagic.BennyBox.UI.Services.ProgrammeTitles.Clean(Title);
     public string TimeLabel => Programme.StartUtc.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
     public string EndLabel => Programme.EndUtc.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
 

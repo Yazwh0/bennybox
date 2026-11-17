@@ -119,6 +119,7 @@ public class SqliteConnectionFactory
             // NFO-derived metadata (read once during the scan) doesn't get thrown away and re-fetched
             // fresh - over a brand new SFTP connection - every single time the movie is opened.
             TryAddColumn(connection, "Movies", "Plot", "TEXT");
+            TryAddColumn(connection, "EpgProgramme", "IconUrl", "TEXT");
             TryAddColumn(connection, "Movies", "Genre", "TEXT");
             TryAddColumn(connection, "Movies", "ReleaseDate", "TEXT");
             TryAddColumn(connection, "Profiles", "JellyfinServerUrl", "TEXT");
