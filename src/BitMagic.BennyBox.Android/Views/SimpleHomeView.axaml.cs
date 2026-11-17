@@ -281,9 +281,11 @@ public partial class SimpleHomeView : UserControl
         EmptyMessage.IsVisible = _rows.Count == 0 && !_holdingForList;
     }
 
-    // The list still has a heading for some other category than the one being shown.
+    // The page is still filtering to the category being shown (its list is cleared until then), or its
+    // list still has a heading for some other category.
     private static bool IsStale(IBrowsePage page, string? category) =>
-        category is not null && category != page.Categories.FirstOrDefault()
+        page.IsFiltering
+        || category is not null && category != page.Categories.FirstOrDefault()
         && page.Rows.OfType<CategoryHeaderRow>().Any(header => header.Name != category);
 
     private List<object> BuildScreen(AndroidShellViewModel shell, Screen screen)
@@ -457,13 +459,13 @@ public partial class SimpleHomeView : UserControl
     // that filters Rows); this gives them one face.
     private IBrowsePage? PageFor(SimpleDestination destination) => _shell is null ? null : destination switch
     {
-        SimpleDestination.Tv => new BrowsePage(_shell.LiveTv.Categories, _shell.LiveTv.Rows, _shell.LiveTv.ItemsInCategory,
+        SimpleDestination.Tv => new BrowsePage(_shell.LiveTv.Categories, _shell.LiveTv.Rows, _shell.LiveTv.ItemsInCategory, () => _shell.LiveTv.IsFiltering,
             () => _shell.LiveTv.SelectedCategory, v => _shell.LiveTv.SelectedCategory = v),
-        SimpleDestination.Films => new BrowsePage(_shell.Movies.Categories, _shell.Movies.Rows, _shell.Movies.ItemsInCategory,
+        SimpleDestination.Films => new BrowsePage(_shell.Movies.Categories, _shell.Movies.Rows, _shell.Movies.ItemsInCategory, () => _shell.Movies.IsFiltering,
             () => _shell.Movies.SelectedCategory, v => _shell.Movies.SelectedCategory = v),
-        SimpleDestination.Shows => new BrowsePage(_shell.Series.Categories, _shell.Series.Rows, _shell.Series.ItemsInCategory,
+        SimpleDestination.Shows => new BrowsePage(_shell.Series.Categories, _shell.Series.Rows, _shell.Series.ItemsInCategory, () => _shell.Series.IsFiltering,
             () => _shell.Series.SelectedCategory, v => _shell.Series.SelectedCategory = v),
-        SimpleDestination.Videos => new BrowsePage(_shell.Clips.Categories, _shell.Clips.Rows, _shell.Clips.ItemsInCategory,
+        SimpleDestination.Videos => new BrowsePage(_shell.Clips.Categories, _shell.Clips.Rows, _shell.Clips.ItemsInCategory, () => _shell.Clips.IsFiltering,
             () => _shell.Clips.SelectedCategory, v => _shell.Clips.SelectedCategory = v),
         _ => null,
     };
@@ -472,15 +474,17 @@ public partial class SimpleHomeView : UserControl
     {
         ObservableCollection<string> Categories { get; }
         ObservableCollection<object> Rows { get; }
+        bool IsFiltering { get; }
         string SelectedCategory { get; set; }
         IReadOnlyList<object> ItemsInCategory(string category);
     }
 
     private sealed class BrowsePage(ObservableCollection<string> categories, ObservableCollection<object> rows,
-        Func<string, IReadOnlyList<object>> itemsInCategory, Func<string> getCategory, Action<string> setCategory) : IBrowsePage
+        Func<string, IReadOnlyList<object>> itemsInCategory, Func<bool> isFiltering, Func<string> getCategory, Action<string> setCategory) : IBrowsePage
     {
         public ObservableCollection<string> Categories => categories;
         public ObservableCollection<object> Rows => rows;
+        public bool IsFiltering => isFiltering();
         public string SelectedCategory { get => getCategory(); set => setCategory(value); }
         public IReadOnlyList<object> ItemsInCategory(string category) => itemsInCategory(category);
     }

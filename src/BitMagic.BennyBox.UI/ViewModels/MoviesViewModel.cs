@@ -54,6 +54,10 @@ public partial class MoviesViewModel : ViewModelBase
     // CategoryHeaderRow) - same rationale as LiveTvViewModel.Rows.
     public ObservableCollection<object> Rows { get; } = [];
 
+    // True between a category or source change clearing Rows and the new list filling it, so a view can
+    // tell "still filtering" from "nothing matches".
+    public bool IsFiltering { get; private set; }
+
     public ObservableCollection<string> Categories { get; } = [AllCategoriesLabel];
 
     // The items in one category, in display order - simple picture mode uses the first few for the
@@ -452,6 +456,14 @@ public partial class MoviesViewModel : ViewModelBase
         _searchCts?.Cancel();
         var cts = new CancellationTokenSource();
         _searchCts = cts;
+
+        // A category or source change clears the list straight away, so the screen shows it empty rather
+        // than the last list under the new name, then fills it once the new one is ready.
+        if (immediate)
+        {
+            IsFiltering = true;
+            Rows.Clear();
+        }
         _ = ApplyFilterDebouncedAsync(immediate ? TimeSpan.Zero : SearchDebounceDelay, cts.Token);
     }
 
@@ -484,6 +496,7 @@ public partial class MoviesViewModel : ViewModelBase
                     Rows.Add(row);
                 }
                 HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
+                IsFiltering = false;
             });
         }
         catch (OperationCanceledException)
@@ -501,6 +514,7 @@ public partial class MoviesViewModel : ViewModelBase
         }
         HasNoMovies = _allGroups.Count == 0;
         HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
+        IsFiltering = false;
     }
 
     private static List<MovieCategoryGroupViewModel> Filter(List<MovieCategoryGroupViewModel> groups, string query, string category, string source)

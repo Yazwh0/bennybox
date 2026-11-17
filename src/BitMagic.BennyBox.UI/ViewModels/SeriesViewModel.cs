@@ -55,6 +55,10 @@ public partial class SeriesViewModel : ViewModelBase
     // CategoryHeaderRow) - same rationale as LiveTvViewModel.Rows.
     public ObservableCollection<object> Rows { get; } = [];
 
+    // True between a category or source change clearing Rows and the new list filling it, so a view can
+    // tell "still filtering" from "nothing matches".
+    public bool IsFiltering { get; private set; }
+
     // Flattened season-header+episode rows for the selected series, shown instead of Rows once a
     // series is opened.
     public ObservableCollection<object> Episodes { get; } = [];
@@ -649,6 +653,14 @@ public partial class SeriesViewModel : ViewModelBase
         _searchCts?.Cancel();
         var cts = new CancellationTokenSource();
         _searchCts = cts;
+
+        // A category or source change clears the list straight away, so the screen shows it empty rather
+        // than the last list under the new name, then fills it once the new one is ready.
+        if (immediate)
+        {
+            IsFiltering = true;
+            Rows.Clear();
+        }
         _ = ApplyFilterDebouncedAsync(immediate ? TimeSpan.Zero : SearchDebounceDelay, cts.Token);
     }
 
@@ -681,6 +693,7 @@ public partial class SeriesViewModel : ViewModelBase
                     Rows.Add(row);
                 }
                 HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
+                IsFiltering = false;
             });
         }
         catch (OperationCanceledException)
@@ -698,6 +711,7 @@ public partial class SeriesViewModel : ViewModelBase
         }
         HasNoSeries = _allGroups.Count == 0;
         HasNoMatches = Rows.Count == 0 && _allGroups.Count > 0;
+        IsFiltering = false;
     }
 
     private static List<SeriesCategoryGroupViewModel> Filter(List<SeriesCategoryGroupViewModel> groups, string query, string category, string source)
