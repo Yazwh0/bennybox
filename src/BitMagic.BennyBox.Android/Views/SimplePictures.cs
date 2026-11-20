@@ -55,6 +55,9 @@ public enum SimplePicture
 
     // The player's message when this phone or tablet can't play a stream (4K, say): a phone with a line through it.
     NotOnThisDevice,
+
+    // Take something off a list (Keep watching): a bin.
+    Remove,
 }
 
 public static class SimplePictures
@@ -166,6 +169,8 @@ public static class SimplePictures
         [SimplePicture.NotOnThisDevice] = new(Geometry.Parse(
             "M17 5v8.61l2 2V3c0-1.1-.9-2-2-2H7c-.71 0-1.33.37-1.68.93L8.39 5H17zM1.49 3.76L5 7.27V21c0 1.1.9 2 2 2h10c1.1 0 1.99-.89 2-1.98l1.51 1.51 1.41-1.41L2.9 2.35 1.49 3.76zM7 9.27L15.73 18H7V9.27z"),
             Color.Parse("#C62828"), White),
+        [SimplePicture.Remove] = new(Geometry.Parse("M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"),
+            Color.Parse("#616161"), White),
     };
 
     public static Info Get(SimplePicture picture) => All[picture];

@@ -14,6 +14,11 @@ public sealed class WatchProgressItemViewModel
         ? Math.Clamp(Progress.PositionSeconds / Progress.DurationSeconds, 0, 1)
         : 0;
 
+    // The same film, episode or clip, whichever instance (the rows are rebuilt as progress is saved).
+    public bool IsSameAs(WatchProgressItemViewModel other) =>
+        Progress.ProfileId == other.Progress.ProfileId && Progress.ContentType == other.Progress.ContentType
+        && Progress.ContentKey == other.Progress.ContentKey;
+
     public WatchProgressItemViewModel(WatchProgress progress)
     {
         Progress = progress;

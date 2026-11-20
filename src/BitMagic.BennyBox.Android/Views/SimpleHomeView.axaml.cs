@@ -44,10 +44,10 @@ public partial class SimpleHomeView : UserControl
         set => SetValue(TileImageHeightProperty, value);
     }
 
-    private enum ScreenKind { Home, Categories, Items, Show, Channel }
+    private enum ScreenKind { Home, Categories, Items, Show, Channel, KeepWatching }
 
     private sealed record Screen(ScreenKind Kind, SimpleDestination? Destination = null, string? Category = null, SimplePicture? Picture = null,
-        SeriesListItemViewModel? Series = null, ChannelListItemViewModel? Channel = null);
+        SeriesListItemViewModel? Series = null, ChannelListItemViewModel? Channel = null, WatchProgressItemViewModel? Progress = null);
 
     private readonly Stack<Screen> _history = new();
     private Screen _screen = new(ScreenKind.Home);
@@ -169,6 +169,7 @@ public partial class SimpleHomeView : UserControl
             { Kind: ScreenKind.Home } => (SimplePicture.Home, "Home"),
             { Kind: ScreenKind.Show, Series: { } show } => (SimplePicture.Shows, show.Name),
             { Kind: ScreenKind.Channel, Channel: { } shown } => (SimplePicture.Tv, shown.Name),
+            { Kind: ScreenKind.KeepWatching, Progress: { } item } => (SimplePicture.KeepWatching, item.Title),
             { Kind: ScreenKind.Items, Category: { } category } when category != PageFor(screen.Destination!.Value)?.Categories.FirstOrDefault()
                 => (screen.Picture ?? PictureFor(screen.Destination!.Value), category),
             { Destination: { } destination } => (PictureFor(destination), LabelFor(destination)),
@@ -208,6 +209,7 @@ public partial class SimpleHomeView : UserControl
         { Kind: ScreenKind.Categories, Destination: { } d } => [PageFor(d)?.Categories],
         { Kind: ScreenKind.Items, Destination: { } d } => [PageFor(d)?.Rows],
         { Kind: ScreenKind.Show } => [_shell?.Series.Episodes],
+        { Kind: ScreenKind.KeepWatching } => [_shell?.Favorites.Rows],
         _ => [],
     };
 
@@ -263,7 +265,7 @@ public partial class SimpleHomeView : UserControl
 
         foreach (var item in _currentTiles)
         {
-            if (item is SimpleHeader or SimplePlayNextTile or SimpleWatchNowTile)
+            if (item is SimpleHeader or SimplePlayNextTile or SimpleWatchNowTile or SimpleResumeTile)
             {
                 Flush();
                 _rows.Add(item);
@@ -345,6 +347,15 @@ public partial class SimpleHomeView : UserControl
 
             case ScreenKind.Channel when screen.Channel is { } channel:
                 BuildChannel(channel, shell.LiveTv.OpenSchedule, tiles);
+                break;
+
+            // A Keep watching item: a big Carry on watching, and a Remove to take it off the list.
+            case ScreenKind.KeepWatching when screen.Progress is { } shown:
+                // The latest progress (watching more of it saves a new row), so "minutes left" stays right.
+                var item = shell.Favorites.Rows.OfType<WatchProgressItemViewModel>().FirstOrDefault(row => row.IsSameAs(shown)) ?? shown;
+                tiles.Add(new SimpleResumeTile(item));
+                tiles.Add(new SimpleTile { Title = "Remove", Icon = SimplePicture.Remove, Payload = new SimpleRemoveProgress(item),
+                    SpokenText = $"Take {item.Title} off Keep watching" });
                 break;
 
             case ScreenKind.Items when screen.Destination is { } destination && PageFor(destination) is { } page:
@@ -541,6 +552,13 @@ public partial class SimpleHomeView : UserControl
             return;
         }
 
+        // So does a Keep watching item: carry on, or take it off the list.
+        if (tile.Payload is WatchProgressItemViewModel progress)
+        {
+            Navigate(new Screen(ScreenKind.KeepWatching, Progress: progress));
+            return;
+        }
+
         await ActivateAsync(tile);
     }
 
@@ -629,6 +647,23 @@ public partial class SimpleHomeView : UserControl
         IsLater = isLater,
     };
 
+    private void OnResumeClick(object? sender, RoutedEventArgs e)
+    {
+        if (!TakeSuppressedClick() && sender is Control { DataContext: SimpleResumeTile resume })
+        {
+            _shell?.Player.ResumeFromProgress(resume.Item.Progress);
+        }
+    }
+
+    private void OnResumeHolding(object? sender, HoldingRoutedEventArgs e)
+    {
+        if (e.HoldingState == HoldingState.Started && sender is Control { DataContext: SimpleResumeTile resume })
+        {
+            _suppressNextClick = true;
+            ReadAloud.Speak(resume.Left is { } left ? $"Carry on watching {resume.Item.Title}. {left}" : $"Carry on watching {resume.Item.Title}");
+        }
+    }
+
     private void OnWatchNowClick(object? sender, RoutedEventArgs e)
     {
         if (!TakeSuppressedClick() && sender is Control { DataContext: SimpleWatchNowTile watchNow })
@@ -683,6 +718,14 @@ public partial class SimpleHomeView : UserControl
                 break;
             case WatchProgressItemViewModel progress:
                 player.ResumeFromProgress(progress.Progress);
+                break;
+            case SimpleRemoveProgress remove:
+                await _shell.Favorites.RemoveWatchProgressCommand.ExecuteAsync(remove.Item);
+                if (_screen.Kind == ScreenKind.KeepWatching && _history.Count > 0)
+                {
+                    Show(_history.Pop());
+                }
+
                 break;
             case MovieListItemViewModel movie:
                 player.PlayMovie(movie.Movie);

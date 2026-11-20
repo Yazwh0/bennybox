@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BitMagic.BennyBox.ViewModels;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -128,6 +129,24 @@ public sealed record SimpleWatchNowTile(ChannelListItemViewModel Channel, string
     public bool HasNowTitle => NowTitle is not null;
     public bool HasProgress => Progress is not null;
 }
+
+// The big "Carry on watching" button at the top of a Keep watching item's page, a whole row wide.
+public sealed record SimpleResumeTile(WatchProgressItemViewModel Item)
+{
+    public string? Left => Item.Progress.DurationSeconds > 0 && Item.Progress.PositionSeconds < Item.Progress.DurationSeconds
+        ? (Item.Progress.DurationSeconds - Item.Progress.PositionSeconds) switch
+        {
+            < 90 => "Nearly finished",
+            var seconds when seconds < 3600 => $"{Math.Round(seconds / 60)} minutes left",
+            var seconds => $"{(int)(seconds / 3600)} hr {Math.Round(seconds % 3600 / 60)} min left",
+        }
+        : null;
+
+    public bool HasLeft => Left is not null;
+}
+
+// The Remove tile on a Keep watching item's page: takes it off Keep watching.
+public sealed record SimpleRemoveProgress(WatchProgressItemViewModel Item);
 
 // Tiles are laid out in rows (2 per row on a phone, 4 on a tablet) rather than in a wrap panel so the
 // list can virtualise - a TV category can hold hundreds of channels.

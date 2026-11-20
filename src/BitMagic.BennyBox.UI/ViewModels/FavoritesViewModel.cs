@@ -187,7 +187,9 @@ public partial class FavoritesViewModel : ViewModelBase
 
         // Targeted removal instead of a full reload - removing one row doesn't need every other
         // favorite/channel/series/movie row on the page to be torn down and rebuilt.
-        var index = Rows.IndexOf(item);
+        // Matched by what it is, not the instance: playing it again rebuilds these rows, so a screen still
+        // holding the old one (large icon mode's Keep watching page) would otherwise remove nothing.
+        var index = Rows.ToList().FindIndex(row => row is WatchProgressItemViewModel other && other.IsSameAs(item));
         if (index >= 0)
         {
             Rows.RemoveAt(index);
